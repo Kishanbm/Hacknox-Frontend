@@ -35,29 +35,29 @@ const JudgeEvaluation: React.FC = () => {
 
     return (
         <JudgeLayout>
-            <div className="h-[calc(100vh-140px)] flex flex-col">
+            <div className="h-[calc(100vh-80px)] lg:h-[calc(100vh-140px)] flex flex-col pb-20 lg:pb-0">
                 {/* Header */}
-                <div className="flex items-center justify-between mb-4 shrink-0">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-4 shrink-0">
                     <div className="flex items-center gap-4">
                         <button onClick={() => navigate('/judge/assignments')} className="p-2 hover:bg-gray-100 rounded-full text-gray-500">
                             <ChevronLeft size={20} />
                         </button>
                         <div>
-                            <div className="flex items-center gap-2">
-                                <h1 className="text-xl font-bold text-gray-900">NeuroNet Evaluation</h1>
-                                <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded text-[10px] font-bold border border-gray-200">HACKONX 2025</span>
+                            <div className="flex flex-wrap items-center gap-2">
+                                <h1 className="text-lg lg:text-xl font-bold text-gray-900">NeuroNet Evaluation</h1>
+                                <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded text-[10px] font-bold border border-gray-200 whitespace-nowrap">HACKONX 2025</span>
                             </div>
                             <p className="text-xs text-gray-500">Team: Alpha Squad • Track: AI/ML</p>
                         </div>
                     </div>
-                    <div className="flex gap-2">
-                        <button className="px-4 py-2 bg-white border border-gray-200 text-gray-600 rounded-lg text-sm font-bold hover:bg-gray-50 flex items-center gap-2">
-                            <Save size={16} /> Save Draft
+                    <div className="flex gap-2 w-full sm:w-auto">
+                        <button className="flex-1 sm:flex-none justify-center px-4 py-2 bg-white border border-gray-200 text-gray-600 rounded-lg text-sm font-bold hover:bg-gray-50 flex items-center gap-2">
+                            <Save size={16} /> <span className="sm:hidden">Save</span> <span className="hidden sm:inline">Save Draft</span>
                         </button>
                         <button 
                             onClick={handleSubmit}
                             disabled={isSubmitting}
-                            className="px-6 py-2 bg-[#24FF00] text-black rounded-lg text-sm font-bold hover:bg-[#1fe600] shadow-lg shadow-[#24FF00]/20 flex items-center gap-2 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
+                            className="flex-1 sm:flex-none justify-center px-6 py-2 bg-[#24FF00] text-black rounded-lg text-sm font-bold hover:bg-[#1fe600] shadow-lg shadow-[#24FF00]/20 flex items-center gap-2 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
                         >
                             {isSubmitting ? 'Submitting...' : (
                                 <><Send size={16} /> Submit Score</>
@@ -67,10 +67,10 @@ const JudgeEvaluation: React.FC = () => {
                 </div>
 
                 {/* Split View */}
-                <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-6 min-h-0">
+                <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-6 min-h-0 overflow-y-auto lg:overflow-hidden">
                     
                     {/* LEFT: Project Content */}
-                    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm flex flex-col overflow-hidden">
+                    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm flex flex-col overflow-hidden min-h-[500px] lg:min-h-0">
                         <div className="p-4 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
                             <h3 className="font-bold text-gray-700 flex items-center gap-2">
                                 <FileText size={18} /> Submission Details
@@ -91,7 +91,7 @@ const JudgeEvaluation: React.FC = () => {
                             </div>
 
                             {/* Links */}
-                            <div className="flex gap-3">
+                            <div className="flex flex-col sm:flex-row gap-3">
                                 <a href="#" className="flex-1 p-3 border border-gray-200 rounded-xl flex items-center justify-center gap-2 text-gray-700 hover:border-[#5425FF] hover:text-[#5425FF] transition-colors font-bold text-sm">
                                     <Github size={18} /> View Repository
                                 </a>
@@ -130,7 +130,7 @@ const JudgeEvaluation: React.FC = () => {
                     </div>
 
                     {/* RIGHT: Scoring Form */}
-                    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm flex flex-col overflow-hidden">
+                    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm flex flex-col overflow-hidden min-h-[600px] lg:min-h-0">
                         <div className="p-4 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
                             <h3 className="font-bold text-gray-700">Evaluation Rubric</h3>
                             <div className="text-sm font-bold">

@@ -84,7 +84,7 @@ const JudgeHackathons: React.FC = () => {
 
     return (
         <JudgeLayout>
-            <div className="max-w-7xl mx-auto pb-12">
+            <div className="max-w-7xl mx-auto pb-20 lg:pb-0">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
                     <div>
                         <h1 className="text-2xl font-bold text-gray-900">Hackathon Management</h1>
@@ -92,10 +92,10 @@ const JudgeHackathons: React.FC = () => {
                     </div>
                     
                     {/* Tab Switcher */}
-                    <div className="bg-white p-1 rounded-xl border border-gray-200 flex items-center">
+                    <div className="bg-white p-1 rounded-xl border border-gray-200 flex items-center overflow-x-auto w-full md:w-auto">
                         <button 
                             onClick={() => setActiveTab('assigned')}
-                            className={`px-6 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${
+                            className={`px-6 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
                                 activeTab === 'assigned' 
                                 ? 'bg-gray-900 text-white shadow-md' 
                                 : 'text-gray-500 hover:bg-gray-50'
@@ -106,7 +106,7 @@ const JudgeHackathons: React.FC = () => {
                         </button>
                         <button 
                             onClick={() => setActiveTab('invites')}
-                            className={`px-6 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${
+                            className={`px-6 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
                                 activeTab === 'invites' 
                                 ? 'bg-gray-900 text-white shadow-md' 
                                 : 'text-gray-500 hover:bg-gray-50'
@@ -144,18 +144,18 @@ const JudgeHackathons: React.FC = () => {
                                 <div className="p-6 flex-1 flex flex-col justify-between">
                                     <div>
                                         <div className="flex justify-between items-start mb-2">
-                                            <h3 className="text-2xl font-heading text-gray-900">{hackathon.name}</h3>
-                                            <span className="text-xs font-bold text-gray-400 uppercase tracking-wider bg-gray-50 px-2 py-1 rounded border border-gray-100">
+                                            <h3 className="text-xl md:text-2xl font-heading text-gray-900">{hackathon.name}</h3>
+                                            <span className="text-xs font-bold text-gray-400 uppercase tracking-wider bg-gray-50 px-2 py-1 rounded border border-gray-100 whitespace-nowrap">
                                                 {hackathon.role}
                                             </span>
                                         </div>
-                                        <div className="flex items-center gap-4 text-sm text-gray-500 mb-6">
+                                        <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500 mb-6">
                                             <span className="flex items-center gap-1.5"><Calendar size={16} /> {hackathon.dates}</span>
                                             <span className="flex items-center gap-1.5"><Clock size={16} /> {hackathon.deadline}</span>
                                         </div>
                                     </div>
 
-                                    <div className="flex items-end justify-between">
+                                    <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6">
                                         <div className="flex gap-8">
                                             <div>
                                                 <div className="text-2xl font-bold text-gray-900">{hackathon.assignedCount}</div>
@@ -165,7 +165,7 @@ const JudgeHackathons: React.FC = () => {
                                                 <div className="text-2xl font-bold text-[#5425FF]">{hackathon.completedCount}</div>
                                                 <div className="text-xs text-gray-500 font-bold uppercase">Completed</div>
                                             </div>
-                                            <div className="hidden md:block">
+                                            <div className="hidden sm:block">
                                                 <div className="text-2xl font-bold text-gray-400">
                                                     {hackathon.assignedCount > 0 
                                                         ? Math.round((hackathon.completedCount / hackathon.assignedCount) * 100) 
@@ -177,7 +177,7 @@ const JudgeHackathons: React.FC = () => {
 
                                         <button 
                                             onClick={() => navigate(`/judge/assignments`)}
-                                            className="px-6 py-3 bg-[#5425FF] text-white rounded-xl font-bold hover:bg-[#4015D1] transition-colors flex items-center gap-2 shadow-lg shadow-[#5425FF]/20"
+                                            className="w-full sm:w-auto px-6 py-3 bg-[#5425FF] text-white rounded-xl font-bold hover:bg-[#4015D1] transition-colors flex items-center justify-center gap-2 shadow-lg shadow-[#5425FF]/20"
                                         >
                                             View Submissions <ChevronRight size={18} />
                                         </button>
@@ -210,17 +210,17 @@ const JudgeHackathons: React.FC = () => {
                                     </div>
 
                                     {/* Content Section */}
-                                    <div className="p-8 flex-1">
+                                    <div className="p-6 md:p-8 flex-1">
                                         <div className="flex flex-col md:flex-row justify-between items-start gap-4 mb-4">
                                             <div>
                                                 <h3 className="text-2xl font-heading text-gray-900 mb-1">{invite.name}</h3>
-                                                <p className="text-sm font-bold text-gray-500 flex items-center gap-2">
+                                                <p className="text-sm font-bold text-gray-500 flex flex-wrap items-center gap-2">
                                                     Invited by <span className="text-[#5425FF]">{invite.organizer}</span>
-                                                    <span className="w-1 h-1 rounded-full bg-gray-300"></span>
+                                                    <span className="w-1 h-1 rounded-full bg-gray-300 hidden sm:block"></span>
                                                     <span className="text-gray-400 font-normal">{invite.sentAt}</span>
                                                 </p>
                                             </div>
-                                            <div className="bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100 text-xs font-bold text-gray-600 uppercase tracking-wide">
+                                            <div className="bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100 text-xs font-bold text-gray-600 uppercase tracking-wide whitespace-nowrap">
                                                 Role: {invite.role}
                                             </div>
                                         </div>
@@ -230,11 +230,11 @@ const JudgeHackathons: React.FC = () => {
                                         </p>
 
                                         <div className="flex flex-col md:flex-row justify-between items-center gap-4 pt-4 border-t border-gray-100">
-                                            <div className="flex items-center gap-4 text-sm font-bold text-gray-500">
+                                            <div className="flex items-center gap-4 text-sm font-bold text-gray-500 w-full md:w-auto">
                                                 <span className="flex items-center gap-2"><Calendar size={16} /> {invite.dates}</span>
                                                 <button 
                                                     onClick={() => navigate(`/dashboard/hackathons/${invite.hackathonId}`)}
-                                                    className="flex items-center gap-1 text-gray-400 hover:text-[#5425FF] transition-colors"
+                                                    className="flex items-center gap-1 text-gray-400 hover:text-[#5425FF] transition-colors ml-auto md:ml-0"
                                                 >
                                                     <Info size={16} /> Event Details
                                                 </button>

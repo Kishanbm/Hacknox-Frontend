@@ -111,67 +111,67 @@ const Dashboard: React.FC = () => {
 
   return (
     <DashboardLayout>
-      <div className="max-w-7xl mx-auto space-y-8 pb-12">
+      <div className="max-w-7xl mx-auto space-y-6 lg:space-y-8 pb-12">
         
-        {/* --- KPI SECTION --- */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* --- KPI SECTION (Bento Grid) --- */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
            
            {/* 1. Active Hackathons */}
            <div 
              onClick={() => navigate('/dashboard/hackathons')}
-             className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex flex-col justify-between h-40 group hover:border-blue-200 hover:shadow-md transition-all cursor-pointer"
+             className="bg-white p-5 lg:p-6 rounded-3xl shadow-sm border border-gray-100 flex flex-col justify-between h-36 lg:h-40 group hover:border-blue-200 hover:shadow-md transition-all cursor-pointer"
            >
               <div className="flex justify-between items-start">
                  <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:scale-110 transition-transform">
                     <Layers size={20} />
                  </div>
-                 <span className="text-xs font-bold text-gray-400 uppercase tracking-wide">Participation</span>
+                 <span className="text-[10px] lg:text-xs font-bold text-gray-400 uppercase tracking-wide">Participation</span>
               </div>
               <div>
-                 <div className="text-4xl font-heading text-gray-900 mb-1">{activeHackathonsCount}</div>
-                 <div className="text-sm font-medium text-gray-500">Across 3 teams</div>
+                 <div className="text-3xl lg:text-4xl font-heading text-gray-900 mb-1">{activeHackathonsCount}</div>
+                 <div className="text-xs lg:text-sm font-medium text-gray-500">Across 3 teams</div>
               </div>
            </div>
 
            {/* 2. Submission Progress */}
            <div 
              onClick={() => navigate('/dashboard/submissions')}
-             className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex flex-col justify-between h-40 group hover:border-purple-200 hover:shadow-md transition-all cursor-pointer"
+             className="bg-white p-5 lg:p-6 rounded-3xl shadow-sm border border-gray-100 flex flex-col justify-between h-36 lg:h-40 group hover:border-purple-200 hover:shadow-md transition-all cursor-pointer"
            >
               <div className="flex justify-between items-start">
                  <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center group-hover:scale-110 transition-transform">
                     <Activity size={20} />
                  </div>
-                 <span className={`text-xs font-bold px-2 py-0.5 rounded ${submissionProgress > 50 ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+                 <span className={`text-[10px] lg:text-xs font-bold px-2 py-0.5 rounded ${submissionProgress > 50 ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
                     {submissionProgress > 50 ? 'On Track' : 'At Risk'}
                  </span>
               </div>
               <div className="flex items-end gap-3">
-                 <div className="relative w-16 h-16 shrink-0">
+                 <div className="relative w-12 h-12 lg:w-16 lg:h-16 shrink-0">
                      <svg className="w-full h-full" viewBox="0 0 36 36">
                         <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#E0E7FF" strokeWidth="4" />
                         <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#4F46E5" strokeWidth="4" strokeDasharray={`${submissionProgress}, 100`} />
                      </svg>
-                     <div className="absolute inset-0 flex items-center justify-center text-xs font-bold text-gray-700">{submissionProgress}%</div>
+                     <div className="absolute inset-0 flex items-center justify-center text-[10px] lg:text-xs font-bold text-gray-700">{submissionProgress}%</div>
                  </div>
-                 <div className="text-sm font-medium text-gray-500 mb-1">Submissions Started</div>
+                 <div className="text-xs lg:text-sm font-medium text-gray-500 mb-1">Submissions Started</div>
               </div>
            </div>
 
            {/* 3. Actions Required */}
            <div 
              onClick={() => navigate('/dashboard/submissions')}
-             className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex flex-col justify-between h-40 group hover:border-amber-200 hover:shadow-md transition-all cursor-pointer"
+             className="bg-white p-5 lg:p-6 rounded-3xl shadow-sm border border-gray-100 flex flex-col justify-between h-36 lg:h-40 group hover:border-amber-200 hover:shadow-md transition-all cursor-pointer"
            >
               <div className="flex justify-between items-start">
                  <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-500 flex items-center justify-center group-hover:scale-110 transition-transform">
                     <AlertCircle size={20} />
                  </div>
-                 <span className="text-xs font-bold text-gray-400 uppercase tracking-wide">Attention</span>
+                 <span className="text-[10px] lg:text-xs font-bold text-gray-400 uppercase tracking-wide">Attention</span>
               </div>
               <div>
-                 <div className="text-4xl font-heading text-amber-500 mb-1">{actionsRequired}</div>
-                 <div className="flex items-center gap-1 text-sm font-medium text-gray-500 group-hover:text-amber-600 transition-colors">
+                 <div className="text-3xl lg:text-4xl font-heading text-amber-500 mb-1">{actionsRequired}</div>
+                 <div className="flex items-center gap-1 text-xs lg:text-sm font-medium text-gray-500 group-hover:text-amber-600 transition-colors">
                     Review Now <ArrowUpRight size={14} />
                  </div>
               </div>
@@ -180,19 +180,19 @@ const Dashboard: React.FC = () => {
            {/* 4. Next Deadline */}
            <div 
              onClick={() => setIsCalendarOpen(true)}
-             className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex flex-col justify-between h-40 group hover:border-red-200 hover:shadow-md transition-all cursor-pointer relative overflow-hidden"
+             className="bg-white p-5 lg:p-6 rounded-3xl shadow-sm border border-gray-100 flex flex-col justify-between h-36 lg:h-40 group hover:border-red-200 hover:shadow-md transition-all cursor-pointer relative overflow-hidden"
            >
                <div className="absolute right-0 top-0 w-24 h-24 bg-red-50 rounded-bl-full -mr-4 -mt-4 z-0 transition-transform group-hover:scale-110"></div>
               <div className="flex justify-between items-start z-10">
                  <div className="w-10 h-10 rounded-xl bg-red-100 text-red-500 flex items-center justify-center group-hover:scale-110 transition-transform">
                     <Clock size={20} />
                  </div>
-                 <div className="text-xs font-bold text-gray-500 hover:text-primary flex items-center gap-1 bg-white/50 backdrop-blur-sm px-2 py-1 rounded-lg transition-colors">
+                 <div className="text-[10px] lg:text-xs font-bold text-gray-500 hover:text-primary flex items-center gap-1 bg-white/50 backdrop-blur-sm px-2 py-1 rounded-lg transition-colors">
                     <CalendarIcon size={12}/> View All
                  </div>
               </div>
               <div className="z-10">
-                 <div className="text-3xl font-heading text-red-500 mb-1">{nextDeadline}</div>
+                 <div className="text-2xl lg:text-3xl font-heading text-red-500 mb-1">{nextDeadline}</div>
                  <div className="text-xs font-bold text-gray-900 uppercase truncate">{nextDeadlineEvent}</div>
               </div>
            </div>
@@ -201,19 +201,19 @@ const Dashboard: React.FC = () => {
         {/* --- HERO SLIDER --- */}
         <section>
             <div className="flex justify-between items-center mb-4 px-2">
-                <h2 className="text-2xl font-heading text-gray-900">Active Events</h2>
+                <h2 className="text-xl lg:text-2xl font-heading text-gray-900">Active Events</h2>
                 <div className="flex gap-2">
-                    <button className="p-2 rounded-full bg-white border border-gray-200 hover:bg-gray-50 text-gray-500"><ChevronLeft size={20}/></button>
-                    <button className="p-2 rounded-full bg-white border border-gray-200 hover:bg-gray-50 text-gray-500"><ChevronRight size={20}/></button>
+                    <button className="p-2 rounded-full bg-white border border-gray-200 hover:bg-gray-50 text-gray-500"><ChevronLeft size={18}/></button>
+                    <button className="p-2 rounded-full bg-white border border-gray-200 hover:bg-gray-50 text-gray-500"><ChevronRight size={18}/></button>
                 </div>
             </div>
             
-            <div className="flex overflow-x-auto snap-x snap-mandatory gap-6 pb-8 -mx-4 px-4 scrollbar-hide">
+            <div className="flex overflow-x-auto snap-x snap-mandatory gap-4 lg:gap-6 pb-4 lg:pb-8 -mx-4 px-4 lg:mx-0 lg:px-0 scrollbar-hide">
                 {activeHackathons.map((hackathon) => (
                     <div 
                         key={hackathon.id}
                         onClick={() => navigate(`/dashboard/hackathons/${hackathon.id}`)}
-                        className="snap-center shrink-0 w-full md:w-[600px] lg:w-[750px] h-[320px] rounded-3xl relative overflow-hidden shadow-xl hover:shadow-2xl transition-all cursor-pointer group"
+                        className="snap-center shrink-0 w-[85vw] md:w-[600px] lg:w-[750px] h-[280px] lg:h-[320px] rounded-3xl relative overflow-hidden shadow-xl hover:shadow-2xl transition-all cursor-pointer group"
                     >
                         {/* Background Image with Overlay */}
                         <div className="absolute inset-0">
@@ -223,49 +223,49 @@ const Dashboard: React.FC = () => {
                         </div>
 
                         {/* Content */}
-                        <div className="absolute inset-0 p-8 flex flex-col justify-between text-white">
+                        <div className="absolute inset-0 p-6 lg:p-8 flex flex-col justify-between text-white">
                             <div className="flex justify-between items-start">
                                 <div>
                                     <div className="flex items-center gap-2 mb-2">
-                                        <span className="px-3 py-1 rounded-full bg-white/20 backdrop-blur-md border border-white/10 text-xs font-bold uppercase tracking-wider">
+                                        <span className="px-3 py-1 rounded-full bg-white/20 backdrop-blur-md border border-white/10 text-[10px] lg:text-xs font-bold uppercase tracking-wider">
                                             {hackathon.status}
                                         </span>
-                                        <span className="px-3 py-1 rounded-full bg-black/30 backdrop-blur-md border border-white/10 text-xs font-bold uppercase tracking-wider flex items-center gap-1">
+                                        <span className="px-3 py-1 rounded-full bg-black/30 backdrop-blur-md border border-white/10 text-[10px] lg:text-xs font-bold uppercase tracking-wider flex items-center gap-1">
                                             <Clock size={12} /> {hackathon.deadline}
                                         </span>
                                     </div>
-                                    <h3 className="text-4xl font-heading mb-1">{hackathon.name}</h3>
-                                    <p className="text-white/80 font-medium flex items-center gap-2">
+                                    <h3 className="text-2xl lg:text-4xl font-heading mb-1">{hackathon.name}</h3>
+                                    <p className="text-white/80 font-medium flex items-center gap-2 text-sm lg:text-base">
                                         by {hackathon.organizer}
                                     </p>
                                 </div>
-                                <div className="w-12 h-12 bg-white/10 backdrop-blur-md rounded-xl flex items-center justify-center border border-white/20 group-hover:bg-white group-hover:text-primary transition-colors">
-                                    <ArrowUpRight size={24} />
+                                <div className="w-10 h-10 lg:w-12 lg:h-12 bg-white/10 backdrop-blur-md rounded-xl flex items-center justify-center border border-white/20 group-hover:bg-white group-hover:text-primary transition-colors">
+                                    <ArrowUpRight size={20} />
                                 </div>
                             </div>
 
                             <div>
                                 <div className="flex items-end justify-between mb-4">
                                     <div>
-                                        <div className="text-xs uppercase tracking-widest text-white/60 font-bold mb-1">Current Team</div>
-                                        <div className="flex items-center gap-2 font-bold text-xl">
-                                            <Flag size={20} className="text-secondary" /> {hackathon.team}
+                                        <div className="text-[10px] uppercase tracking-widest text-white/60 font-bold mb-1">Current Team</div>
+                                        <div className="flex items-center gap-2 font-bold text-lg lg:text-xl">
+                                            <Flag size={18} className="text-secondary" /> {hackathon.team}
                                         </div>
                                     </div>
                                     <div className="text-right">
-                                        <div className="text-xs uppercase tracking-widest text-white/60 font-bold mb-1">Next Task</div>
-                                        <div className="font-bold text-lg">{hackathon.nextTask}</div>
+                                        <div className="text-[10px] uppercase tracking-widest text-white/60 font-bold mb-1">Next Task</div>
+                                        <div className="font-bold text-base lg:text-lg">{hackathon.nextTask}</div>
                                     </div>
                                 </div>
 
                                 {/* Progress Bar */}
-                                <div className="relative h-2 bg-white/20 rounded-full overflow-hidden">
+                                <div className="relative h-1.5 lg:h-2 bg-white/20 rounded-full overflow-hidden">
                                     <div 
                                         className="absolute top-0 left-0 h-full bg-secondary shadow-[0_0_10px_rgba(34,197,94,0.5)]" 
                                         style={{ width: `${hackathon.progress}%` }}
                                     ></div>
                                 </div>
-                                <div className="flex justify-between mt-2 text-xs font-bold text-white/60">
+                                <div className="flex justify-between mt-2 text-[10px] font-bold text-white/60">
                                     <span>Progress</span>
                                     <span>{hackathon.progress}%</span>
                                 </div>
@@ -276,21 +276,21 @@ const Dashboard: React.FC = () => {
             </div>
         </section>
 
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 lg:gap-8">
             
             {/* --- LEFT COLUMN (Graphs & Timeline) --- */}
-            <div className="xl:col-span-2 space-y-8">
+            <div className="xl:col-span-2 space-y-6 lg:space-y-8">
                 
                 {/* Timeline Roadmap */}
-                <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm">
-                    <div className="flex justify-between items-center mb-8">
+                <div className="bg-white p-6 lg:p-8 rounded-3xl border border-gray-100 shadow-sm overflow-x-auto">
+                    <div className="flex justify-between items-center mb-8 min-w-[300px]">
                         <h3 className="font-heading text-xl text-gray-900 flex items-center gap-2">
                             <MapPin size={20} className="text-primary"/> Project Roadmap
                         </h3>
                         <span className="text-xs font-bold text-gray-400 uppercase">HackOnX 2025</span>
                     </div>
                     
-                    <div className="relative">
+                    <div className="relative min-w-[600px] md:min-w-0">
                         {/* Connecting Line */}
                         <div className="absolute top-[14px] left-0 right-0 h-0.5 bg-gray-100 hidden md:block"></div>
                         
@@ -326,7 +326,7 @@ const Dashboard: React.FC = () => {
                 </div>
 
                 {/* Funnel & Deadline Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
                     
                     {/* Submission Funnel */}
                     <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
@@ -380,7 +380,7 @@ const Dashboard: React.FC = () => {
             </div>
 
             {/* --- RIGHT COLUMN (Calendar & Stats) --- */}
-            <div className="space-y-8">
+            <div className="space-y-6 lg:space-y-8">
                 
                 {/* Calendar Widget */}
                 <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">

@@ -49,39 +49,39 @@ const JudgeDashboard: React.FC = () => {
 
   return (
     <JudgeLayout>
-        <div className="max-w-7xl mx-auto space-y-8 pb-12">
+        <div className="max-w-7xl mx-auto space-y-6 lg:space-y-8 pb-20 lg:pb-0">
             
             {/* --- TOP KPI CARDS (4) --- */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
                 
                 {/* 1. Assigned Submissions */}
-                <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm flex flex-col justify-between h-40">
+                <div className="bg-white p-5 lg:p-6 rounded-3xl border border-gray-200 shadow-sm flex flex-col justify-between h-36 lg:h-40">
                     <div className="flex justify-between items-start">
                         <div className="p-3 bg-gray-50 text-gray-600 rounded-xl">
                             <FileCheck size={20} />
                         </div>
-                        <span className="text-xs font-bold text-gray-400 uppercase tracking-wide">Workload</span>
+                        <span className="text-[10px] lg:text-xs font-bold text-gray-400 uppercase tracking-wide">Workload</span>
                     </div>
                     <div>
-                        <div className="text-4xl font-heading text-gray-900 mb-1">{assignedTotal}</div>
-                        <div className="text-sm font-medium text-gray-500">Across 3 hackathons</div>
+                        <div className="text-3xl lg:text-4xl font-heading text-gray-900 mb-1">{assignedTotal}</div>
+                        <div className="text-xs lg:text-sm font-medium text-gray-500">Across 3 hackathons</div>
                     </div>
                 </div>
 
                 {/* 2. Evaluations Completed */}
-                <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm flex flex-col justify-between h-40">
+                <div className="bg-white p-5 lg:p-6 rounded-3xl border border-gray-200 shadow-sm flex flex-col justify-between h-36 lg:h-40">
                     <div className="flex justify-between items-start">
                         <div className="p-3 bg-[#5425FF]/10 text-[#5425FF] rounded-xl">
                             <TrendingUp size={20} />
                         </div>
-                        <span className="text-xs font-bold text-[#5425FF] bg-[#5425FF]/10 px-2 py-1 rounded">
+                        <span className="text-[10px] lg:text-xs font-bold text-[#5425FF] bg-[#5425FF]/10 px-2 py-1 rounded">
                             {progressPercent}% Done
                         </span>
                     </div>
                     <div>
                         <div className="flex items-end gap-2 mb-2">
-                            <span className="text-4xl font-heading text-gray-900">{completedTotal}</span>
-                            <span className="text-xl font-heading text-gray-400 mb-1">/ {assignedTotal}</span>
+                            <span className="text-3xl lg:text-4xl font-heading text-gray-900">{completedTotal}</span>
+                            <span className="text-lg lg:text-xl font-heading text-gray-400 mb-1">/ {assignedTotal}</span>
                         </div>
                         <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
                             <div className="bg-[#5425FF] h-2 rounded-full" style={{ width: `${progressPercent}%` }}></div>
@@ -90,41 +90,41 @@ const JudgeDashboard: React.FC = () => {
                 </div>
 
                 {/* 3. Pending Before Deadline */}
-                <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm flex flex-col justify-between h-40">
+                <div className="bg-white p-5 lg:p-6 rounded-3xl border border-gray-200 shadow-sm flex flex-col justify-between h-36 lg:h-40">
                     <div className="flex justify-between items-start">
                         <div className="p-3 bg-amber-50 text-amber-500 rounded-xl">
                             <Clock size={20} />
                         </div>
-                        <span className="text-xs font-bold text-gray-400 uppercase tracking-wide">Pending</span>
+                        <span className="text-[10px] lg:text-xs font-bold text-gray-400 uppercase tracking-wide">Pending</span>
                     </div>
                     <div>
-                        <div className="text-4xl font-heading text-amber-500 mb-1">{pendingUrgent}</div>
-                        <div className="text-sm font-medium text-gray-500">Deadline in 2 days</div>
+                        <div className="text-3xl lg:text-4xl font-heading text-amber-500 mb-1">{pendingUrgent}</div>
+                        <div className="text-xs lg:text-sm font-medium text-gray-500">Deadline in 2 days</div>
                     </div>
                 </div>
 
                 {/* 4. Next Evaluation Deadline */}
-                <div className="bg-gradient-to-br from-gray-900 to-gray-800 p-6 rounded-3xl border border-gray-800 shadow-lg text-white flex flex-col justify-between h-40 relative overflow-hidden">
+                <div className="bg-gradient-to-br from-gray-900 to-gray-800 p-5 lg:p-6 rounded-3xl border border-gray-800 shadow-lg text-white flex flex-col justify-between h-36 lg:h-40 relative overflow-hidden">
                      <div className="absolute top-0 right-0 w-32 h-32 bg-[#24FF00] rounded-full blur-3xl opacity-10 -mr-10 -mt-10"></div>
                     <div className="flex justify-between items-start relative z-10">
                         <div className="p-3 bg-white/10 text-[#24FF00] rounded-xl">
                             <Calendar size={20} />
                         </div>
-                        <span className="text-xs font-bold text-gray-400 uppercase tracking-wide">Next Deadline</span>
+                        <span className="text-[10px] lg:text-xs font-bold text-gray-400 uppercase tracking-wide">Next Deadline</span>
                     </div>
                     <div className="relative z-10">
-                        <div className="text-3xl font-heading text-white mb-1">{nextDeadlineTime}</div>
-                        <div className="text-sm font-medium text-gray-400 truncate">left for {nextDeadlineEvent}</div>
+                        <div className="text-2xl lg:text-3xl font-heading text-white mb-1">{nextDeadlineTime}</div>
+                        <div className="text-xs lg:text-sm font-medium text-gray-400 truncate">left for {nextDeadlineEvent}</div>
                     </div>
                 </div>
 
             </div>
 
             {/* --- GRAPHS SECTION --- */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
                 
                 {/* Graph 1: Evaluation Progress Timeline */}
-                <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm">
+                <div className="bg-white p-5 lg:p-6 rounded-3xl border border-gray-200 shadow-sm">
                     <div className="flex items-center justify-between mb-6">
                         <div>
                             <h3 className="font-bold text-gray-900 text-lg">Evaluation Velocity</h3>
@@ -154,7 +154,7 @@ const JudgeDashboard: React.FC = () => {
                 </div>
 
                 {/* Graph 2: Score Distribution (Bias Check) */}
-                <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm">
+                <div className="bg-white p-5 lg:p-6 rounded-3xl border border-gray-200 shadow-sm">
                     <div className="flex items-center justify-between mb-6">
                         <div>
                             <h3 className="font-bold text-gray-900 text-lg">Score Bias Check</h3>
@@ -184,7 +184,7 @@ const JudgeDashboard: React.FC = () => {
             </div>
 
             {/* --- SECONDARY SECTIONS --- */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
                 
                 {/* Pending Evaluations List */}
                 <div className="lg:col-span-2 bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden">
@@ -209,7 +209,7 @@ const JudgeDashboard: React.FC = () => {
                                         <div className="text-xs text-gray-500">{sub.hackathon}</div>
                                     </div>
                                 </div>
-                                <div className="flex items-center justify-between sm:justify-end gap-6 flex-1">
+                                <div className="flex items-center justify-between sm:justify-end gap-6 flex-1 w-full sm:w-auto">
                                     <div className="text-right">
                                         <div className={`text-sm font-bold ${sub.status === 'Urgent' ? 'text-amber-600' : 'text-gray-600'}`}>
                                             {sub.timeLeft}

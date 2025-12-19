@@ -64,32 +64,34 @@ const Hackathons: React.FC = () => {
   const [filter, setFilter] = useState('All');
   const navigate = useNavigate();
 
+  const filteredEvents = filter === 'All' ? allEvents : allEvents.filter(e => e.status === filter);
+
   return (
     <DashboardLayout>
-      <div className="max-w-7xl mx-auto">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+      <div className="max-w-7xl mx-auto space-y-6 md:space-y-8 pb-20 md:pb-0">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
             <div>
-                <h1 className="text-3xl font-heading text-gray-900">Explore Events</h1>
-                <p className="text-gray-500">Discover your next challenge and build the future.</p>
+                <h1 className="text-2xl md:text-3xl font-heading text-gray-900">Explore Events</h1>
+                <p className="text-gray-500 text-sm md:text-base">Discover your next challenge and build the future.</p>
             </div>
             
-            <div className="flex gap-2">
-                <div className="relative">
+            <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+                <div className="relative w-full sm:w-64">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
                     <input 
                         type="text" 
                         placeholder="Search hackathons..." 
-                        className="pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl w-64 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                        className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all shadow-sm md:shadow-none"
                     />
                 </div>
-                <button className="px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-600 hover:text-primary hover:border-primary transition-colors flex items-center gap-2 font-bold">
+                <button className="w-full sm:w-auto px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-600 hover:text-primary hover:border-primary transition-colors flex items-center justify-center gap-2 font-bold shadow-sm md:shadow-none">
                     <Filter size={20} /> Filter
                 </button>
             </div>
         </div>
 
-        {/* Filters */}
-        <div className="flex gap-2 overflow-x-auto pb-4 mb-4">
+        {/* Filters - Scrollable on mobile */}
+        <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 md:mx-0 md:px-0 scrollbar-hide">
             {['All', 'Live', 'Upcoming', 'Registration Open', 'Past'].map(status => (
                 <button 
                     key={status}
@@ -100,14 +102,14 @@ const Hackathons: React.FC = () => {
                         : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
                     }`}
                 >
-                    {status}
+                    <span className={filter === status ? 'text-[#24FF00]' : ''}>{status}</span>
                 </button>
             ))}
         </div>
 
-        {/* Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {allEvents.map(event => (
+        {/* Grid - Bento Box Style */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+            {filteredEvents.map(event => (
                 <div 
                     key={event.id} 
                     onClick={() => navigate(`/dashboard/hackathons/${event.id}`)}
@@ -115,13 +117,18 @@ const Hackathons: React.FC = () => {
                 >
                     {/* Banner */}
                     <div className={`h-32 bg-gradient-to-r ${event.bannerGradient} relative p-6`}>
-                        <span className="absolute top-4 right-4 bg-white/20 backdrop-blur-md text-white text-[10px] font-bold uppercase px-2 py-1 rounded border border-white/20">
+                        <div className={`absolute top-4 right-4 backdrop-blur-md text-[10px] font-bold uppercase px-2.5 py-1 rounded-full border flex items-center gap-1.5 ${
+                            event.status === 'Live' 
+                            ? 'bg-black/30 text-[#24FF00] border-[#24FF00]/50' 
+                            : 'bg-white/20 text-white border-white/20'
+                        }`}>
+                             {event.status === 'Live' && <div className="w-1.5 h-1.5 rounded-full bg-[#24FF00] animate-pulse"></div>}
                             {event.status}
-                        </span>
+                        </div>
                     </div>
 
                     {/* Organizer Logo - Overlapping */}
-                    <div className="absolute top-24 left-6 w-14 h-14 bg-white p-1 rounded-xl shadow-md flex items-center justify-center">
+                    <div className="absolute top-24 left-6 w-14 h-14 bg-white p-1 rounded-xl shadow-md flex items-center justify-center border border-gray-50">
                          <div className="w-full h-full bg-gray-100 rounded-lg flex items-center justify-center text-xs font-black text-gray-400">
                              {event.organizer.logo}
                          </div>
@@ -131,19 +138,22 @@ const Hackathons: React.FC = () => {
                     <div className="p-6 pt-10 flex-1 flex flex-col">
                         <div className="mb-4">
                             <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">Organized by {event.organizer.name}</div>
-                            <h3 className="text-xl font-bold text-gray-900 mb-2 group-hover:text-primary transition-colors">{event.name}</h3>
-                            <div className="flex items-center gap-4 text-xs text-gray-500 font-medium">
+                            <h3 className="text-xl font-bold text-gray-900 mb-2 group-hover:text-primary transition-colors line-clamp-1">{event.name}</h3>
+                            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-gray-500 font-medium">
                                 <span className="flex items-center gap-1"><Calendar size={14} /> {event.startDate} - {event.endDate}</span>
                                 <span className="flex items-center gap-1"><MapPin size={14} /> {event.location}</span>
                             </div>
                         </div>
 
                         <div className="flex flex-wrap gap-2 mb-6">
-                            {event.theme.map(t => (
+                            {event.theme.slice(0, 3).map(t => (
                                 <span key={t} className="px-2 py-1 bg-gray-50 text-gray-600 rounded-md text-xs font-bold border border-gray-100">
                                     {t}
                                 </span>
                             ))}
+                            {event.theme.length > 3 && (
+                                <span className="px-2 py-1 bg-gray-50 text-gray-400 rounded-md text-xs font-bold border border-gray-100">+{event.theme.length - 3}</span>
+                            )}
                         </div>
 
                         <div className="mt-auto pt-4 border-t border-gray-50 flex justify-between items-center">
@@ -152,12 +162,12 @@ const Hackathons: React.FC = () => {
                             }`}>
                                 {event.userStatus}
                             </span>
-                            <button className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${
+                            <button className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
                                 event.userStatus === 'Not Registered' 
-                                ? 'bg-gray-900 text-white hover:bg-primary' 
+                                ? 'bg-gray-900 text-white hover:bg-primary group-hover:scale-110' 
                                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                             }`}>
-                                <ArrowUpRight size={20} />
+                                <ArrowUpRight size={20} className={event.userStatus === 'Not Registered' ? 'text-[#24FF00]' : ''} />
                             </button>
                         </div>
                     </div>

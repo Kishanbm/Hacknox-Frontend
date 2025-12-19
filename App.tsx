@@ -23,8 +23,13 @@ import JudgeProfile from './pages/judge/JudgeProfile';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminHackathons from './pages/admin/AdminHackathons';
 import AdminCreateHackathon from './pages/admin/AdminCreateHackathon';
+import AdminHackathonDetail from './pages/admin/AdminHackathonDetail';
 import AdminParticipants from './pages/admin/AdminParticipants';
 import AdminJudges from './pages/admin/AdminJudges';
+import AdminAssignments from './pages/admin/AdminAssignments';
+import AdminSubmissions from './pages/admin/AdminSubmissions';
+import AdminAudit from './pages/admin/AdminAudit';
+import AdminAnnouncements from './pages/admin/AdminAnnouncements';
 
 const App: React.FC = () => {
   return (
@@ -61,8 +66,13 @@ const App: React.FC = () => {
         <Route path="/admin/dashboard" element={<AdminDashboard />} />
         <Route path="/admin/hackathons" element={<AdminHackathons />} />
         <Route path="/admin/hackathons/create" element={<AdminCreateHackathon />} />
+        <Route path="/admin/hackathons/:id" element={<AdminHackathonDetail />} />
         <Route path="/admin/participants" element={<AdminParticipants />} />
         <Route path="/admin/judges" element={<AdminJudges />} />
+        <Route path="/admin/assignments" element={<AdminAssignments />} />
+        <Route path="/admin/submissions" element={<AdminSubmissions />} />
+        <Route path="/admin/audit" element={<AdminAudit />} />
+        <Route path="/admin/announcements" element={<AdminAnnouncements />} />
         {/* Fallback for admin routes */}
         <Route path="/admin/*" element={<Navigate to="/admin/dashboard" replace />} />
 
