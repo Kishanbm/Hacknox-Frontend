@@ -147,14 +147,21 @@ const AdminDashboard: React.FC = () => {
                                 <FunnelChart>
                                     <Tooltip 
                                         contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}}
-                                        itemStyle={{fontWeight: 'bold'}}
+                                        itemStyle={{fontWeight: 'bold', color: '#111827'}}
+                                        formatter={(value: number) => [value.toLocaleString(), 'Count']}
+                                    />
+                                    <Legend 
+                                        verticalAlign="bottom" 
+                                        height={36} 
+                                        iconType="circle"
+                                        formatter={(value) => <span className="text-xs font-bold text-gray-600 ml-1">{value}</span>}
                                     />
                                     <Funnel
                                         dataKey="value"
                                         data={funnelData}
                                         isAnimationActive
                                     >
-                                        <LabelList position="right" fill="#6B7280" stroke="none" dataKey="name" />
+                                        {/* Removed LabelList to prevent overflow */}
                                     </Funnel>
                                 </FunnelChart>
                             </ResponsiveContainer>
@@ -179,7 +186,7 @@ const AdminDashboard: React.FC = () => {
                                         cursor={{fill: '#F8FAFC'}} 
                                         contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}}
                                     />
-                                    <Legend />
+                                    <Legend wrapperStyle={{paddingTop: '10px'}} />
                                     <Bar dataKey="assigned" name="Assigned" fill="#E2E8F0" radius={[0, 4, 4, 0]} barSize={12} />
                                     <Bar dataKey="completed" name="Completed" fill="#5425FF" radius={[0, 4, 4, 0]} barSize={12}>
                                         {judgeLoadData.map((entry, index) => (

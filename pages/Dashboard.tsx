@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '../components/Layout';
 import { CalendarModal } from '../components/CalendarModal';
+import { ENDPOINTS } from '../config/endpoints';
 import { 
   Trophy, Clock, Zap, AlertCircle, ArrowUpRight, 
   Activity, Layers, ChevronDown, ChevronUp, Calendar as CalendarIcon, 
@@ -108,6 +109,24 @@ const Dashboard: React.FC = () => {
   const actionsRequired = 2;
   const nextDeadline = "04h 23m";
   const nextDeadlineEvent = "HackOnX Submission";
+
+  // 🔗 API INTEGRATION POINT
+  useEffect(() => {
+    // In a real app, you would fetch data here:
+    // const fetchDashboardData = async () => {
+    //   try {
+    //     // 🔗 LINK: GET ${ENDPOINTS.USER.STATS}
+    //     const stats = await fetch(ENDPOINTS.USER.STATS); 
+    //     
+    //     // 🔗 LINK: GET ${ENDPOINTS.HACKATHONS.ACTIVE}
+    //     const events = await fetch(ENDPOINTS.HACKATHONS.ACTIVE);
+    //
+    //     // 🔗 LINK: GET ${ENDPOINTS.USER.ROADMAP}
+    //     const roadmap = await fetch(ENDPOINTS.USER.ROADMAP);
+    //   } catch (error) { console.error(error); }
+    // };
+    // fetchDashboardData();
+  }, []);
 
   return (
     <DashboardLayout>

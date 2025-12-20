@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '../components/Layout';
+import { ENDPOINTS } from '../config/endpoints';
 import { Calendar, MapPin, Search, Filter, ArrowUpRight, Award } from 'lucide-react';
 import { HackathonEvent } from '../types';
 
@@ -63,6 +64,12 @@ const allEvents: HackathonEvent[] = [
 const Hackathons: React.FC = () => {
   const [filter, setFilter] = useState('All');
   const navigate = useNavigate();
+
+  // 🔗 API INTEGRATION POINT
+  useEffect(() => {
+      // LINK: Fetch Hackathons List
+      // fetch(`${ENDPOINTS.HACKATHONS.LIST}?status=${filter}`)
+  }, [filter]);
 
   const filteredEvents = filter === 'All' ? allEvents : allEvents.filter(e => e.status === filter);
 

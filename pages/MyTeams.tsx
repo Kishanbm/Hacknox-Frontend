@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { DashboardLayout } from '../components/Layout';
+import { ENDPOINTS } from '../config/endpoints';
 import { 
   Users, MoreVertical, Plus, MessageCircle, Github, LogOut, Settings, 
   Check, X, Clock, Trophy, Archive, Hash, ArrowUpRight
@@ -123,8 +124,19 @@ const MyTeams: React.FC = () => {
   const [animatingId, setAnimatingId] = useState<string | null>(null); // For removal animation
   const navigate = useNavigate();
 
+  // 🔗 API INTEGRATION POINT
+  useEffect(() => {
+      // LINK: Fetch My Teams and Invites
+      // fetch(ENDPOINTS.TEAMS.LIST)
+      // fetch(ENDPOINTS.TEAMS.INVITES)
+  }, []);
+
   const handleInviteAction = (id: string, action: 'accept' | 'decline') => {
       setAnimatingId(id);
+      
+      // 🔗 API INTEGRATION POINT
+      // fetch(ENDPOINTS.TEAMS.RESPOND_INVITE(id), { method: 'POST', body: JSON.stringify({ action }) })
+
       setTimeout(() => {
           setInvites(prev => prev.filter(inv => inv.id !== id));
           setAnimatingId(null);

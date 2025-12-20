@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { DashboardLayout } from '../components/Layout';
+import { ENDPOINTS } from '../config/endpoints';
 import { ChevronLeft, Save, Send, Github, Video, ExternalLink, FileText, UploadCloud, Users, CheckCircle2 } from 'lucide-react';
 
 const SubmissionDetail: React.FC = () => {
@@ -18,6 +19,26 @@ const SubmissionDetail: React.FC = () => {
       team: isDraft ? 'Alpha Squad' : 'GreenGen',
       hackathon: isDraft ? 'HackOnX 2025' : 'Sustainable Future'
   });
+
+  // 🔗 API INTEGRATION POINT
+  useEffect(() => {
+      // if (id) {
+      //    // LINK: Fetch Submission Details
+      //    fetch(ENDPOINTS.SUBMISSIONS.DETAIL(id)).then(...) 
+      // }
+  }, [id]);
+
+  const handleSaveDraft = () => {
+      // 🔗 API LINK: POST or PUT Draft
+      // fetch(ENDPOINTS.SUBMISSIONS.UPDATE(id), { method: 'PUT', body: JSON.stringify({...formData, status: 'Draft'}) })
+      console.log('Saving Draft...', ENDPOINTS.SUBMISSIONS.UPDATE(id || 'new'));
+  };
+
+  const handleSubmit = () => {
+      // 🔗 API LINK: Submit Final
+      // fetch(ENDPOINTS.SUBMISSIONS.UPDATE(id), { method: 'PUT', body: JSON.stringify({...formData, status: 'Submitted'}) })
+      console.log('Submitting...', ENDPOINTS.SUBMISSIONS.UPDATE(id || 'new'));
+  };
 
   return (
     <DashboardLayout>
@@ -158,10 +179,16 @@ const SubmissionDetail: React.FC = () => {
 
                     {isDraft ? (
                         <div className="space-y-3">
-                            <button className="w-full py-3 bg-gray-900 text-white rounded-xl font-bold hover:bg-gray-800 transition-colors flex items-center justify-center gap-2 shadow-lg">
+                            <button 
+                                onClick={handleSaveDraft}
+                                className="w-full py-3 bg-gray-900 text-white rounded-xl font-bold hover:bg-gray-800 transition-colors flex items-center justify-center gap-2 shadow-lg"
+                            >
                                 <Save size={18} /> Save Draft
                             </button>
-                            <button className="w-full py-3 bg-primary text-white rounded-xl font-bold hover:bg-primary/90 transition-colors flex items-center justify-center gap-2 shadow-lg shadow-primary/20">
+                            <button 
+                                onClick={handleSubmit}
+                                className="w-full py-3 bg-primary text-white rounded-xl font-bold hover:bg-primary/90 transition-colors flex items-center justify-center gap-2 shadow-lg shadow-primary/20"
+                            >
                                 <Send size={18} /> Submit Project
                             </button>
                             <p className="text-xs text-center text-gray-400 mt-2">
