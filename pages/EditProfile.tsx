@@ -1,11 +1,75 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '../components/Layout';
-import { ChevronLeft, Save, Upload, User, MapPin, Link as LinkIcon, Github, Twitter, Linkedin } from 'lucide-react';
+import { 
+    ChevronLeft, Save, Upload, User, MapPin, Link as LinkIcon, 
+    Github, Twitter, Linkedin, Camera, Briefcase, Plus, Trash2, 
+    Calendar, FileText, Layers, Share2
+} from 'lucide-react';
+
+interface Experience {
+    id: number;
+    role: string;
+    company: string;
+    period: string;
+    description: string;
+}
 
 const EditProfile: React.FC = () => {
     const navigate = useNavigate();
     const [isLoading, setIsLoading] = useState(false);
+    const [activeTab, setActiveTab] = useState<'general' | 'experience' | 'socials'>('general');
+    
+    // Image Preview States
+    const [bannerPreview, setBannerPreview] = useState<string | null>(null);
+    const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+
+    // Form States
+    const [experience, setExperience] = useState<Experience[]>([
+        { id: 1, role: 'Senior Full Stack Developer', company: 'TechFlow Systems', period: '2022 - Present', description: 'Leading the frontend architecture migration to React 18 and mentoring junior developers.' },
+        { id: 2, role: 'Frontend Engineer', company: 'Creative Solutions', period: '2020 - 2022', description: 'Developed responsive web applications for e-commerce clients using Next.js and Tailwind CSS.' }
+    ]);
+
+    // File Input Refs
+    const bannerInputRef = useRef<HTMLInputElement>(null);
+    const avatarInputRef = useRef<HTMLInputElement>(null);
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'banner' | 'avatar') => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const objectUrl = URL.createObjectURL(file);
+            if (type === 'banner') {
+                setBannerPreview(objectUrl);
+            } else {
+                setAvatarPreview(objectUrl);
+            }
+        }
+    };
+
+    const triggerBannerUpload = () => bannerInputRef.current?.click();
+    const triggerAvatarUpload = (e: React.MouseEvent) => {
+        e.stopPropagation(); // Prevent bubbling to banner
+        avatarInputRef.current?.click();
+    };
+
+    const handleAddExperience = () => {
+        const newExp: Experience = {
+            id: Date.now(),
+            role: '',
+            company: '',
+            period: '',
+            description: ''
+        };
+        setExperience([newExp, ...experience]);
+    };
+
+    const handleRemoveExperience = (id: number) => {
+        setExperience(experience.filter(exp => exp.id !== id));
+    };
+
+    const handleExperienceChange = (id: number, field: keyof Experience, value: string) => {
+        setExperience(experience.map(exp => exp.id === id ? { ...exp, [field]: value } : exp));
+    };
 
     const handleSave = () => {
         setIsLoading(true);
@@ -18,17 +82,22 @@ const EditProfile: React.FC = () => {
 
     return (
         <DashboardLayout>
-            <div className="max-w-4xl mx-auto pb-12">
-                <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-gray-500 hover:text-gray-900 mb-6 font-bold text-sm">
-                    <ChevronLeft size={20} /> Back to Profile
-                </button>
-
-                <div className="flex items-center justify-between mb-8">
-                    <h1 className="text-3xl font-heading text-gray-900">Edit Profile</h1>
+            <div className="max-w-6xl mx-auto pb-12">
+                {/* Header */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+                    <div className="flex items-center gap-4">
+                        <button onClick={() => navigate(-1)} className="p-2 hover:bg-white rounded-full text-gray-500 transition-colors">
+                            <ChevronLeft size={24} />
+                        </button>
+                        <div>
+                            <h1 className="text-3xl font-heading text-gray-900">Edit Profile</h1>
+                            <p className="text-gray-500 text-sm">Customize your public presence and resume.</p>
+                        </div>
+                    </div>
                     <button 
                         onClick={handleSave}
                         disabled={isLoading}
-                        className="px-6 py-2.5 bg-primary text-white rounded-xl font-bold hover:bg-primary/90 transition-all flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                        className="px-6 py-3 bg-[#111827] text-white rounded-xl font-bold hover:bg-black transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed shadow-lg"
                     >
                         {isLoading ? (
                             <>
@@ -43,101 +112,283 @@ const EditProfile: React.FC = () => {
                     </button>
                 </div>
 
-                <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
+                {/* Tabs */}
+                <div className="flex p-1 bg-white border border-gray-200 rounded-xl w-full md:w-fit mb-8 overflow-x-auto no-scrollbar">
+                    {[
+                        { id: 'general', label: 'General Info', icon: User },
+                        { id: 'experience', label: 'Work Experience', icon: Briefcase },
+                        { id: 'socials', label: 'Social Links', icon: Share2 }
+                    ].map(tab => (
+                        <button
+                            key={tab.id}
+                            onClick={() => setActiveTab(tab.id as any)}
+                            className={`flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-bold whitespace-nowrap transition-all ${
+                                activeTab === tab.id 
+                                ? 'bg-gray-100 text-gray-900 shadow-sm' 
+                                : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'
+                            }`}
+                        >
+                            <tab.icon size={16} />
+                            {tab.label}
+                        </button>
+                    ))}
+                </div>
+
+                {/* Content Area */}
+                <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
                     
-                    {/* Cover & Avatar */}
-                    <div className="relative h-48 bg-gray-100 group cursor-pointer">
-                        <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
-                        <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white font-bold gap-2">
-                             <Upload size={20} /> Change Cover
-                        </div>
-                        
-                        <div className="absolute -bottom-12 left-8">
-                             <div className="w-24 h-24 rounded-full border-4 border-white bg-gray-900 text-white flex items-center justify-center text-2xl font-heading relative group/avatar cursor-pointer">
-                                 AM
-                                 <div className="absolute inset-0 bg-black/50 rounded-full opacity-0 group-hover/avatar:opacity-100 transition-opacity flex items-center justify-center">
-                                     <Upload size={16} />
-                                 </div>
-                             </div>
-                        </div>
-                    </div>
+                    {/* --- GENERAL TAB --- */}
+                    {activeTab === 'general' && (
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                            
+                            {/* Card 1: Visuals (Banner & Avatar) - Spans Full Width on Mobile, 2 Cols on Desktop */}
+                            <div className="lg:col-span-3 bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden relative group">
+                                <input 
+                                    type="file" 
+                                    ref={bannerInputRef} 
+                                    className="hidden" 
+                                    accept="image/*"
+                                    onChange={(e) => handleFileChange(e, 'banner')}
+                                />
+                                <input 
+                                    type="file" 
+                                    ref={avatarInputRef} 
+                                    className="hidden" 
+                                    accept="image/*"
+                                    onChange={(e) => handleFileChange(e, 'avatar')}
+                                />
 
-                    <div className="p-8 pt-16 space-y-8">
-                        {/* Basic Info */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                             <div>
-                                 <label className="block text-sm font-bold text-gray-700 mb-2">Display Name</label>
-                                 <div className="relative">
-                                     <User size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                                     <input type="text" defaultValue="Alex Morgan" className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-primary transition-colors text-gray-900 font-medium" />
-                                 </div>
-                             </div>
-                             <div>
-                                 <label className="block text-sm font-bold text-gray-700 mb-2">Title / Role</label>
-                                 <input type="text" defaultValue="Full Stack Developer" className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-primary transition-colors text-gray-900 font-medium" />
-                             </div>
-                             <div className="md:col-span-2">
-                                 <label className="block text-sm font-bold text-gray-700 mb-2">Bio</label>
-                                 <textarea rows={4} className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-primary transition-colors text-gray-900 font-medium resize-none" defaultValue="Passionate full-stack developer with a knack for building scalable web applications. I love participating in hackathons to challenge myself and learn new technologies."></textarea>
-                             </div>
-                             <div>
-                                 <label className="block text-sm font-bold text-gray-700 mb-2">Location</label>
-                                 <div className="relative">
-                                     <MapPin size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                                     <input type="text" defaultValue="Bengaluru, India" className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-primary transition-colors text-gray-900 font-medium" />
-                                 </div>
-                             </div>
-                             <div>
-                                 <label className="block text-sm font-bold text-gray-700 mb-2">Website</label>
-                                 <div className="relative">
-                                     <LinkIcon size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                                     <input type="url" defaultValue="https://alexmorgan.dev" className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-primary transition-colors text-gray-900 font-medium" />
-                                 </div>
-                             </div>
-                        </div>
-
-                        <hr className="border-gray-100" />
-
-                        {/* Skills */}
-                        <div>
-                             <label className="block text-sm font-bold text-gray-700 mb-3">Skills (Separate by comma)</label>
-                             <input type="text" defaultValue="React, TypeScript, Node.js, Python, TensorFlow, Solidity" className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-primary transition-colors text-gray-900 font-medium" />
-                             <div className="flex flex-wrap gap-2 mt-3">
-                                 {['React', 'TypeScript', 'Node.js', 'Python', 'TensorFlow', 'Solidity'].map(skill => (
-                                     <span key={skill} className="px-3 py-1 bg-gray-100 text-gray-600 rounded-lg text-xs font-bold border border-gray-200">
-                                         {skill}
-                                     </span>
-                                 ))}
-                             </div>
-                        </div>
-
-                        <hr className="border-gray-100" />
-
-                        {/* Socials */}
-                        <div>
-                            <h3 className="font-bold text-gray-900 mb-4">Social Links</h3>
-                            <div className="space-y-4">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center text-gray-600">
-                                        <Github size={20} />
+                                <div 
+                                    className="h-48 md:h-64 bg-gray-100 relative cursor-pointer overflow-hidden"
+                                    onClick={triggerBannerUpload}
+                                >
+                                    {bannerPreview ? (
+                                        <img src={bannerPreview} alt="Banner" className="w-full h-full object-cover" />
+                                    ) : (
+                                        <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
+                                    )}
+                                    <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white font-bold gap-2 backdrop-blur-sm">
+                                        <Camera size={20} /> Update Cover
                                     </div>
-                                    <input type="text" defaultValue="github.com/alexcodes" className="flex-1 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-primary transition-colors text-gray-900 font-medium" />
                                 </div>
-                                <div className="flex items-center gap-4">
-                                    <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center text-blue-500">
-                                        <Twitter size={20} />
+
+                                <div className="absolute bottom-6 left-6 md:left-10 flex items-end">
+                                    <div 
+                                        className="w-28 h-28 md:w-36 md:h-36 rounded-full border-[6px] border-white bg-gray-900 text-white flex items-center justify-center text-4xl font-heading relative cursor-pointer overflow-hidden shadow-xl group/avatar"
+                                        onClick={triggerAvatarUpload}
+                                    >
+                                        {avatarPreview ? (
+                                            <img src={avatarPreview} alt="Avatar" className="w-full h-full object-cover" />
+                                        ) : (
+                                            "AM"
+                                        )}
+                                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover/avatar:opacity-100 transition-opacity flex items-center justify-center text-white backdrop-blur-sm">
+                                            <Upload size={20} />
+                                        </div>
                                     </div>
-                                    <input type="text" placeholder="Twitter Profile" className="flex-1 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-primary transition-colors text-gray-900 font-medium" />
                                 </div>
-                                <div className="flex items-center gap-4">
-                                    <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center text-blue-700">
-                                        <Linkedin size={20} />
+                            </div>
+
+                            {/* Card 2: Identity Info */}
+                            <div className="lg:col-span-1 bg-white rounded-3xl p-6 md:p-8 border border-gray-200 shadow-sm flex flex-col gap-5 h-full">
+                                <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                                    <User size={18} className="text-[#5425FF]" /> Identity
+                                </h3>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Display Name</label>
+                                    <input type="text" defaultValue="Alex Morgan" className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-[#5425FF] font-medium text-gray-900" />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Current Role</label>
+                                    <input type="text" defaultValue="Full Stack Developer" className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-[#5425FF] font-medium text-gray-900" />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Location</label>
+                                    <div className="relative">
+                                        <MapPin size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                                        <input type="text" defaultValue="Bengaluru, India" className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-[#5425FF] font-medium text-gray-900" />
                                     </div>
-                                    <input type="text" defaultValue="linkedin.com/in/alex-morgan" className="flex-1 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-primary transition-colors text-gray-900 font-medium" />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Website</label>
+                                    <div className="relative">
+                                        <LinkIcon size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                                        <input type="url" defaultValue="https://alexmorgan.dev" className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-[#5425FF] font-medium text-gray-900" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Card 3: Bio & Skills */}
+                            <div className="lg:col-span-2 flex flex-col gap-6">
+                                {/* Bio */}
+                                <div className="bg-white rounded-3xl p-6 md:p-8 border border-gray-200 shadow-sm flex-1">
+                                    <h3 className="font-bold text-gray-900 flex items-center gap-2 mb-4">
+                                        <FileText size={18} className="text-[#5425FF]" /> Bio
+                                    </h3>
+                                    <textarea 
+                                        className="w-full h-40 p-4 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-[#5425FF] font-medium text-gray-700 resize-none leading-relaxed" 
+                                        defaultValue="Passionate full-stack developer with a knack for building scalable web applications. I love participating in hackathons to challenge myself and learn new technologies."
+                                        placeholder="Tell us about yourself..."
+                                    ></textarea>
+                                </div>
+
+                                {/* Skills */}
+                                <div className="bg-white rounded-3xl p-6 md:p-8 border border-gray-200 shadow-sm">
+                                    <h3 className="font-bold text-gray-900 flex items-center gap-2 mb-4">
+                                        <Layers size={18} className="text-[#5425FF]" /> Skills
+                                    </h3>
+                                    <div className="mb-4">
+                                        <input type="text" placeholder="Add skills (e.g. React, Python) and press Enter" className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-[#5425FF] font-medium text-gray-900" />
+                                    </div>
+                                    <div className="flex flex-wrap gap-2">
+                                        {['React', 'TypeScript', 'Node.js', 'Python', 'TensorFlow', 'Solidity'].map(skill => (
+                                            <span key={skill} className="px-3 py-1.5 bg-white border border-gray-200 text-gray-700 rounded-lg text-sm font-bold flex items-center gap-2 group hover:border-[#5425FF] transition-colors cursor-default">
+                                                {skill}
+                                                <button className="text-gray-400 hover:text-red-500 group-hover:text-gray-500">×</button>
+                                            </span>
+                                        ))}
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
+                    )}
+
+                    {/* --- WORK EXPERIENCE TAB --- */}
+                    {activeTab === 'experience' && (
+                        <div className="space-y-6">
+                            <div className="flex justify-between items-center bg-blue-50 p-6 rounded-3xl border border-blue-100">
+                                <div>
+                                    <h3 className="font-heading text-xl text-blue-900">Work History</h3>
+                                    <p className="text-blue-700/80 text-sm">Add your professional experience to showcase your journey.</p>
+                                </div>
+                                <button 
+                                    onClick={handleAddExperience}
+                                    className="px-5 py-2.5 bg-white text-blue-700 rounded-xl font-bold shadow-sm hover:bg-blue-50 hover:shadow-md transition-all flex items-center gap-2"
+                                >
+                                    <Plus size={18} /> Add Role
+                                </button>
+                            </div>
+
+                            {experience.map((exp, index) => (
+                                <div key={exp.id} className="bg-white rounded-3xl p-6 md:p-8 border border-gray-200 shadow-sm relative group transition-all hover:border-[#5425FF]/30">
+                                    <div className="absolute top-6 right-6 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <button 
+                                            onClick={() => handleRemoveExperience(exp.id)}
+                                            className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                            title="Remove"
+                                        >
+                                            <Trash2 size={20} />
+                                        </button>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Role Title</label>
+                                            <div className="relative">
+                                                <Briefcase size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                                                <input 
+                                                    type="text" 
+                                                    value={exp.role} 
+                                                    onChange={(e) => handleExperienceChange(exp.id, 'role', e.target.value)}
+                                                    className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-[#5425FF] font-bold text-gray-900" 
+                                                    placeholder="e.g. Senior Developer"
+                                                />
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Company</label>
+                                            <input 
+                                                type="text" 
+                                                value={exp.company} 
+                                                onChange={(e) => handleExperienceChange(exp.id, 'company', e.target.value)}
+                                                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-[#5425FF] font-medium text-gray-900" 
+                                                placeholder="e.g. Google"
+                                            />
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="mb-4">
+                                        <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Duration</label>
+                                        <div className="relative">
+                                            <Calendar size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                                            <input 
+                                                type="text" 
+                                                value={exp.period} 
+                                                onChange={(e) => handleExperienceChange(exp.id, 'period', e.target.value)}
+                                                className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-[#5425FF] font-medium text-gray-900" 
+                                                placeholder="e.g. Jan 2020 - Present"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Description</label>
+                                        <textarea 
+                                            value={exp.description}
+                                            onChange={(e) => handleExperienceChange(exp.id, 'description', e.target.value)}
+                                            className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-[#5425FF] text-gray-700 resize-none h-24"
+                                            placeholder="Describe your responsibilities and achievements..."
+                                        ></textarea>
+                                    </div>
+                                </div>
+                            ))}
+                            
+                            {experience.length === 0 && (
+                                <div className="text-center py-12 bg-white rounded-3xl border border-dashed border-gray-300">
+                                    <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-400">
+                                        <Briefcase size={24} />
+                                    </div>
+                                    <h3 className="font-bold text-gray-900">No Experience Added</h3>
+                                    <p className="text-gray-500 text-sm mb-4">Highlight your career journey.</p>
+                                    <button onClick={handleAddExperience} className="text-[#5425FF] font-bold hover:underline">Add your first role</button>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* --- SOCIALS TAB --- */}
+                    {activeTab === 'socials' && (
+                        <div className="max-w-2xl mx-auto space-y-6">
+                            <div className="bg-white rounded-3xl p-8 border border-gray-200 shadow-sm">
+                                <h3 className="font-bold text-gray-900 mb-6 flex items-center gap-2">
+                                    <Share2 size={20} className="text-[#5425FF]" /> Social Presence
+                                </h3>
+                                
+                                <div className="space-y-5">
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-500 uppercase mb-2">GitHub</label>
+                                        <div className="relative">
+                                            <div className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center text-gray-600">
+                                                <Github size={18} />
+                                            </div>
+                                            <input type="text" defaultValue="github.com/alexcodes" className="w-full pl-14 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-[#5425FF] font-medium text-gray-900" />
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Twitter / X</label>
+                                        <div className="relative">
+                                            <div className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center text-blue-500">
+                                                <Twitter size={18} />
+                                            </div>
+                                            <input type="text" placeholder="Twitter Profile URL" className="w-full pl-14 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-[#5425FF] font-medium text-gray-900" />
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-500 uppercase mb-2">LinkedIn</label>
+                                        <div className="relative">
+                                            <div className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center text-blue-700">
+                                                <Linkedin size={18} />
+                                            </div>
+                                            <input type="text" defaultValue="linkedin.com/in/alex-morgan" className="w-full pl-14 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-[#5425FF] font-medium text-gray-900" />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                 </div>
             </div>
         </DashboardLayout>
