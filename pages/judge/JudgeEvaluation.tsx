@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { JudgeLayout } from '../../components/JudgeLayout';
+import { ENDPOINTS } from '../../config/endpoints';
 import { 
     ChevronLeft, ExternalLink, Github, Video, Save, Send, Flag, 
     Maximize2, FileText, AlertTriangle, CheckCircle2 
@@ -20,12 +21,27 @@ const JudgeEvaluation: React.FC = () => {
 
     const totalScore = Object.values(scores).reduce((a: number, b: number) => a + b, 0);
 
+    // 🔗 API INTEGRATION POINT
+    useEffect(() => {
+        // if (submissionId) {
+        //    // LINK: Fetch Submission Data for Grading
+        //    fetch(ENDPOINTS.JUDGE.SUBMISSION_DETAIL(submissionId))
+        // }
+    }, [submissionId]);
+
     const handleScoreChange = (criteria: keyof typeof scores, value: number) => {
         setScores(prev => ({ ...prev, [criteria]: value }));
     };
 
     const handleSubmit = () => {
         setIsSubmitting(true);
+        
+        // 🔗 API INTEGRATION POINT
+        // fetch(ENDPOINTS.JUDGE.SUBMIT_SCORE(submissionId), { 
+        //    method: 'POST', 
+        //    body: JSON.stringify({ scores, feedback }) 
+        // })
+
         // Simulate API call
         setTimeout(() => {
             setIsSubmitting(false);

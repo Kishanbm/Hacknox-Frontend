@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { JudgeLayout } from '../../components/JudgeLayout';
+import { ENDPOINTS } from '../../config/endpoints';
 import { Calendar, MapPin, ChevronRight, BarChart3, Users, Clock, Mail, Check, X, Info, ExternalLink } from 'lucide-react';
 
 // Mock Data for Assigned Hackathons
@@ -72,8 +73,19 @@ const JudgeHackathons: React.FC = () => {
     const [invitations, setInvitations] = useState(initialInvitations);
     const [processingId, setProcessingId] = useState<string | null>(null);
 
+    // 🔗 API INTEGRATION POINT
+    useEffect(() => {
+        // LINK: Fetch Assigned Hackathons & Invitations
+        // fetch(ENDPOINTS.JUDGE.HACKATHONS)
+        // fetch(ENDPOINTS.JUDGE.INVITATIONS)
+    }, []);
+
     const handleInviteAction = (id: string, action: 'accept' | 'decline') => {
         setProcessingId(id);
+        
+        // 🔗 API INTEGRATION POINT
+        // fetch(ENDPOINTS.JUDGE.RESPOND_INVITE(id), { method: 'POST', body: JSON.stringify({ action }) })
+
         // Simulate API call
         setTimeout(() => {
             setInvitations(prev => prev.filter(inv => inv.id !== id));

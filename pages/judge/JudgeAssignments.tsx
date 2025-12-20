@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { JudgeLayout } from '../../components/JudgeLayout';
+import { ENDPOINTS } from '../../config/endpoints';
 import { Search, Filter, Clock, CheckCircle2, ChevronRight, FileText, ArrowRight } from 'lucide-react';
 
 // Extended mock data with hackathon IDs
@@ -16,6 +17,12 @@ const JudgeAssignments: React.FC = () => {
     const navigate = useNavigate();
     const [statusFilter, setStatusFilter] = useState('All');
     const [hackathonFilter, setHackathonFilter] = useState('All Events');
+
+    // 🔗 API INTEGRATION POINT
+    useEffect(() => {
+        // LINK: Fetch Assignment Queue
+        // fetch(ENDPOINTS.JUDGE.ASSIGNMENTS)
+    }, []);
 
     const filtered = assignments.filter(a => {
         const matchesStatus = statusFilter === 'All' ? true : 

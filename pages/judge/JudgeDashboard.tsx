@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { JudgeLayout } from '../../components/JudgeLayout';
+import { ENDPOINTS } from '../../config/endpoints';
 import { 
     Clock, FileCheck, AlertCircle, ArrowUpRight, 
     Calendar, TrendingUp, Flag
@@ -46,6 +47,12 @@ const JudgeDashboard: React.FC = () => {
   const nextDeadlineTime = "36 hours";
   const nextDeadlineEvent = "HackOnX Finals";
   const progressPercent = Math.round((completedTotal / assignedTotal) * 100);
+
+  // 🔗 API INTEGRATION POINT
+  useEffect(() => {
+      // LINK: Fetch Judge Dashboard Stats & Charts
+      // fetch(ENDPOINTS.JUDGE.DASHBOARD)
+  }, []);
 
   return (
     <JudgeLayout>

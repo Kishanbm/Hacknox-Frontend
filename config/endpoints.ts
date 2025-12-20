@@ -53,5 +53,18 @@ export const ENDPOINTS = {
 
   ORGANIZER: {
     PROFILE: (id: string) => `${API_CONFIG.BASE_URL}/organizers/${id}`,
+  },
+
+  // Judge Portal Endpoints
+  JUDGE: {
+    DASHBOARD: `${API_CONFIG.BASE_URL}/judge/dashboard`, // Stats, deadlines, pending actions
+    HACKATHONS: `${API_CONFIG.BASE_URL}/judge/hackathons`, // List of assigned hackathons
+    INVITATIONS: `${API_CONFIG.BASE_URL}/judge/invitations`, // Pending judge invites
+    RESPOND_INVITE: (id: string) => `${API_CONFIG.BASE_URL}/judge/invitations/${id}/respond`,
+    ASSIGNMENTS: `${API_CONFIG.BASE_URL}/judge/assignments`, // Evaluation queue
+    SUBMISSION_DETAIL: (id: string) => `${API_CONFIG.BASE_URL}/judge/submissions/${id}`, // Specific submission to grade
+    SUBMIT_SCORE: (id: string) => `${API_CONFIG.BASE_URL}/judge/submissions/${id}/score`, // POST evaluation
+    PROFILE: `${API_CONFIG.BASE_URL}/judge/profile`,
+    UPDATE_PROFILE: `${API_CONFIG.BASE_URL}/judge/profile/update`,
   }
 };

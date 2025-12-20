@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { JudgeLayout } from '../../components/JudgeLayout';
+import { ENDPOINTS } from '../../config/endpoints';
 import { 
     UserCircle, MapPin, Link as LinkIcon, Github, Linkedin, 
     Edit2, Save, Mail, Briefcase, Award, FileCheck, Shield, CheckCircle2,
@@ -76,11 +77,18 @@ const JudgeProfile: React.FC = () => {
         { id: 2, degree: 'B.Tech Computer Science', school: 'IIT Bombay', period: '2012 - 2016' }
     ]);
 
+    // 🔗 API INTEGRATION POINT
+    useEffect(() => {
+        // LINK: Fetch Judge Profile Data
+        // fetch(ENDPOINTS.JUDGE.PROFILE)
+    }, []);
+
     // --- Handlers ---
 
     const handleSave = () => {
         setIsEditing(false);
-        // Simulate API save
+        // 🔗 API INTEGRATION POINT
+        // fetch(ENDPOINTS.JUDGE.UPDATE_PROFILE, { method: 'POST', body: JSON.stringify({ profile, experience, education, certifications }) })
     };
 
     // Work Experience Handlers
