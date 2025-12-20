@@ -61,17 +61,15 @@ export const AdminLayout: React.FC<SidebarProps> = ({ children }) => {
         <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-b from-[#5425FF]/5 to-transparent pointer-events-none"></div>
 
         <div className="p-6 md:p-8 pb-4 md:pb-6 relative z-10 flex justify-between items-center">
-          <Link to="/" className="flex items-center gap-3 group">
-            <div className="w-10 h-10 md:w-12 md:h-12 bg-gradient-to-br from-[#5425FF] to-[#3a1bf2] rounded-2xl flex items-center justify-center shadow-lg shadow-[#5425FF]/30 group-hover:scale-105 transition-transform duration-300">
-                <Shield size={22} className="text-[#24FF00] fill-current drop-shadow-[0_2px_4px_rgba(0,0,0,0.2)]" />
-            </div>
+          <Link to="/" className="flex items-center gap-2 group">
             <div className="flex flex-col">
-              <h1 className="text-xl md:text-2xl font-heading tracking-tight leading-none text-gray-900 group-hover:text-[#5425FF] transition-colors">
-                HACKON<span className="text-[#5425FF]">X</span>
+              <h1 className="text-3xl font-heading text-gray-900 tracking-tight leading-none group-hover:text-[#5425FF] transition-colors duration-300">
+                HACKON<span className="text-[#5425FF] group-hover:text-gray-900 transition-colors duration-300">X</span>
               </h1>
-              <span className="text-[10px] font-bold text-gray-400 tracking-[0.2em] uppercase flex items-center gap-1 mt-1">
-                 Admin Console
-              </span>
+              <div className="flex items-center gap-2 mt-1">
+                  <div className="h-0.5 w-4 bg-[#24FF00] rounded-full group-hover:w-8 transition-all duration-300"></div>
+                  <span className="text-[10px] font-bold text-gray-400 tracking-[0.2em] uppercase">Admin Console</span>
+              </div>
             </div>
           </Link>
           <button 

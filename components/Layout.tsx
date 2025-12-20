@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, 
@@ -10,7 +10,11 @@ import {
   Trophy,
   Calendar,
   Menu,
-  X
+  X,
+  MessageSquare,
+  AlertTriangle,
+  Info,
+  Check
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -20,11 +24,25 @@ interface SidebarProps {
 export const DashboardLayout: React.FC<SidebarProps> = ({ children }) => {
   const location = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const notifRef = useRef<HTMLDivElement>(null);
 
   // Close sidebar on route change
   useEffect(() => {
     setIsSidebarOpen(false);
+    setShowNotifications(false);
   }, [location.pathname]);
+
+  // Click outside to close notifications
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (notifRef.current && !notifRef.current.contains(event.target as Node)) {
+        setShowNotifications(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const navItems = [
     { label: 'Dashboard', icon: <LayoutDashboard size={20} />, path: '/dashboard' },
@@ -33,6 +51,12 @@ export const DashboardLayout: React.FC<SidebarProps> = ({ children }) => {
     { label: 'Submissions', icon: <Rocket size={20} />, path: '/dashboard/submissions' },
     { label: 'Profile', icon: <UserCircle size={20} />, path: '/dashboard/profile' },
     { label: 'Settings', icon: <Settings size={20} />, path: '/dashboard/settings' },
+  ];
+
+  const notifications = [
+      { id: 1, title: 'Team Invite: Alpha Squad', desc: 'Invited by Sarah Chen', time: '2m ago', type: 'invite', unread: true },
+      { id: 2, title: 'Submission Deadline', desc: 'HackOnX submission closes in 2 hours.', time: '1h ago', type: 'alert', unread: true },
+      { id: 3, title: 'System Update', desc: 'Platform maintenance scheduled for midnight.', time: '5h ago', type: 'info', unread: false },
   ];
 
   return (
@@ -54,14 +78,14 @@ export const DashboardLayout: React.FC<SidebarProps> = ({ children }) => {
       `}>
         <div className="p-6 lg:p-8 pb-4 flex justify-between items-center">
           <Link to="/" className="flex items-center gap-2 group">
-            <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shadow-lg shadow-primary/20 group-hover:scale-105 transition-transform">
-                <div className="w-3 h-3 bg-secondary rounded-full"></div>
-            </div>
             <div className="flex flex-col">
-              <h1 className="text-2xl font-heading text-gray-900 tracking-tight leading-none">
-                HACKON<span className="text-primary">X</span>
+              <h1 className="text-3xl font-heading text-gray-900 tracking-tight leading-none group-hover:text-primary transition-colors duration-300">
+                HACKON<span className="text-primary group-hover:text-gray-900 transition-colors duration-300">X</span>
               </h1>
-              <span className="text-[10px] font-bold text-gray-400 tracking-widest uppercase">Participant</span>
+              <div className="flex items-center gap-2 mt-1">
+                  <div className="h-0.5 w-4 bg-secondary rounded-full group-hover:w-8 transition-all duration-300"></div>
+                  <span className="text-[10px] font-bold text-gray-400 tracking-[0.2em] uppercase">Portal</span>
+              </div>
             </div>
           </Link>
           <button 
@@ -149,10 +173,51 @@ export const DashboardLayout: React.FC<SidebarProps> = ({ children }) => {
                    <span className="text-xs font-bold text-gray-600">System Online</span>
                 </div>
 
-                <button className="relative w-10 h-10 md:w-11 md:h-11 bg-white rounded-full flex items-center justify-center text-gray-500 hover:text-primary shadow-sm border border-gray-100 transition-colors group">
-                    <Bell size={20} className="group-hover:animate-swing" />
-                    <span className="absolute top-3 right-3 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>
-                </button>
+                {/* Notifications */}
+                <div className="relative" ref={notifRef}>
+                    <button 
+                        onClick={() => setShowNotifications(!showNotifications)}
+                        className="relative w-10 h-10 md:w-11 md:h-11 bg-white rounded-full flex items-center justify-center text-gray-500 hover:text-primary shadow-sm border border-gray-100 transition-colors group"
+                    >
+                        <Bell size={20} className="group-hover:animate-swing" />
+                        <span className="absolute top-3 right-3 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>
+                    </button>
+
+                    {showNotifications && (
+                        <div className="absolute right-0 top-14 w-80 md:w-96 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                            <div className="p-4 border-b border-gray-50 flex justify-between items-center bg-gray-50/50">
+                                <h4 className="font-bold text-gray-900">Notifications</h4>
+                                <button className="text-xs text-primary font-bold hover:underline">Mark all read</button>
+                            </div>
+                            <div className="max-h-[60vh] overflow-y-auto">
+                                {notifications.map(n => (
+                                    <div key={n.id} className={`p-4 border-b border-gray-50 hover:bg-gray-50 transition-colors flex gap-4 ${n.unread ? 'bg-blue-50/30' : ''}`}>
+                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
+                                            n.type === 'invite' ? 'bg-purple-100 text-purple-600' :
+                                            n.type === 'alert' ? 'bg-red-100 text-red-600' :
+                                            'bg-blue-100 text-blue-600'
+                                        }`}>
+                                            {n.type === 'invite' && <Users size={18} />}
+                                            {n.type === 'alert' && <AlertTriangle size={18} />}
+                                            {n.type === 'info' && <Info size={18} />}
+                                        </div>
+                                        <div className="flex-1">
+                                            <div className="flex justify-between items-start mb-1">
+                                                <p className="text-sm font-bold text-gray-900">{n.title}</p>
+                                                {n.unread && <div className="w-2 h-2 bg-primary rounded-full mt-1.5"></div>}
+                                            </div>
+                                            <p className="text-xs text-gray-600 mb-1">{n.desc}</p>
+                                            <p className="text-[10px] text-gray-400 font-medium">{n.time}</p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="p-3 text-center border-t border-gray-50 bg-gray-50/30">
+                                <button className="text-xs font-bold text-gray-500 hover:text-gray-900">View All History</button>
+                            </div>
+                        </div>
+                    )}
+                </div>
                 
                 <div className="flex items-center gap-3 pl-0 md:pl-4 md:border-l border-gray-200">
                     <div className="text-right hidden sm:block">

@@ -50,15 +50,15 @@ export const JudgeLayout: React.FC<SidebarProps> = ({ children }) => {
         ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 lg:static h-[100vh] lg:h-[calc(100vh-2rem)]
       `}>
         <div className="p-6 lg:p-8 pb-4 flex justify-between items-center">
-          <Link to="/" className="flex items-center gap-3 group">
-            <div className="w-10 h-10 bg-[#5425FF] rounded-xl flex items-center justify-center shadow-lg shadow-[#5425FF]/20 group-hover:scale-105 transition-transform">
-                <Gavel size={20} className="text-white" />
-            </div>
+          <Link to="/" className="flex items-center gap-2 group">
             <div className="flex flex-col">
-              <h1 className="text-2xl font-heading tracking-tight leading-none text-gray-900">
-                HACKON<span className="text-[#5425FF]">X</span>
+              <h1 className="text-3xl font-heading text-gray-900 tracking-tight leading-none group-hover:text-[#5425FF] transition-colors duration-300">
+                HACKON<span className="text-[#5425FF] group-hover:text-gray-900 transition-colors duration-300">X</span>
               </h1>
-              <span className="text-[10px] font-bold text-[#5425FF] tracking-widest uppercase">Verified Judge</span>
+              <div className="flex items-center gap-2 mt-1">
+                  <div className="h-0.5 w-4 bg-[#5425FF] rounded-full group-hover:w-8 transition-all duration-300"></div>
+                  <span className="text-[10px] font-bold text-gray-400 tracking-[0.2em] uppercase">Judge Portal</span>
+              </div>
             </div>
           </Link>
           <button 
