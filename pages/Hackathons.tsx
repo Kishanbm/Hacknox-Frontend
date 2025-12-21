@@ -130,7 +130,14 @@ const Hackathons: React.FC = () => {
               return (
                 <Link key={event.id} to={`/dashboard/hackathons/${event.id}`} onClick={() => console.debug('Hackathon card clicked', event.id, 'hash:', window.location.hash)} className="group bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-xl hover:shadow-primary/5 transition-all duration-300 flex flex-col h-full relative no-underline">
                 {/* Banner */}
-                <div className={`h-32 ${bannerGradient ? 'bg-gradient-to-r ' + bannerGradient : 'bg-gray-50'} relative p-6`}>
+                <div className="h-32 relative overflow-hidden">
+                  {event.banner_url ? (
+                    <img src={event.banner_url} alt={event.name} className="w-full h-full object-cover" />
+                  ) : bannerGradient ? (
+                    <div className={`w-full h-full bg-gradient-to-r ${bannerGradient}`}></div>
+                  ) : (
+                    <div className="w-full h-full bg-gray-50"></div>
+                  )}
                   <div className={`absolute top-4 right-4 backdrop-blur-md text-[10px] font-bold uppercase px-2.5 py-1 rounded-full border flex items-center gap-1.5 ${
                     status === 'Live' 
                     ? 'bg-black/30 text-[#24FF00] border-[#24FF00]/50' 
@@ -160,9 +167,11 @@ const Hackathons: React.FC = () => {
                     <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">{event.organizer_name || ''}</div>
                     <h3 className="text-xl font-bold text-gray-900 mb-2 group-hover:text-primary transition-colors line-clamp-1">{event.name}</h3>
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-gray-500 font-medium">
-                      { (event.start_date && event.end_date) && (
+                      { (event.start_date && event.end_date) ? (
                         <span className="flex items-center gap-1"><Calendar size={14} /> {formatDate(event.start_date)} - {formatDate(event.end_date)}</span>
-                      ) }
+                      ) : (event.submission_deadline) ? (
+                        <span className="flex items-center gap-1"><Calendar size={14} /> Deadline: {formatDate(event.submission_deadline)}</span>
+                      ) : null }
                       { (event.location || event.mode) && (
                         <span className="flex items-center gap-1"><MapPin size={14} /> {event.location || event.mode}</span>
                       ) }

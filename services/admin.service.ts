@@ -7,6 +7,7 @@ export interface CreateHackathonData {
   submission_deadline: string;
   max_team_size?: number;
   event_info_json?: any;
+  banner?: string;
 }
 
 export interface UpdateHackathonData {
@@ -122,8 +123,10 @@ export const adminService = {
   },
 
   // 12. Verify Team
-  verifyTeam: async (teamId: string) => {
-    const response = await apiClient.post(`/admin/team/${teamId}/verify`);
+  verifyTeam: async (teamId: string, action: 'approve' | 'reject') => {
+    const response = await apiClient.post(`/admin/team/${teamId}/verify`, { action }, {
+      headers: { 'Content-Type': 'application/json' }
+    });
     return response.data;
   },
 
@@ -138,10 +141,11 @@ export const adminService = {
   // ==================== SUBMISSIONS MANAGEMENT ====================
 
   // 14. Get Submissions Panel
-  getSubmissions: async (page = 1, limit = 10, filters: any = {}) => {
-    const response = await apiClient.get('/admin/submissions', {
-      params: { page, limit, ...filters }
-    });
+  getSubmissions: async (page = 1, limit = 10, filters: any = {}, hackathonId?: string) => {
+    const config: any = { params: { page, limit, ...filters } };
+    if (hackathonId) config.headers = { 'x-hackathon-id': hackathonId };
+    else config.headers = { 'x-hackathon-id': false };
+    const response = await apiClient.get('/admin/submissions', config);
     return response.data;
   },
 
@@ -186,7 +190,8 @@ export const adminService = {
     if (hackathonId) config.headers = { 'x-hackathon-id': hackathonId };
     else config.headers = { 'x-hackathon-id': false };
     const payload = Array.isArray(data) ? data : [data];
-    const response = await apiClient.post('/admin/assignments/assign', payload, config);
+    // Backend expects { assignments: [...] } in the request body
+    const response = await apiClient.post('/admin/assignments/assign', { assignments: payload }, config);
     return response.data;
   },
 

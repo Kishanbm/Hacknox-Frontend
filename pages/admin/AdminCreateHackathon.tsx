@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AdminLayout } from '../../components/AdminLayout';
+import apiClient from '../../lib/axios';
 import { ChevronLeft, Save, Plus, Trash2, Gavel, Layers, Code, Calendar } from 'lucide-react';
 import { adminService } from '../../services/admin.service';
 
@@ -12,6 +13,8 @@ const AdminCreateHackathon: React.FC = () => {
     // Form States
     const [name, setName] = useState('');
     const [submissionDeadline, setSubmissionDeadline] = useState('');
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
     const [maxTeamSize, setMaxTeamSize] = useState(4);
     const [judgesPerSubmission, setJudgesPerSubmission] = useState(3);
     const [criteria, setCriteria] = useState([{ name: 'Innovation', weight: 25 }]);
@@ -19,6 +22,10 @@ const AdminCreateHackathon: React.FC = () => {
     const [newTech, setNewTech] = useState('');
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
+    const [bannerFile, setBannerFile] = useState<File | null>(null);
+    const [bannerUrl, setBannerUrl] = useState<string>('');
+    const [uploadingBanner, setUploadingBanner] = useState(false);
+    const bannerInputRef = useRef<HTMLInputElement | null>(null);
 
     useEffect(() => {
         if (isEditMode) {
@@ -36,6 +43,9 @@ const AdminCreateHackathon: React.FC = () => {
                     setJudgesPerSubmission(info.judges_per_submission || 3);
                     setCriteria(info.evaluation_criteria || [{ name: 'Innovation', weight: 25 }]);
                     setTechStack(info.tech_stack || ['React', 'Node.js', 'Python']);
+                    setBannerUrl(data.banner || '');
+                    setStartDate(info.start_date || '');
+                    setEndDate(info.end_date || '');
                 } catch (err) {
                     console.error('[AdminCreateHackathon] Failed to load hackathon for edit', err);
                     alert('Failed to load hackathon details for editing.');
@@ -77,7 +87,9 @@ const AdminCreateHackathon: React.FC = () => {
         const eventInfo = {
             judges_per_submission: judgesPerSubmission,
             evaluation_criteria: criteria,
-            tech_stack: techStack
+            tech_stack: techStack,
+            start_date: startDate || null,
+            end_date: endDate || null
         };
 
         try {
@@ -87,7 +99,8 @@ const AdminCreateHackathon: React.FC = () => {
                     name,
                     submission_deadline: submissionDeadline,
                     max_team_size: maxTeamSize,
-                    event_info_json: eventInfo
+                    event_info_json: eventInfo,
+                    banner: bannerUrl || undefined
                 });
                 alert('Hackathon updated successfully!');
             } else {
@@ -95,7 +108,8 @@ const AdminCreateHackathon: React.FC = () => {
                     name,
                     submission_deadline: submissionDeadline,
                     max_team_size: maxTeamSize,
-                    event_info_json: eventInfo
+                    event_info_json: eventInfo,
+                    banner: bannerUrl || undefined
                 });
                 alert('Hackathon created successfully!');
             }
@@ -105,6 +119,26 @@ const AdminCreateHackathon: React.FC = () => {
             alert('Failed to save: ' + (error.response?.data?.message || error.message));
         } finally {
             setSaving(false);
+        }
+    };
+
+    const uploadBannerFile = async (file: File) => {
+        try {
+            setUploadingBanner(true);
+            const form = new FormData();
+            form.append('banner', file);
+            const res = await apiClient.post('/uploads/banner', form, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            const url = res.data?.url;
+            if (url) setBannerUrl(url);
+            return url;
+        } catch (err) {
+            console.error('Banner upload failed', err);
+            alert('Failed to upload banner.');
+            return null;
+        } finally {
+            setUploadingBanner(false);
         }
     };
 
@@ -129,6 +163,47 @@ const AdminCreateHackathon: React.FC = () => {
                         )}
                     </button>
                 </div>
+                {/* Banner Upload (clickable full-card) */}
+                <div
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); (bannerInputRef.current as HTMLInputElement | null)?.click(); } }}
+                    onClick={() => (bannerInputRef.current as HTMLInputElement | null)?.click()}
+                    className="bg-white p-0 rounded-3xl border border-gray-200 shadow-sm overflow-hidden cursor-pointer"
+                >
+                    <h3 className="sr-only">Event Banner (optional)</h3>
+                    <div className="w-full h-44 flex items-center justify-center bg-transparent relative">
+                        {/* Hidden file input triggered by the card */}
+                        <input
+                            ref={bannerInputRef}
+                            type="file"
+                            accept="image/*"
+                            style={{ display: 'none' }}
+                            onChange={async (e) => {
+                                const f = e.target.files?.[0];
+                                if (!f) return;
+                                setBannerFile(f);
+                                const url = await uploadBannerFile(f);
+                                if (url) setBannerUrl(url);
+                            }}
+                        />
+
+                        {bannerUrl ? (
+                            <img src={bannerUrl} alt="banner preview" className="w-full h-44 object-cover" />
+                        ) : (
+                            <div className="w-full h-full flex flex-col items-center justify-center border-2 border-dashed border-gray-200 rounded-md text-center p-4">
+                                <div className="text-sm font-bold text-gray-600">Upload Event Banner</div>
+                                <div className="text-xs text-gray-400 mt-1">Click to choose a file (recommended 1200×400)</div>
+                            </div>
+                        )}
+
+                        {uploadingBanner && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                                <div className="text-white">Uploading...</div>
+                            </div>
+                        )}
+                    </div>
+                </div>
 
                 <div className="space-y-6">
                     {/* 1. Basic Info */}
@@ -145,6 +220,24 @@ const AdminCreateHackathon: React.FC = () => {
                                     value={name}
                                     onChange={(e) => setName(e.target.value)}
                                     className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-[#5425FF] font-medium" 
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-2">Start Date</label>
+                                <input 
+                                    type="datetime-local" 
+                                    value={startDate}
+                                    onChange={(e) => setStartDate(e.target.value)}
+                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-[#5425FF]" 
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-2">End Date</label>
+                                <input 
+                                    type="datetime-local" 
+                                    value={endDate}
+                                    onChange={(e) => setEndDate(e.target.value)}
+                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-[#5425FF]" 
                                 />
                             </div>
                             <div>

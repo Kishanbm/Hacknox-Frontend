@@ -1,41 +1,52 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { JudgeLayout } from '../../components/JudgeLayout';
-import { ENDPOINTS } from '../../config/endpoints';
 import { Search, Filter, Clock, CheckCircle2, ChevronRight, FileText, ArrowRight } from 'lucide-react';
-
-// Extended mock data with hackathon IDs
-const assignments = [
-    { id: 's1', project: 'NeuroNet', team: 'Alpha Squad', hackathon: 'HackOnX 2025', status: 'Pending', score: '-', deadline: '24h left', category: 'AI/ML' },
-    { id: 's2', project: 'EcoTrack', team: 'GreenGen', hackathon: 'Sustainable Future', status: 'Draft', score: '-', deadline: '48h left', category: 'Sustainability' },
-    { id: 's3', project: 'DeFi Bridge', team: 'BlockBusters', hackathon: 'HackOnX 2025', status: 'Completed', score: '35/40', deadline: 'Submitted', category: 'Blockchain' },
-    { id: 's4', project: 'HealthAI', team: 'MedTech', hackathon: 'Global AI Challenge', status: 'Pending', score: '-', deadline: '12h left', category: 'Healthcare' },
-    { id: 's5', project: 'CyberShield', team: 'NetSec', hackathon: 'HackOnX 2025', status: 'Completed', score: '38/40', deadline: 'Submitted', category: 'Security' },
-];
+import { judgeService, JudgeAssignment } from '../../services/judge.service';
 
 const JudgeAssignments: React.FC = () => {
     const navigate = useNavigate();
     const [statusFilter, setStatusFilter] = useState('All');
     const [hackathonFilter, setHackathonFilter] = useState('All Events');
+    const [assignments, setAssignments] = useState<JudgeAssignment[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [events, setEvents] = useState<{id: string, title: string}[]>([]);
 
-    // 🔗 API INTEGRATION POINT
     useEffect(() => {
-        // LINK: Fetch Assignment Queue
-        // fetch(ENDPOINTS.JUDGE.ASSIGNMENTS)
-    }, []);
+        const fetchData = async () => {
+            setLoading(true);
+            try {
+                // Fetch events for the dropdown
+                const eventsData = await judgeService.getEvents();
+                // Controller returns: { message, events: [...] }
+                setEvents(eventsData.events || eventsData || []);
+
+                // Fetch assignments
+                const response = await judgeService.getAssignedTeams(1, 100, hackathonFilter === 'All Events' ? undefined : hackathonFilter);
+                setAssignments(response.teams);
+            } catch (error) {
+                console.error("Failed to fetch assignments", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchData();
+    }, [hackathonFilter]);
 
     const filtered = assignments.filter(a => {
+        const evalStatusRaw = (a as any).evaluationStatus ?? (a as any).evaluation?.[0]?.status ?? 'pending';
+
+        let uiStatus = 'Pending';
+        if (evalStatusRaw === 'draft') uiStatus = 'Draft';
+        if (evalStatusRaw === 'submitted') uiStatus = 'Completed';
+        if (evalStatusRaw === 'pending') uiStatus = 'Pending';
+
         const matchesStatus = statusFilter === 'All' ? true : 
-                              statusFilter === 'Pending' ? (a.status === 'Pending' || a.status === 'Draft') : 
-                              a.status === statusFilter;
+                              statusFilter === 'Pending' ? (uiStatus === 'Pending' || uiStatus === 'Draft') : 
+                              uiStatus === statusFilter;
         
-        const matchesHackathon = hackathonFilter === 'All Events' ? true : a.hackathon === hackathonFilter;
-
-        return matchesStatus && matchesHackathon;
+        return matchesStatus;
     });
-
-    // Extract unique hackathons for dropdown
-    const uniqueHackathons = ['All Events', ...Array.from(new Set(assignments.map(a => a.hackathon)))];
 
     return (
         <JudgeLayout>
@@ -56,10 +67,20 @@ const JudgeAssignments: React.FC = () => {
                         </div>
                         <select 
                             value={hackathonFilter}
-                            onChange={(e) => setHackathonFilter(e.target.value)}
+                            onChange={(e) => {
+                                const val = e.target.value;
+                                setHackathonFilter(val);
+                                // Store in localStorage so evaluation endpoints can use it
+                                if (val === 'All Events') {
+                                    localStorage.removeItem('selectedHackathonId');
+                                } else {
+                                    localStorage.setItem('selectedHackathonId', val);
+                                }
+                            }}
                             className="px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-600 focus:outline-none focus:border-[#5425FF] text-sm font-bold appearance-none cursor-pointer hover:bg-gray-50"
                         >
-                            {uniqueHackathons.map(h => <option key={h} value={h}>{h}</option>)}
+                            <option value="All Events">All Events</option>
+                            {events.map(h => <option key={h.id} value={h.id}>{h.name || h.title}</option>)}
                         </select>
                     </div>
                 </div>
@@ -96,54 +117,76 @@ const JudgeAssignments: React.FC = () => {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-50">
-                                {filtered.length > 0 ? (
-                                    filtered.map(item => (
-                                        <tr key={item.id} className="hover:bg-gray-50/50 transition-colors group">
+                                {loading ? (
+                                    <tr>
+                                        <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
+                                            Loading assignments...
+                                        </td>
+                                    </tr>
+                                ) : filtered.length > 0 ? (
+                                    filtered.map((item, idx) => {
+                                        // Support both backend shapes: flattened (new) and nested (old)
+                                        const evalStatusRaw = (item as any).evaluationStatus ?? (item as any).evaluation?.[0]?.status ?? 'pending';
+                                        let uiStatus = 'Pending';
+                                        if (evalStatusRaw === 'draft') uiStatus = 'Draft';
+                                        if (evalStatusRaw === 'submitted') uiStatus = 'Completed';
+
+                                        const score = (item as any).evaluationScore ?? (item as any).evaluation?.[0]?.score ?? '-';
+
+                                        const projectTitle = (item as any).teamName ?? (item as any).team?.submission?.[0]?.title ?? (item as any).team?.name ?? 'Untitled';
+                                        const teamName = (item as any).teamName ?? (item as any).team?.name ?? '';
+                                        const hackathonTitle = (item as any).hackathonName ?? (item as any).hackathon?.name ?? (item as any).hackathon?.title ?? 'Unknown Event';
+                                        const category = (item as any).projectCategory ?? (item as any).team?.project_category ?? 'General';
+                                        const deadline = ((item as any).submissionStatus === 'submitted' || (item as any).evaluationSubmittedAt) ? 'Submitted' : 'Open';
+                                        const rowKey = (item as any).assignmentId ?? (item as any).id ?? (item as any).teamId ?? idx;
+                                        const teamIdForRoute = (item as any).teamId ?? (item as any).team?.id;
+
+                                        return (
+                                        <tr key={rowKey} className="hover:bg-gray-50/50 transition-colors group">
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <div className="flex items-center gap-3">
                                                     <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center text-gray-500 shrink-0">
                                                         <FileText size={20} />
                                                     </div>
                                                     <div>
-                                                        <div className="font-bold text-gray-900">{item.project}</div>
-                                                        <div className="text-xs text-gray-500">{item.team}</div>
+                                                        <div className="font-bold text-gray-900">{projectTitle}</div>
+                                                        <div className="text-xs text-gray-500">{teamName}</div>
                                                     </div>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 text-sm font-medium text-gray-600 whitespace-nowrap">
-                                                {item.hackathon}
-                                                <div className="text-xs text-gray-400">{item.category}</div>
+                                                {hackathonTitle}
+                                                <div className="text-xs text-gray-400">{category}</div>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <span className={`flex items-center gap-1.5 text-sm font-bold ${
-                                                    item.status === 'Completed' ? 'text-green-600' : 
-                                                    item.status === 'Draft' ? 'text-amber-600' : 'text-gray-600'
+                                                    uiStatus === 'Completed' ? 'text-green-600' : 
+                                                    uiStatus === 'Draft' ? 'text-amber-600' : 'text-gray-600'
                                                 }`}>
-                                                    {item.status === 'Completed' ? <CheckCircle2 size={16} /> : <Clock size={16} />}
-                                                    {item.status}
+                                                    {uiStatus === 'Completed' ? <CheckCircle2 size={16} /> : <Clock size={16} />}
+                                                    {uiStatus}
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 text-sm text-gray-500 font-medium whitespace-nowrap">
-                                                {item.deadline}
+                                                {deadline}
                                             </td>
                                             <td className="px-6 py-4 text-sm font-bold text-gray-900 whitespace-nowrap">
-                                                {item.score}
+                                                {score}
                                             </td>
                                             <td className="px-6 py-4 text-right whitespace-nowrap">
                                                 <button 
-                                                    onClick={() => navigate(`/judge/evaluate/${item.id}`)}
+                                                    onClick={() => navigate(`/judge/evaluate/${teamIdForRoute}`)}
                                                     className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 ml-auto ${
-                                                        item.status === 'Completed' 
+                                                        uiStatus === 'Completed' 
                                                         ? 'bg-gray-100 text-gray-600 hover:bg-gray-200' 
                                                         : 'bg-[#5425FF] text-white hover:bg-[#4015D1] shadow-lg shadow-[#5425FF]/20'
-                                                    }`}
-                                                >
-                                                    {item.status === 'Completed' ? 'Edit Score' : 'Grade Now'}
-                                                    {item.status !== 'Completed' && <ArrowRight size={12} />}
+                                                    }`}>
+                                                    {uiStatus === 'Completed' ? 'Edit Score' : 'Grade Now'}
+                                                    {uiStatus !== 'Completed' && <ArrowRight size={12} />}
                                                 </button>
                                             </td>
                                         </tr>
-                                    ))
+                                    )})
                                 ) : (
                                     <tr>
                                         <td colSpan={6} className="px-6 py-12 text-center text-gray-500">

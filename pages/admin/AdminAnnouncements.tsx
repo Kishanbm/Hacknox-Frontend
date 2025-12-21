@@ -77,7 +77,7 @@ const AdminAnnouncements: React.FC = () => {
             // First, create the announcement resource so we have an ID to send
             const createPayload: any = {
                 title,
-                message,
+                content: message,
                 audience,
                 priority: priority.toLowerCase(),
             };
@@ -121,7 +121,7 @@ const AdminAnnouncements: React.FC = () => {
             // Create announcement first
             const createPayload: any = {
                 title,
-                message,
+                content: message,
                 audience,
                 priority: priority.toLowerCase(),
             };
@@ -133,8 +133,8 @@ const AdminAnnouncements: React.FC = () => {
             const announcementId = created?.id || created?.announcement?.id || created?.announcementId;
             if (!announcementId) throw new Error('Announcement ID not returned from create API');
 
-            // Then schedule it
-            await adminService.scheduleAnnouncement({ announcementId, scheduled_at: scheduledAt }, selectedHackathonId);
+            // Then schedule it (backend expects `scheduledAt` camelCase)
+            await adminService.scheduleAnnouncement({ announcementId, scheduledAt }, selectedHackathonId);
             setSuccessMessage('Announcement scheduled successfully!');
             setTitle('');
             setMessage('');

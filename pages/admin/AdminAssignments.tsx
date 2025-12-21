@@ -57,6 +57,13 @@ const AdminAssignments: React.FC = () => {
                 const res = await adminService.getMyHackathons();
                 const list = res?.hackathons || res || [];
                 setHackathons(list);
+
+                // If a stored selected id exists but isn't part of this admin's hackathons, clear it
+                const stored = localStorage.getItem('selectedHackathonId') || undefined;
+                if (stored && !list.find((h: any) => h.id === stored)) {
+                    localStorage.removeItem('selectedHackathonId');
+                    setSelectedHackathonId(undefined);
+                }
             } catch (e) {
                 // ignore
             }
@@ -68,11 +75,16 @@ const AdminAssignments: React.FC = () => {
     useEffect(() => {
         if (selectedHackathonId) {
             localStorage.setItem('selectedHackathonId', selectedHackathonId);
+            // Load assignments only when a specific hackathon is selected
+            load();
+            loadJudgesAndTeams();
         } else {
             localStorage.removeItem('selectedHackathonId');
+            // Clear data when no hackathon selected to avoid showing unrelated platform-wide data
+            setAssignments([]);
+            setJudges([]);
+            setTeams([]);
         }
-        load();
-        loadJudgesAndTeams();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedHackathonId]);
 

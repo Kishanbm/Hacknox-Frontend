@@ -28,6 +28,7 @@ import JudgeAssignments from './pages/judge/JudgeAssignments';
 import JudgeEvaluation from './pages/judge/JudgeEvaluation';
 import JudgeHackathons from './pages/judge/JudgeHackathons';
 import JudgeProfile from './pages/judge/JudgeProfile';
+import JudgeSettings from './pages/judge/JudgeSettings';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminHackathons from './pages/admin/AdminHackathons';
 import AdminLeaderboard from './pages/admin/AdminLeaderboard';
@@ -169,6 +170,11 @@ const App: React.FC = () => {
           <Route path="/judge/profile" element={
             <ProtectedRoute allowedRoles={['judge']}>
               <JudgeProfile />
+            </ProtectedRoute>
+          } />
+          <Route path="/judge/settings" element={
+            <ProtectedRoute allowedRoles={['judge']}>
+              <JudgeSettings />
             </ProtectedRoute>
           } />
           <Route path="/judge/*" element={<Navigate to="/judge/dashboard" replace />} />

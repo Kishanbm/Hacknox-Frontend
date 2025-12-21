@@ -17,13 +17,58 @@ const AdminLeaderboard: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
+      // If this admin hasn't created any hackathons, don't fetch global leaderboard
+      // backend will return other hackathons' teams; instead show empty state
+      if (!hackathons || hackathons.length === 0) {
+        setRows([]);
+        return;
+      }
+
+      // Validate selected hackathon belongs to this admin; if not, clear it
+      if (selectedHackathonId) {
+        const found = hackathons.find(h => h.id === selectedHackathonId);
+        if (!found) {
+          setSelectedHackathonId(undefined);
+          localStorage.removeItem('selectedHackathonId');
+        }
+      }
+
       const filter = isPublishedFilter === '' ? undefined : isPublishedFilter === 'true' ? true : false;
       const res = await adminService.getLeaderboard(filter as any, selectedHackathonId);
       // tolerate various backend response shapes
-      if (Array.isArray(res)) setRows(res as any[]);
-      else if (res?.leaderboard) setRows(res.leaderboard);
-      else if (res?.data) setRows(res.data);
-      else setRows([]);
+      let fetchedRows: any[] = [];
+      if (Array.isArray(res)) fetchedRows = res as any[];
+      else if (res?.leaderboard) fetchedRows = res.leaderboard;
+      else if (res?.data) fetchedRows = res.data;
+      else fetchedRows = [];
+
+      // If 'All' is selected (no hackathon filter) we should still restrict results
+      // to only hackathons managed by this admin. Backend may return platform-wide
+      // rows when header is opt-out; filter them client-side by extracting a
+      // possible hackathon id from each row and checking membership.
+      if (!selectedHackathonId && hackathons && hackathons.length > 0) {
+        const allowed = new Set(hackathons.map((h: any) => h.id));
+        const extractHackathonId = (row: any) => {
+          // common shapes: hackathon_id, hackathonId, hackathon?.id, team?.hackathon_id
+          if (!row) return undefined;
+          if (row.hackathon_id) return row.hackathon_id;
+          if (row.hackathonId) return row.hackathonId;
+          if (row.hackathon && (row.hackathon.id || row.hackathon.hackathon_id || row.hackathonId)) return row.hackathon.id || row.hackathon.hackathon_id || row.hackathonId;
+          if (row.team && (row.team.hackathon_id || row.team.hackathonId)) return row.team.hackathon_id || row.team.hackathonId;
+          // fallback: sometimes team object contains hackathon reference under team.hackathon
+          if (row.team && row.team.hackathon && (row.team.hackathon.id || row.team.hackathon_id)) return row.team.hackathon.id || row.team.hackathon_id;
+          return undefined;
+        };
+
+        fetchedRows = fetchedRows.filter(r => {
+          const hid = extractHackathonId(r);
+          // if no hackathon id on row, be conservative and exclude it
+          if (!hid) return false;
+          return allowed.has(hid);
+        });
+      }
+
+      setRows(fetchedRows);
     } catch (e: any) {
       setError(e?.message || 'Failed to load leaderboard');
     } finally {
@@ -32,9 +77,10 @@ const AdminLeaderboard: React.FC = () => {
   };
 
   useEffect(() => {
+    // Trigger load when filters, selected hackathon or hackathon list changes
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isPublishedFilter, selectedHackathonId]);
+  }, [isPublishedFilter, selectedHackathonId, hackathons]);
 
   useEffect(() => {
     // load hackathons for selector
@@ -43,6 +89,22 @@ const AdminLeaderboard: React.FC = () => {
         const res = await adminService.getMyHackathons();
         const list = res?.hackathons || res || [];
         setHackathons(list);
+
+        // If a stored selected id exists but isn't part of this admin's hackathons, clear it
+        const stored = localStorage.getItem('selectedHackathonId') || undefined;
+        if (stored && !list.find((h: any) => h.id === stored)) {
+          localStorage.removeItem('selectedHackathonId');
+          setSelectedHackathonId(undefined);
+        }
+
+        // If the admin only manages a single hackathon, default-select it to avoid showing platform-wide "All" results
+        if ((!stored || stored === undefined) && list.length === 1) {
+          const only = list[0];
+          if (only && only.id) {
+            setSelectedHackathonId(only.id);
+            localStorage.setItem('selectedHackathonId', only.id);
+          }
+        }
       } catch (e) {
         // ignore
       }
@@ -104,10 +166,15 @@ const AdminLeaderboard: React.FC = () => {
                 <select
                   value={selectedHackathonId || ''}
                   onChange={(e) => {
-                    const v = e.target.value || undefined;
-                    setSelectedHackathonId(v);
-                    if (v) localStorage.setItem('selectedHackathonId', v);
-                    else localStorage.removeItem('selectedHackathonId');
+                      const v = e.target.value || undefined;
+                      setSelectedHackathonId(v);
+                      if (v) {
+                        localStorage.setItem('selectedHackathonId', v);
+                        try { localStorage.setItem('nextor_active_hackathon_id', v); } catch (err) {}
+                      } else {
+                        localStorage.removeItem('selectedHackathonId');
+                        try { localStorage.removeItem('nextor_active_hackathon_id'); } catch (err) {}
+                      }
                   }}
                   className="px-3 py-2 text-sm border rounded-lg"
                 >

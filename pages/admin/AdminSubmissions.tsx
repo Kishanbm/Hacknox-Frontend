@@ -33,6 +33,13 @@ const AdminSubmissions: React.FC = () => {
                 const res = await adminService.getMyHackathons();
                 const list = res?.hackathons || res || [];
                 setHackathons(list);
+
+                // Clear stored selected hackathon id if it doesn't belong to this admin
+                const stored = localStorage.getItem('selectedHackathonId') || undefined;
+                if (stored && !list.find((h: any) => h.id === stored)) {
+                    localStorage.removeItem('selectedHackathonId');
+                    setSelectedHackathonId(undefined);
+                }
             } catch (e) {
                 // ignore
             }
@@ -49,7 +56,7 @@ const AdminSubmissions: React.FC = () => {
         }
         load();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedHackathonId, page, statusFilter]);
+    }, [selectedHackathonId, page, statusFilter, hackathons]);
 
     const load = async () => {
         try {
@@ -58,10 +65,31 @@ const AdminSubmissions: React.FC = () => {
             const filters: any = {};
             if (statusFilter) filters.status = statusFilter;
             
-            const res = await adminService.getSubmissions(page, limit, filters);
-            const subsList = res?.submissions || res?.data || (Array.isArray(res) ? res : []);
-            setSubmissions(subsList);
-            setTotalCount(res?.totalCount || res?.total || subsList.length);
+            // If admin has no hackathons, show empty
+            if (!hackathons || hackathons.length === 0) {
+                setSubmissions([]);
+                setTotalCount(0);
+                return;
+            }
+
+            // If a specific hackathon is selected, request server-side with hackathon header
+            if (selectedHackathonId) {
+                const res = await adminService.getSubmissions(page, limit, filters, selectedHackathonId);
+                const subsList = res?.submissions || res?.data || (Array.isArray(res) ? res : []);
+                setSubmissions(subsList);
+                setTotalCount(res?.totalCount || res?.total || subsList.length);
+                return;
+            }
+
+            // When 'All' selected, fetch per-admin-hackathon and merge results client-side
+            const perHackathonLimit = 1000;
+            const calls = hackathons.map(h => adminService.getSubmissions(1, perHackathonLimit, filters, h.id).catch(() => ({ submissions: [] })));
+            const results = await Promise.all(calls);
+            const combined = results.flatMap((r: any) => r.submissions || []);
+            const start = (page - 1) * limit;
+            const paged = combined.slice(start, start + limit);
+            setSubmissions(paged);
+            setTotalCount(combined.length);
         } catch (e: any) {
             console.error('Failed to load submissions:', e);
             setError(e?.message || 'Failed to load submissions');

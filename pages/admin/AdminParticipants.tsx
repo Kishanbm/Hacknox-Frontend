@@ -37,15 +37,34 @@ const AdminParticipants: React.FC = () => {
         try {
             setLoading(true);
             setError(null);
-            const res = await adminService.getTeams(
-                page,
-                limit,
-                { status: status || undefined },
-                search || undefined,
-                selectedHackathonId
-            );
-            setTeams(res.teams || []);
-            setTotalCount(res.totalCount || res.total || 0);
+            // If admin has no hackathons, don't fetch global teams
+            if (!hackathons || hackathons.length === 0) {
+                setTeams([]);
+                setTotalCount(0);
+                return;
+            }
+
+            const filters = { status: status || undefined };
+
+            // If a specific hackathon is selected, fetch via backend normally
+            if (selectedHackathonId) {
+                const res = await adminService.getTeams(page, limit, filters, search || undefined, selectedHackathonId);
+                setTeams(res.teams || []);
+                setTotalCount(res.totalCount || res.total || (res.teams ? res.teams.length : 0));
+                return;
+            }
+
+            // When "All Hackathons" is selected, fetch teams for each hackathon owned by this admin
+            // and merge results on the frontend to ensure we only show admin-owned teams.
+            const perHackathonLimit = 1000; // fetch reasonably large set per hackathon
+            const calls = hackathons.map((h) => adminService.getTeams(1, perHackathonLimit, filters, search || undefined, h.id).catch(() => ({ teams: [] })));
+            const results = await Promise.all(calls);
+            const combined = results.flatMap((r: any) => r.teams || []);
+            // apply simple frontend pagination over combined results
+            const start = (page - 1) * limit;
+            const paged = combined.slice(start, start + limit);
+            setTeams(paged);
+            setTotalCount(combined.length);
         } catch (e: any) {
             setError(e.message || 'Failed to load teams');
         } finally {
@@ -57,7 +76,15 @@ const AdminParticipants: React.FC = () => {
         const fetchHackathons = async () => {
             try {
                 const res = await adminService.getMyHackathons();
-                setHackathons(res?.hackathons || res || []);
+                const list = res?.hackathons || res || [];
+                setHackathons(list);
+
+                // If a stored selected id exists but isn't part of this admin's hackathons, clear it
+                const stored = localStorage.getItem('selectedHackathonId') || undefined;
+                if (stored && !list.find((h: any) => h.id === stored)) {
+                    localStorage.removeItem('selectedHackathonId');
+                    setSelectedHackathonId(undefined);
+                }
             } catch (e) {
                 // ignore
             }
@@ -68,7 +95,7 @@ const AdminParticipants: React.FC = () => {
     useEffect(() => {
         load();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [page, status, search, selectedHackathonId]);
+    }, [page, status, search, selectedHackathonId, hackathons]);
 
     const stats = useMemo(() => {
         const total = teams.length;

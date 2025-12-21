@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { JudgeLayout } from '../../components/JudgeLayout';
 import { ENDPOINTS } from '../../config/endpoints';
+import authService from '../../services/auth.service';
+import { MeResponse } from '../../types/api';
 import { 
     UserCircle, MapPin, Link as LinkIcon, Github, Linkedin, 
     Edit2, Save, Mail, Briefcase, Award, FileCheck, Shield, CheckCircle2,
@@ -32,19 +34,21 @@ interface Education {
 
 const JudgeProfile: React.FC = () => {
     const [isEditing, setIsEditing] = useState(false);
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
     
     // Profile Basic Info
     const [profile, setProfile] = useState({
-        name: 'Judge Davis',
-        role: 'Senior Technical Judge',
-        organization: 'Tech Innovators Inc.',
-        location: 'San Francisco, CA',
-        bio: 'Senior Software Architect with 15+ years of experience in distributed systems and AI. Passionate about mentoring upcoming developers and evaluating innovative solutions.',
-        website: 'judgedavis.tech',
-        email: 'judge.davis@example.com',
-        github: 'github.com/jdavis',
-        linkedin: 'linkedin.com/in/jdavis',
-        skills: ['System Design', 'Cloud Architecture', 'Machine Learning', 'Blockchain', 'Cybersecurity']
+        name: '',
+        role: '',
+        organization: '',
+        location: '',
+        bio: '',
+        website: '',
+        email: '',
+        github: '',
+        linkedin: '',
+        skills: [] as string[]
     });
 
     // Work Experience State
@@ -77,18 +81,71 @@ const JudgeProfile: React.FC = () => {
         { id: 2, degree: 'B.Tech Computer Science', school: 'IIT Bombay', period: '2012 - 2016' }
     ]);
 
-    // 🔗 API INTEGRATION POINT
+    // Fetch Judge Profile Data
     useEffect(() => {
-        // LINK: Fetch Judge Profile Data
-        // fetch(ENDPOINTS.JUDGE.PROFILE)
+        const fetchProfile = async () => {
+            try {
+                setLoading(true);
+                const userData = await authService.me();
+                
+                // Map API data to profile state
+                const firstName = userData.Profiles?.first_name || '';
+                const lastName = userData.Profiles?.last_name || '';
+                const fullName = `${firstName} ${lastName}`.trim() || 'Judge';
+                
+                setProfile({
+                    name: fullName,
+                    role: userData.role === 'judge' ? 'Technical Judge' : userData.role,
+                    organization: '', // Not available in API
+                    location: '', // Not available in API
+                    bio: userData.Profiles?.bio || '',
+                    website: '', // Not available in API
+                    email: userData.email || '',
+                    github: userData.Profiles?.github_url || '',
+                    linkedin: userData.Profiles?.linkedin_url || '',
+                    skills: [] // Not available in API, keep empty
+                });
+            } catch (error) {
+                console.error('Failed to fetch profile:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        
+        fetchProfile();
     }, []);
 
     // --- Handlers ---
 
-    const handleSave = () => {
-        setIsEditing(false);
-        // 🔗 API INTEGRATION POINT
-        // fetch(ENDPOINTS.JUDGE.UPDATE_PROFILE, { method: 'POST', body: JSON.stringify({ profile, experience, education, certifications }) })
+    const handleSave = async () => {
+        try {
+            setSaving(true);
+            
+            // Split name back to first_name and last_name
+            const nameParts = profile.name.trim().split(' ');
+            const first_name = nameParts[0] || '';
+            const last_name = nameParts.slice(1).join(' ') || '';
+            
+            // Prepare update payload with only available API fields
+            const updateData: any = {
+                first_name,
+                last_name,
+            };
+            
+            // Only include fields that have values
+            if (profile.bio) updateData.bio = profile.bio;
+            if (profile.github) updateData.github_url = profile.github;
+            if (profile.linkedin) updateData.linkedin_url = profile.linkedin;
+            
+            await authService.updateProfile(updateData);
+            
+            setIsEditing(false);
+        } catch (error) {
+            console.error('Failed to save profile:', error);
+            alert('Failed to save profile. Please try again.');
+        } finally {
+            setSaving(false);
+        }
     };
 
     // Work Experience Handlers
@@ -125,6 +182,76 @@ const JudgeProfile: React.FC = () => {
         setEducation(education.map(e => e.id === id ? { ...e, [field]: value } : e));
     };
 
+    // Pre-render experience items to avoid heavy inline JSX in template
+    const renderedExperience = experience.map((exp) => (
+        <div key={exp.id} className="relative pl-10 group">
+            <div className="absolute left-0 top-1.5 w-10 h-10 bg-white border border-gray-200 rounded-full flex items-center justify-center text-gray-400 shadow-sm z-10 group-hover:border-[#5425FF] group-hover:text-[#5425FF] transition-colors">
+                <Building size={18} />
+            </div>
+
+            <div className="flex justify-between items-start">
+                <div className="w-full">
+                    {isEditing ? (
+                        <div className="space-y-3 mb-4 p-4 bg-gray-50 rounded-xl border border-gray-200">
+                            <div className="flex justify-between items-center mb-2">
+                                <span className="text-xs font-bold text-gray-400 uppercase">Edit Role</span>
+                                <button onClick={() => removeExperience(exp.id)} className="text-red-400 hover:text-red-600">
+                                    <Trash2 size={16} />
+                                </button>
+                            </div>
+                            <input 
+                                className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm font-bold focus:border-[#5425FF] focus:outline-none" 
+                                value={exp.role}
+                                onChange={e => updateExperience(exp.id, 'role', e.target.value)}
+                                placeholder="Role Title"
+                            />
+                            <div className="flex flex-col sm:flex-row gap-2">
+                                <input 
+                                    className="flex-1 bg-white border border-gray-200 rounded-lg px-3 py-2 text-xs focus:border-[#5425FF] focus:outline-none" 
+                                    value={exp.company}
+                                    onChange={e => updateExperience(exp.id, 'company', e.target.value)}
+                                    placeholder="Company"
+                                />
+                                <input 
+                                    className="flex-1 bg-white border border-gray-200 rounded-lg px-3 py-2 text-xs focus:border-[#5425FF] focus:outline-none" 
+                                    value={exp.period}
+                                    onChange={e => updateExperience(exp.id, 'period', e.target.value)}
+                                    placeholder="Period (e.g. 2020-2022)"
+                                />
+                            </div>
+                            <textarea 
+                                className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-xs resize-none focus:border-[#5425FF] focus:outline-none"
+                                value={exp.desc}
+                                onChange={e => updateExperience(exp.id, 'desc', e.target.value)}
+                                rows={2}
+                                placeholder="Description"
+                            />
+                        </div>
+                    ) : (
+                        <div>
+                            <h4 className="font-bold text-gray-900">{exp.role}</h4>
+                            <div className="text-xs text-gray-500 font-medium mb-1">{exp.company} • {exp.period}</div>
+                            <p className="text-sm text-gray-600">{exp.desc}</p>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    ));
+
+    if (loading) {
+        return (
+            <JudgeLayout>
+                <div className="max-w-7xl mx-auto pb-20 lg:pb-0 flex items-center justify-center h-96">
+                    <div className="text-center">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#5425FF] mx-auto mb-4"></div>
+                        <p className="text-gray-500">Loading profile...</p>
+                    </div>
+                </div>
+            </JudgeLayout>
+        );
+    }
+
     return (
         <JudgeLayout>
             <div className="max-w-7xl mx-auto pb-20 lg:pb-0">
@@ -137,7 +264,7 @@ const JudgeProfile: React.FC = () => {
                     
                     <div className="absolute top-24 left-6 right-6 lg:left-12 flex flex-col md:flex-row items-end gap-6">
                         <div className="w-32 h-32 rounded-full border-4 border-white bg-[#0F172A] text-white flex items-center justify-center text-3xl font-heading shadow-xl z-10 relative shrink-0">
-                            JD
+                            {profile.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'JD'}
                             <div className="absolute bottom-2 right-2 w-6 h-6 bg-[#24FF00] border-4 border-[#0F172A] rounded-full shadow-[0_0_10px_#24FF00]"></div>
                         </div>
                         <div className="mb-4 flex-1">
@@ -179,13 +306,20 @@ const JudgeProfile: React.FC = () => {
                         <div className="mb-4 w-full md:w-auto">
                             <button 
                                 onClick={isEditing ? handleSave : () => setIsEditing(true)}
-                                className={`px-6 py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all shadow-sm w-full md:w-auto ${
+                                disabled={saving}
+                                className={`px-6 py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all shadow-sm w-full md:w-auto disabled:opacity-50 disabled:cursor-not-allowed ${
                                     isEditing 
                                     ? 'bg-[#24FF00] text-black hover:bg-[#1fe600] shadow-[0_4px_14px_rgba(36,255,0,0.3)]' 
                                     : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'
                                 }`}
                             >
-                                {isEditing ? <><Save size={16} /> Save Changes</> : <><Edit2 size={16} /> Edit Profile</>}
+                                {saving ? (
+                                    <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div> Saving...</>
+                                ) : isEditing ? (
+                                    <><Save size={16} /> Save Changes</>
+                                ) : (
+                                    <><Edit2 size={16} /> Edit Profile</>
+                                )}
                             </button>
                         </div>
                     </div>
@@ -198,37 +332,49 @@ const JudgeProfile: React.FC = () => {
                         <div className="bg-white rounded-3xl p-6 border border-gray-200 shadow-sm">
                             <h3 className="font-bold text-gray-900 mb-4">Contact & Info</h3>
                             <div className="space-y-4 text-sm">
-                                 <div className="flex items-center gap-3 text-gray-600">
-                                     <MapPin size={18} className="text-gray-400 shrink-0" />
-                                     {isEditing ? (
-                                         <input className="border-b border-gray-200 w-full focus:outline-none focus:border-[#5425FF]" value={profile.location} onChange={e => setProfile({...profile, location: e.target.value})} />
-                                     ) : profile.location}
-                                 </div>
+                                 {(isEditing || profile.location) && (
+                                     <div className="flex items-center gap-3 text-gray-600">
+                                         <MapPin size={18} className="text-gray-400 shrink-0" />
+                                         {isEditing ? (
+                                             <input className="border-b border-gray-200 w-full focus:outline-none focus:border-[#5425FF]" value={profile.location} onChange={e => setProfile({...profile, location: e.target.value})} placeholder="Location (not saved to DB)" />
+                                         ) : profile.location}
+                                     </div>
+                                 )}
                                  <div className="flex items-center gap-3 text-gray-600">
                                      <Mail size={18} className="text-gray-400 shrink-0" />
                                      {isEditing ? (
                                          <input className="border-b border-gray-200 w-full focus:outline-none focus:border-[#5425FF]" value={profile.email} onChange={e => setProfile({...profile, email: e.target.value})} />
                                      ) : profile.email}
                                  </div>
-                                 <div className="flex items-center gap-3 text-gray-600">
-                                     <LinkIcon size={18} className="text-gray-400 shrink-0" />
-                                     {isEditing ? (
-                                         <input className="border-b border-gray-200 w-full focus:outline-none focus:border-[#5425FF]" value={profile.website} onChange={e => setProfile({...profile, website: e.target.value})} />
-                                     ) : <a href={`https://${profile.website}`} target="_blank" rel="noreferrer" className="text-[#5425FF] hover:underline font-bold">{profile.website}</a>}
-                                 </div>
+                                 {(isEditing || profile.website) && (
+                                     <div className="flex items-center gap-3 text-gray-600">
+                                         <LinkIcon size={18} className="text-gray-400 shrink-0" />
+                                         {isEditing ? (
+                                             <input className="border-b border-gray-200 w-full focus:outline-none focus:border-[#5425FF]" value={profile.website} onChange={e => setProfile({...profile, website: e.target.value})} placeholder="Website (not saved to DB)" />
+                                         ) : <a href={`https://${profile.website}`} target="_blank" rel="noreferrer" className="text-[#5425FF] hover:underline font-bold">{profile.website}</a>}
+                                     </div>
+                                 )}
                                  <hr className="border-gray-100 my-2" />
-                                 <div className="flex items-center gap-3 text-gray-600">
-                                     <Github size={18} className="text-gray-400 shrink-0" />
-                                     {isEditing ? (
-                                         <input className="border-b border-gray-200 w-full focus:outline-none focus:border-[#5425FF]" value={profile.github} onChange={e => setProfile({...profile, github: e.target.value})} />
-                                     ) : profile.github}
-                                 </div>
-                                 <div className="flex items-center gap-3 text-gray-600">
-                                     <Linkedin size={18} className="text-gray-400 shrink-0" />
-                                     {isEditing ? (
-                                         <input className="border-b border-gray-200 w-full focus:outline-none focus:border-[#5425FF]" value={profile.linkedin} onChange={e => setProfile({...profile, linkedin: e.target.value})} />
-                                     ) : profile.linkedin}
-                                 </div>
+                                 {(isEditing || profile.github) && (
+                                     <div className="flex items-center gap-3 text-gray-600">
+                                         <Github size={18} className="text-gray-400 shrink-0" />
+                                         {isEditing ? (
+                                             <input className="border-b border-gray-200 w-full focus:outline-none focus:border-[#5425FF]" value={profile.github} onChange={e => setProfile({...profile, github: e.target.value})} placeholder="GitHub URL" />
+                                         ) : (
+                                             <a href={profile.github.startsWith('http') ? profile.github : `https://${profile.github}`} target="_blank" rel="noreferrer" className="text-[#5425FF] hover:underline">{profile.github}</a>
+                                         )}
+                                     </div>
+                                 )}
+                                 {(isEditing || profile.linkedin) && (
+                                     <div className="flex items-center gap-3 text-gray-600">
+                                         <Linkedin size={18} className="text-gray-400 shrink-0" />
+                                         {isEditing ? (
+                                             <input className="border-b border-gray-200 w-full focus:outline-none focus:border-[#5425FF]" value={profile.linkedin} onChange={e => setProfile({...profile, linkedin: e.target.value})} placeholder="LinkedIn URL" />
+                                         ) : (
+                                             <a href={profile.linkedin.startsWith('http') ? profile.linkedin : `https://${profile.linkedin}`} target="_blank" rel="noreferrer" className="text-[#5425FF] hover:underline">{profile.linkedin}</a>
+                                         )}
+                                     </div>
+                                 )}
                             </div>
                         </div>
 
@@ -238,14 +384,18 @@ const JudgeProfile: React.FC = () => {
                                 <h3 className="font-bold text-gray-900">Expertise</h3>
                                 {isEditing && <button className="text-xs text-[#5425FF] font-bold hover:underline">+ Add</button>}
                             </div>
-                            <div className="flex flex-wrap gap-2">
-                                 {profile.skills.map((skill, idx) => (
-                                     <span key={idx} className="px-3 py-1 bg-gray-50 text-gray-600 rounded-lg text-xs font-bold border border-gray-200 flex items-center gap-1 group">
-                                         {skill}
-                                         {isEditing && <button className="text-gray-400 hover:text-red-500 ml-1">×</button>}
-                                     </span>
-                                 ))}
-                            </div>
+                            {profile.skills.length > 0 ? (
+                                <div className="flex flex-wrap gap-2">
+                                     {profile.skills.map((skill, idx) => (
+                                         <span key={idx} className="px-3 py-1 bg-gray-50 text-gray-600 rounded-lg text-xs font-bold border border-gray-200 flex items-center gap-1 group">
+                                             {skill}
+                                             {isEditing && <button className="text-gray-400 hover:text-red-500 ml-1">×</button>}
+                                         </span>
+                                     ))}
+                                </div>
+                            ) : (
+                                <p className="text-sm text-gray-400 italic">No expertise areas added yet (not available in API)</p>
+                            )}
                         </div>
                     </div>
 
@@ -288,7 +438,9 @@ const JudgeProfile: React.FC = () => {
                                     onChange={e => setProfile({...profile, bio: e.target.value})}
                                 />
                             ) : (
-                                <p className="text-gray-600 leading-relaxed text-sm relative z-10">{profile.bio}</p>
+                                <p className="text-gray-600 leading-relaxed text-sm relative z-10">
+                                    {profile.bio || <span className="text-gray-400 italic">No professional bio added yet</span>}
+                                </p>
                             )}
                         </div>
 
@@ -309,185 +461,98 @@ const JudgeProfile: React.FC = () => {
                             <div className="space-y-6 relative">
                                 {experience.length > 0 && !isEditing && <div className="absolute left-[19px] top-4 bottom-4 w-0.5 bg-gray-100"></div>}
                                 
-                                {experience.map((exp) => (
-                                    <div key={exp.id} className="relative pl-10 group">
-                                        <div className="absolute left-0 top-1.5 w-10 h-10 bg-white border border-gray-200 rounded-full flex items-center justify-center text-gray-400 shadow-sm z-10 group-hover:border-[#5425FF] group-hover:text-[#5425FF] transition-colors">
-                                            <Building size={18} />
-                                        </div>
-
-                                        <div className="flex justify-between items-start">
-                                            <div className="w-full">
-                                                {isEditing ? (
-                                                    <div className="space-y-3 mb-4 p-4 bg-gray-50 rounded-xl border border-gray-200">
-                                                        <div className="flex justify-between items-center mb-2">
-                                                            <span className="text-xs font-bold text-gray-400 uppercase">Edit Role</span>
-                                                            <button onClick={() => removeExperience(exp.id)} className="text-red-400 hover:text-red-600">
-                                                                <Trash2 size={16} />
-                                                            </button>
-                                                        </div>
-                                                        <input 
-                                                            className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm font-bold focus:border-[#5425FF] focus:outline-none" 
-                                                            value={exp.role}
-                                                            onChange={e => updateExperience(exp.id, 'role', e.target.value)}
-                                                            placeholder="Role Title"
-                                                        />
-                                                        <div className="flex flex-col sm:flex-row gap-2">
-                                                            <input 
-                                                                className="flex-1 bg-white border border-gray-200 rounded-lg px-3 py-2 text-xs focus:border-[#5425FF] focus:outline-none" 
-                                                                value={exp.company}
-                                                                onChange={e => updateExperience(exp.id, 'company', e.target.value)}
-                                                                placeholder="Company"
-                                                            />
-                                                            <input 
-                                                                className="flex-1 bg-white border border-gray-200 rounded-lg px-3 py-2 text-xs focus:border-[#5425FF] focus:outline-none" 
-                                                                value={exp.period}
-                                                                onChange={e => updateExperience(exp.id, 'period', e.target.value)}
-                                                                placeholder="Period (e.g. 2020-2022)"
-                                                            />
-                                                        </div>
-                                                        <textarea 
-                                                            className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-xs resize-none focus:border-[#5425FF] focus:outline-none"
-                                                            value={exp.desc}
-                                                            onChange={e => updateExperience(exp.id, 'desc', e.target.value)}
-                                                            rows={2}
-                                                            placeholder="Description"
-                                                        />
-                                                    </div>
-                                                ) : (
-                                                    <>
-                                                        <h4 className="font-bold text-gray-900">{exp.role}</h4>
-                                                        <div className="text-xs text-gray-500 font-medium mb-1">{exp.company} • {exp.period}</div>
-                                                        <p className="text-sm text-gray-600">{exp.desc}</p>
-                                                    </>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
+                                {experience.length === 0 && !isEditing ? (
+                                    <p className="text-sm text-gray-400 italic">No work experience added yet (not available in API)</p>
+                                ) : (
+                                    <>{renderedExperience}</>
+                                )}
                             </div>
                         </div>
 
-                        {/* Certifications & Awards */}
-                        <div className="bg-white rounded-3xl p-8 border border-gray-200 shadow-sm">
-                            <div className="flex justify-between items-center mb-6">
-                                <h3 className="font-bold text-gray-900">Certifications</h3>
-                                {isEditing && (
-                                    <button 
-                                        onClick={addCertification}
-                                        className="text-xs font-bold text-[#5425FF] hover:underline flex items-center gap-1"
-                                    >
-                                        <Plus size={14} /> Add Cert
-                                    </button>
-                                )}
-                            </div>
+                        {/* Certifications & Education (simplified render to avoid nested fragments) */}
+                        <div className="grid grid-cols-1 gap-6">
+                            <div className="bg-white rounded-3xl p-8 border border-gray-200 shadow-sm">
+                                <div className="flex justify-between items-center mb-6">
+                                    <h3 className="font-bold text-gray-900">Certifications</h3>
+                                    {isEditing && (
+                                        <button onClick={addCertification} className="text-xs font-bold text-[#5425FF] hover:underline flex items-center gap-1"><Plus size={14}/> Add Cert</button>
+                                    )}
+                                </div>
 
-                            <div className="space-y-4">
-                                {certifications.map((cert) => (
-                                    <div key={cert.id} className="flex gap-4 group items-start">
-                                        <div className="w-12 h-12 bg-amber-50 text-amber-500 rounded-xl flex items-center justify-center shrink-0 border border-amber-100">
-                                            <Award size={20} />
-                                        </div>
-                                        <div className="flex-1">
-                                            {isEditing ? (
-                                                <div className="space-y-2 p-3 bg-gray-50 rounded-xl border border-gray-200">
-                                                    <div className="flex justify-between">
-                                                        <input 
-                                                            className="w-full bg-white border border-gray-200 rounded px-2 py-1 text-sm font-bold mb-1 mr-2"
-                                                            value={cert.name}
-                                                            onChange={e => updateCertification(cert.id, 'name', e.target.value)}
-                                                            placeholder="Certification Name"
-                                                        />
-                                                        <button onClick={() => removeCertification(cert.id)} className="text-red-400 hover:text-red-600 self-start"><Trash2 size={16}/></button>
-                                                    </div>
-                                                    <div className="flex gap-2">
-                                                        <input 
-                                                            className="flex-1 bg-white border border-gray-200 rounded px-2 py-1 text-xs"
-                                                            value={cert.issuer}
-                                                            onChange={e => updateCertification(cert.id, 'issuer', e.target.value)}
-                                                            placeholder="Issuer"
-                                                        />
-                                                        <input 
-                                                            className="w-20 bg-white border border-gray-200 rounded px-2 py-1 text-xs"
-                                                            value={cert.year}
-                                                            onChange={e => updateCertification(cert.id, 'year', e.target.value)}
-                                                            placeholder="Year"
-                                                        />
-                                                    </div>
-                                                </div>
-                                            ) : (
-                                                <div className="flex justify-between items-start">
-                                                    <div>
-                                                        <h4 className="font-bold text-gray-900 text-sm">{cert.name}</h4>
-                                                        <div className="text-xs text-gray-500">{cert.issuer} • {cert.year}</div>
-                                                    </div>
-                                                    {cert.url && (
-                                                        <a href={cert.url} className="text-gray-400 hover:text-[#5425FF]"><ExternalLink size={14}/></a>
+                                {certifications.length === 0 && !isEditing ? (
+                                    <p className="text-sm text-gray-400 italic">No certifications added yet (not available in API)</p>
+                                ) : (
+                                    <div className="space-y-4">
+                                        {certifications.map(cert => (
+                                            <div key={cert.id} className="flex gap-4 items-start">
+                                                <div className="w-12 h-12 bg-amber-50 text-amber-500 rounded-xl flex items-center justify-center shrink-0 border border-amber-100"><Award size={20}/></div>
+                                                <div className="flex-1">
+                                                    {isEditing ? (
+                                                        <div className="space-y-2">
+                                                            <div className="flex items-center gap-2">
+                                                                <input value={cert.name} onChange={e => updateCertification(cert.id, 'name', e.target.value)} className="flex-1 bg-white border border-gray-200 rounded px-2 py-1 text-sm" placeholder="Certification Name" />
+                                                                <button onClick={() => removeCertification(cert.id)} className="text-red-400"><Trash2 size={16}/></button>
+                                                            </div>
+                                                            <div className="flex gap-2">
+                                                                <input value={cert.issuer} onChange={e => updateCertification(cert.id, 'issuer', e.target.value)} className="flex-1 bg-white border border-gray-200 rounded px-2 py-1 text-xs" placeholder="Issuer" />
+                                                                <input value={cert.year} onChange={e => updateCertification(cert.id, 'year', e.target.value)} className="w-24 bg-white border border-gray-200 rounded px-2 py-1 text-xs" placeholder="Year" />
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="flex justify-between items-start">
+                                                            <div>
+                                                                <div className="font-bold text-gray-900 text-sm">{cert.name}</div>
+                                                                <div className="text-xs text-gray-500">{cert.issuer} • {cert.year}</div>
+                                                            </div>
+                                                            {cert.url && <a href={cert.url} className="text-gray-400 hover:text-[#5425FF]"><ExternalLink size={14}/></a>}
+                                                        </div>
                                                     )}
                                                 </div>
-                                            )}
-                                        </div>
+                                            </div>
+                                        ))}
                                     </div>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Education History */}
-                        <div className="bg-white rounded-3xl p-8 border border-gray-200 shadow-sm">
-                            <div className="flex justify-between items-center mb-6">
-                                <h3 className="font-bold text-gray-900">Education History</h3>
-                                {isEditing && (
-                                    <button 
-                                        onClick={addEducation}
-                                        className="text-xs font-bold text-[#5425FF] hover:underline flex items-center gap-1"
-                                    >
-                                        <Plus size={14} /> Add Education
-                                    </button>
                                 )}
                             </div>
 
-                            <div className="space-y-4">
-                                {education.map((edu) => (
-                                    <div key={edu.id} className="flex gap-4 group items-start">
-                                        <div className="w-12 h-12 bg-blue-50 text-blue-500 rounded-xl flex items-center justify-center shrink-0 border border-blue-100">
-                                            <GraduationCap size={20} />
-                                        </div>
-                                        <div className="flex-1">
-                                            {isEditing ? (
-                                                <div className="space-y-2 p-3 bg-gray-50 rounded-xl border border-gray-200">
-                                                    <div className="flex justify-between">
-                                                        <input 
-                                                            className="w-full bg-white border border-gray-200 rounded px-2 py-1 text-sm font-bold mb-1 mr-2"
-                                                            value={edu.degree}
-                                                            onChange={e => updateEducation(edu.id, 'degree', e.target.value)}
-                                                            placeholder="Degree"
-                                                        />
-                                                        <button onClick={() => removeEducation(edu.id)} className="text-red-400 hover:text-red-600 self-start"><Trash2 size={16}/></button>
-                                                    </div>
-                                                    <div className="flex gap-2">
-                                                        <input 
-                                                            className="flex-1 bg-white border border-gray-200 rounded px-2 py-1 text-xs"
-                                                            value={edu.school}
-                                                            onChange={e => updateEducation(edu.id, 'school', e.target.value)}
-                                                            placeholder="University/School"
-                                                        />
-                                                        <input 
-                                                            className="flex-1 bg-white border border-gray-200 rounded px-2 py-1 text-xs"
-                                                            value={edu.period}
-                                                            onChange={e => updateEducation(edu.id, 'period', e.target.value)}
-                                                            placeholder="Period"
-                                                        />
-                                                    </div>
+                            <div className="bg-white rounded-3xl p-8 border border-gray-200 shadow-sm">
+                                <div className="flex justify-between items-center mb-6">
+                                    <h3 className="font-bold text-gray-900">Education History</h3>
+                                    {isEditing && (
+                                        <button onClick={addEducation} className="text-xs font-bold text-[#5425FF] hover:underline flex items-center gap-1"><Plus size={14}/> Add Education</button>
+                                    )}
+                                </div>
+
+                                {education.length === 0 && !isEditing ? (
+                                    <p className="text-sm text-gray-400 italic">No education history added yet (not available in API)</p>
+                                ) : (
+                                    <div className="space-y-4">
+                                        {education.map(edu => (
+                                            <div key={edu.id} className="flex gap-4 items-start">
+                                                <div className="w-12 h-12 bg-blue-50 text-blue-500 rounded-xl flex items-center justify-center shrink-0 border border-blue-100"><GraduationCap size={20}/></div>
+                                                <div className="flex-1">
+                                                    {isEditing ? (
+                                                        <div className="space-y-2">
+                                                            <div className="flex items-center gap-2">
+                                                                <input value={edu.degree} onChange={e => updateEducation(edu.id, 'degree', e.target.value)} className="flex-1 bg-white border border-gray-200 rounded px-2 py-1 text-sm" placeholder="Degree" />
+                                                                <button onClick={() => removeEducation(edu.id)} className="text-red-400"><Trash2 size={16}/></button>
+                                                            </div>
+                                                            <div className="flex gap-2">
+                                                                <input value={edu.school} onChange={e => updateEducation(edu.id, 'school', e.target.value)} className="flex-1 bg-white border border-gray-200 rounded px-2 py-1 text-xs" placeholder="University/School" />
+                                                                <input value={edu.period} onChange={e => updateEducation(edu.id, 'period', e.target.value)} className="flex-1 bg-white border border-gray-200 rounded px-2 py-1 text-xs" placeholder="Period" />
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <div>
+                                                            <div className="font-bold text-gray-900 text-sm">{edu.degree}</div>
+                                                            <div className="text-xs text-gray-500">{edu.school}</div>
+                                                            <div className="text-xs text-gray-400 mt-1">{edu.period}</div>
+                                                        </div>
+                                                    )}
                                                 </div>
-                                            ) : (
-                                                <div>
-                                                    <h4 className="font-bold text-gray-900 text-sm">{edu.degree}</h4>
-                                                    <div className="text-xs text-gray-500">{edu.school}</div>
-                                                    <div className="text-xs text-gray-400 mt-1">{edu.period}</div>
-                                                </div>
-                                            )}
-                                        </div>
+                                            </div>
+                                        ))}
                                     </div>
-                                ))}
+                                )}
                             </div>
                         </div>
 

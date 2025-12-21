@@ -10,7 +10,8 @@ import {
   LogOut,
   Calendar,
   Menu,
-  X
+  X,
+  Settings
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -33,6 +34,7 @@ export const JudgeLayout: React.FC<SidebarProps> = ({ children }) => {
     { label: 'My Hackathons', icon: <Calendar size={20} />, path: '/judge/hackathons' },
     { label: 'Assignments', icon: <FileCheck size={20} />, path: '/judge/assignments' },
     { label: 'Profile', icon: <UserCircle size={20} />, path: '/judge/profile' },
+    { label: 'Settings', icon: <Settings size={20} />, path: '/judge/settings' },
   ];
 
   return (

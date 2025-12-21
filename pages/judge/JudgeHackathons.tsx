@@ -1,288 +1,360 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { JudgeLayout } from '../../components/JudgeLayout';
-import { ENDPOINTS } from '../../config/endpoints';
-import { Calendar, MapPin, ChevronRight, BarChart3, Users, Clock, Mail, Check, X, Info, ExternalLink } from 'lucide-react';
+import { Calendar, ChevronRight, Clock } from 'lucide-react';
+import { judgeService } from '../../services/judge.service';
 
-// Mock Data for Assigned Hackathons
-const assignedHackathons = [
-    {
-        id: 'h1',
-        name: 'HackOnX 2025',
-        role: 'Technical Judge',
-        dates: 'Mar 15 - 17',
-        status: 'Active',
-        assignedCount: 15,
-        completedCount: 8,
-        deadline: '2 Days Left',
-        image: 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&q=80&w=1000'
-    },
-    {
-        id: 'h2',
-        name: 'Global AI Challenge',
-        role: 'Panel Judge',
-        dates: 'Apr 10 - 12',
-        status: 'Upcoming',
-        assignedCount: 0,
-        completedCount: 0,
-        deadline: 'Starts in 25 days',
-        image: 'https://images.unsplash.com/photo-1620712943543-bcc4688e7485?auto=format&fit=crop&q=80&w=1000'
-    },
-    {
-        id: 'h3',
-        name: 'Sustainable Future',
-        role: 'Lead Judge',
-        dates: 'May 05 - 08',
-        status: 'Upcoming',
-        assignedCount: 5,
-        completedCount: 0,
-        deadline: 'Starts in 2 months',
-        image: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&q=80&w=1000'
-    }
-];
-
-// Mock Data for Pending Invitations
-const initialInvitations = [
-    {
-        id: 'i1',
-        hackathonId: 'h4',
-        name: 'Defi Summer 2.0',
-        organizer: 'Ethereum Foundation',
-        role: 'Smart Contract Auditor',
-        dates: 'Jun 01 - 03',
-        sentAt: '2 days ago',
-        description: 'A global summit for decentralized finance innovation. We need experts in Solidity and security to judge the final round.',
-        image: 'https://images.unsplash.com/photo-1639762681485-074b7f938ba0?auto=format&fit=crop&q=80&w=1000'
-    },
-    {
-        id: 'i2',
-        hackathonId: 'h5',
-        name: 'HealthTech 2025',
-        organizer: 'MedLife Partners',
-        role: 'Impact Judge',
-        dates: 'Jul 15 - 18',
-        sentAt: '5 hours ago',
-        description: 'Focusing on AI in healthcare. Looking for judges with experience in medical data privacy and compliance.',
-        image: 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&q=80&w=1000'
-    }
-];
+interface JudgeHackathon {
+    id: string;
+    name: string;
+    slug?: string;
+    status?: string;
+    submission_deadline?: string;
+    start_date?: string;
+    end_date?: string;
+    banner_url?: string;
+    assignedCount?: number;
+    completedCount?: number;
+}
 
 const JudgeHackathons: React.FC = () => {
     const navigate = useNavigate();
-    const [activeTab, setActiveTab] = useState<'assigned' | 'invites'>('assigned');
-    const [invitations, setInvitations] = useState(initialInvitations);
-    const [processingId, setProcessingId] = useState<string | null>(null);
+    const [hackathons, setHackathons] = useState<JudgeHackathon[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [activeTab, setActiveTab] = useState<'events' | 'invitations'>('events');
+    const [invitations, setInvitations] = useState<any[]>([]);
+    const [invLoading, setInvLoading] = useState(false);
 
-    // 🔗 API INTEGRATION POINT
     useEffect(() => {
-        // LINK: Fetch Assigned Hackathons & Invitations
-        // fetch(ENDPOINTS.JUDGE.HACKATHONS)
-        // fetch(ENDPOINTS.JUDGE.INVITATIONS)
+        const loadHackathons = async () => {
+            try {
+                setLoading(true);
+                setError(null);
+                const response = await judgeService.getEvents();
+                const events = response?.events || response || [];
+
+                // Ensure each event has banner and description by fetching public details when missing
+                const base = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000/api';
+                const detailsPromises = (Array.isArray(events) ? events : []).map(async (e: any) => {
+                    if (e.banner_url && (e.start_date || e.submission_deadline)) return e;
+                    try {
+                        const res = await fetch(`${base}/public/hackathons/${e.id}`);
+                        if (!res.ok) return e;
+                        const json = await res.json();
+                        const detail = json?.hackathon || json || {};
+                        return { ...e, ...detail };
+                    } catch (err) {
+                        return e;
+                    }
+                });
+
+                const enriched = await Promise.all(detailsPromises);
+                setHackathons(Array.isArray(enriched) ? enriched : enriched || []);
+            } catch (err: any) {
+                console.error('Failed to load judge hackathons:', err);
+                setError(err?.message || 'Failed to load hackathons');
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        const loadInvitations = async () => {
+            setInvLoading(true);
+            try {
+                // Derive invitations from assigned teams (UI-only)
+                const assigned = await judgeService.getAssignedTeams(1, 200);
+                const teams = assigned?.teams || [];
+
+                // Group by hackathon
+                const map = new Map<string, any[]>();
+                teams.forEach((t: any) => {
+                    const hid = t.hackathonId || t.hackathon_id || t.hackathon?.id || 'unknown';
+                    const hname = t.hackathonName || t.hackathon?.name || null;
+                    if (!map.has(hid)) map.set(hid, []);
+                    map.get(hid).push({ ...t, hackathonName: hname });
+                });
+
+                const base = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000/api';
+                const invitationsArr: any[] = [];
+
+                for (const [hackathonId, teamList] of map.entries()) {
+                    if (!hackathonId || hackathonId === 'unknown') continue;
+                    // fetch public hackathon detail for banner and dates
+                    let detail: any = {};
+                    try {
+                        const res = await fetch(`${base}/public/hackathons/${hackathonId}`);
+                        if (res.ok) {
+                            const json = await res.json();
+                            detail = json?.hackathon || json || {};
+                        }
+                    } catch (err) {
+                        // ignore
+                    }
+
+                    invitationsArr.push({
+                        id: hackathonId,
+                        name: detail.name || (teamList[0]?.hackathonName || 'Hackathon'),
+                        banner_url: detail.banner_url || detail.banner || null,
+                        start_date: detail.start_date || detail.start || null,
+                        end_date: detail.end_date || detail.end || null,
+                        submission_deadline: detail.submission_deadline || null,
+                        description: detail.description || detail.summary || null,
+                        invitedBy: detail.organizer || 'Organizer',
+                        teams: teamList
+                    });
+                }
+
+                setInvitations(invitationsArr);
+            } catch (e) {
+                console.warn('Failed to build invitations from assignments:', e);
+                setInvitations([]);
+            } finally {
+                setInvLoading(false);
+            }
+        };
+
+        loadHackathons();
+        loadInvitations();
     }, []);
 
-    const handleInviteAction = (id: string, action: 'accept' | 'decline') => {
-        setProcessingId(id);
-        
-        // 🔗 API INTEGRATION POINT
-        // fetch(ENDPOINTS.JUDGE.RESPOND_INVITE(id), { method: 'POST', body: JSON.stringify({ action }) })
-
-        // Simulate API call
-        setTimeout(() => {
-            setInvitations(prev => prev.filter(inv => inv.id !== id));
-            setProcessingId(null);
-            // In a real app, 'accept' would move it to assignedHackathons
-        }, 800);
+    const getHackathonStatus = (status?: string) => {
+        // If backend provides status, use it
+        if (status) {
+            const normalized = status.toLowerCase();
+            if (normalized === 'active') return { label: 'ACTIVE', color: 'bg-[#24FF00] text-black' };
+            if (normalized === 'upcoming') return { label: 'UPCOMING', color: 'bg-gray-800 text-white' };
+            if (normalized === 'ended' || normalized === 'completed') return { label: 'ENDED', color: 'bg-gray-400 text-white' };
+        }
+        return { label: 'ACTIVE', color: 'bg-[#24FF00] text-black' };
     };
+
+    const getDaysUntilDeadline = (deadline?: string): number => {
+        if (!deadline) return 0;
+        const now = new Date();
+        const deadlineDate = new Date(deadline);
+        const diff = deadlineDate.getTime() - now.getTime();
+        return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+    };
+
+    const handleViewSubmissions = (hackathonId: string) => {
+        // Store selected hackathon in localStorage for header propagation
+        localStorage.setItem('selectedHackathonId', hackathonId);
+        navigate('/judge/assignments');
+    };
+
+    if (loading) {
+        return (
+            <JudgeLayout>
+                <div className="flex items-center justify-center min-h-screen bg-[#F3F4F6] text-gray-800">
+                    <div className="text-center">
+                        <div className="animate-spin h-8 w-8 mx-auto mb-4 border-4 border-[#24FF00] border-t-transparent rounded-full"></div>
+                        <p className="text-gray-600">Loading hackathons...</p>
+                    </div>
+                </div>
+            </JudgeLayout>
+        );
+    }
+
+    if (error) {
+        return (
+            <JudgeLayout>
+                <div className="min-h-screen bg-[#F3F4F6] text-gray-800 flex items-center justify-center">
+                    <div className="max-w-md w-full mx-4">
+                        <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+                            <p className="text-red-600 mb-4">{error}</p>
+                            <button
+                                onClick={() => window.location.reload()}
+                                className="px-4 py-2 bg-[#24FF00] text-black rounded hover:bg-[#20DD00] transition-colors font-semibold"
+                            >
+                                Try Again
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </JudgeLayout>
+        );
+    }
 
     return (
         <JudgeLayout>
-            <div className="max-w-7xl mx-auto pb-20 lg:pb-0">
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
-                    <div>
-                        <h1 className="text-2xl font-bold text-gray-900">Hackathon Management</h1>
-                        <p className="text-gray-500">Manage your judging assignments and incoming invitations.</p>
-                    </div>
-                    
-                    {/* Tab Switcher */}
-                    <div className="bg-white p-1 rounded-xl border border-gray-200 flex items-center overflow-x-auto w-full md:w-auto">
-                        <button 
-                            onClick={() => setActiveTab('assigned')}
-                            className={`px-6 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
-                                activeTab === 'assigned' 
-                                ? 'bg-gray-900 text-white shadow-md' 
-                                : 'text-gray-500 hover:bg-gray-50'
-                            }`}
-                        >
-                            <Calendar size={16} /> My Events
-                            <span className="bg-gray-800 text-white px-1.5 py-0.5 rounded text-[10px]">{assignedHackathons.length}</span>
-                        </button>
-                        <button 
-                            onClick={() => setActiveTab('invites')}
-                            className={`px-6 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
-                                activeTab === 'invites' 
-                                ? 'bg-gray-900 text-white shadow-md' 
-                                : 'text-gray-500 hover:bg-gray-50'
-                            }`}
-                        >
-                            <Mail size={16} /> Invitations
-                            {invitations.length > 0 && (
-                                <span className="bg-red-500 text-white px-1.5 py-0.5 rounded text-[10px] animate-pulse">{invitations.length}</span>
-                            )}
-                        </button>
-                    </div>
-                </div>
-
-                {/* --- ASSIGNED HACKATHONS TAB --- */}
-                {activeTab === 'assigned' && (
-                    <div className="grid grid-cols-1 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
-                        {assignedHackathons.map((hackathon) => (
-                            <div 
-                                key={hackathon.id}
-                                className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden flex flex-col md:flex-row hover:shadow-md transition-all group"
+            <div className="min-h-screen bg-[#F3F4F6] text-gray-800">
+                <div className="container mx-auto px-4 py-8">
+                    <div className="mb-8 flex items-center justify-between">
+                        <div>
+                            <h1 className="text-3xl font-bold mb-2">My Hackathons</h1>
+                            <p className="text-gray-400">View and manage hackathons you're judging</p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <button
+                                onClick={() => setActiveTab('events')}
+                                className={`px-4 py-2 rounded-xl font-medium ${activeTab === 'events' ? 'bg-gray-900 text-white' : 'bg-white text-gray-700 border border-gray-200'}`}
                             >
-                                {/* Image Section */}
-                                <div className="w-full md:w-64 h-48 md:h-auto relative shrink-0">
-                                    <img src={hackathon.image} alt={hackathon.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
-                                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-4">
-                                        <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide border ${
-                                            hackathon.status === 'Active' ? 'bg-[#24FF00] text-black border-[#24FF00]' : 'bg-gray-800 text-white border-gray-700'
-                                        }`}>
-                                            {hackathon.status}
-                                        </span>
-                                    </div>
-                                </div>
-
-                                {/* Content Section */}
-                                <div className="p-6 flex-1 flex flex-col justify-between">
-                                    <div>
-                                        <div className="flex justify-between items-start mb-2">
-                                            <h3 className="text-xl md:text-2xl font-heading text-gray-900">{hackathon.name}</h3>
-                                            <span className="text-xs font-bold text-gray-400 uppercase tracking-wider bg-gray-50 px-2 py-1 rounded border border-gray-100 whitespace-nowrap">
-                                                {hackathon.role}
-                                            </span>
-                                        </div>
-                                        <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500 mb-6">
-                                            <span className="flex items-center gap-1.5"><Calendar size={16} /> {hackathon.dates}</span>
-                                            <span className="flex items-center gap-1.5"><Clock size={16} /> {hackathon.deadline}</span>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6">
-                                        <div className="flex gap-8">
-                                            <div>
-                                                <div className="text-2xl font-bold text-gray-900">{hackathon.assignedCount}</div>
-                                                <div className="text-xs text-gray-500 font-bold uppercase">Assigned</div>
-                                            </div>
-                                            <div>
-                                                <div className="text-2xl font-bold text-[#5425FF]">{hackathon.completedCount}</div>
-                                                <div className="text-xs text-gray-500 font-bold uppercase">Completed</div>
-                                            </div>
-                                            <div className="hidden sm:block">
-                                                <div className="text-2xl font-bold text-gray-400">
-                                                    {hackathon.assignedCount > 0 
-                                                        ? Math.round((hackathon.completedCount / hackathon.assignedCount) * 100) 
-                                                        : 0}%
-                                                </div>
-                                                <div className="text-xs text-gray-500 font-bold uppercase">Progress</div>
-                                            </div>
-                                        </div>
-
-                                        <button 
-                                            onClick={() => navigate(`/judge/assignments`)}
-                                            className="w-full sm:w-auto px-6 py-3 bg-[#5425FF] text-white rounded-xl font-bold hover:bg-[#4015D1] transition-colors flex items-center justify-center gap-2 shadow-lg shadow-[#5425FF]/20"
-                                        >
-                                            View Submissions <ChevronRight size={18} />
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
+                                My Events
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('invitations')}
+                                className={`px-4 py-2 rounded-xl font-medium ${activeTab === 'invitations' ? 'bg-gray-900 text-white' : 'bg-white text-gray-700 border border-gray-200'}`}
+                            >
+                                Invitations
+                            </button>
+                        </div>
                     </div>
-                )}
 
-                {/* --- PENDING INVITATIONS TAB --- */}
-                {activeTab === 'invites' && (
-                    <div className="grid grid-cols-1 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
-                        {invitations.length > 0 ? (
-                            invitations.map((invite) => (
-                                <div 
-                                    key={invite.id}
-                                    className={`bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden flex flex-col md:flex-row transition-all relative ${
-                                        processingId === invite.id ? 'opacity-50 pointer-events-none' : 'hover:shadow-md'
-                                    }`}
-                                >
-                                    {/* Image Section */}
-                                    <div className="w-full md:w-56 h-48 md:h-auto relative shrink-0">
-                                        <img src={invite.image} alt={invite.name} className="w-full h-full object-cover" />
-                                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                                            <div className="bg-white/20 backdrop-blur-md border border-white/30 text-white px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide">
-                                                Invited
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Content Section */}
-                                    <div className="p-6 md:p-8 flex-1">
-                                        <div className="flex flex-col md:flex-row justify-between items-start gap-4 mb-4">
-                                            <div>
-                                                <h3 className="text-2xl font-heading text-gray-900 mb-1">{invite.name}</h3>
-                                                <p className="text-sm font-bold text-gray-500 flex flex-wrap items-center gap-2">
-                                                    Invited by <span className="text-[#5425FF]">{invite.organizer}</span>
-                                                    <span className="w-1 h-1 rounded-full bg-gray-300 hidden sm:block"></span>
-                                                    <span className="text-gray-400 font-normal">{invite.sentAt}</span>
-                                                </p>
-                                            </div>
-                                            <div className="bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100 text-xs font-bold text-gray-600 uppercase tracking-wide whitespace-nowrap">
-                                                Role: {invite.role}
-                                            </div>
-                                        </div>
-
-                                        <p className="text-gray-600 text-sm leading-relaxed mb-6 bg-gray-50 p-4 rounded-xl border border-gray-100">
-                                            {invite.description}
-                                        </p>
-
-                                        <div className="flex flex-col md:flex-row justify-between items-center gap-4 pt-4 border-t border-gray-100">
-                                            <div className="flex items-center gap-4 text-sm font-bold text-gray-500 w-full md:w-auto">
-                                                <span className="flex items-center gap-2"><Calendar size={16} /> {invite.dates}</span>
-                                                <button 
-                                                    onClick={() => navigate(`/dashboard/hackathons/${invite.hackathonId}`)}
-                                                    className="flex items-center gap-1 text-gray-400 hover:text-[#5425FF] transition-colors ml-auto md:ml-0"
-                                                >
-                                                    <Info size={16} /> Event Details
-                                                </button>
-                                            </div>
-
-                                            <div className="flex items-center gap-3 w-full md:w-auto">
-                                                <button 
-                                                    onClick={() => handleInviteAction(invite.id, 'decline')}
-                                                    className="flex-1 md:flex-none px-6 py-2.5 border border-gray-200 text-gray-600 rounded-xl font-bold hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors flex items-center justify-center gap-2"
-                                                >
-                                                    <X size={18} /> Decline
-                                                </button>
-                                                <button 
-                                                    onClick={() => handleInviteAction(invite.id, 'accept')}
-                                                    className="flex-1 md:flex-none px-6 py-2.5 bg-[#24FF00] text-black rounded-xl font-bold hover:bg-[#1fe600] transition-colors shadow-lg shadow-[#24FF00]/20 flex items-center justify-center gap-2"
-                                                >
-                                                    <Check size={18} /> Accept Invite
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            ))
+                    {activeTab === 'events' && (
+                        hackathons.length === 0 ? (
+                            <div className="text-center py-12">
+                                <Calendar className="mx-auto h-12 w-12 text-gray-600 mb-4" />
+                                <p className="text-gray-400">No hackathons assigned yet</p>
+                            </div>
                         ) : (
-                            <div className="bg-white rounded-3xl p-12 text-center border border-gray-100 shadow-sm">
-                                <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-400">
-                                    <Mail size={32} />
-                                </div>
-                                <h3 className="text-lg font-bold text-gray-900 mb-2">No Pending Invitations</h3>
-                                <p className="text-gray-500 max-w-md mx-auto">
-                                    You're all caught up! New invitations will appear here when organizers request your expertise.
-                                </p>
+                            <div className="space-y-4">
+                                {hackathons.map((hackathon) => {
+                                const status = getHackathonStatus(hackathon.status);
+                                const assignedCount = hackathon.assignedCount ?? 0;
+                                const completedCount = hackathon.completedCount ?? 0;
+                                const progress = assignedCount > 0 
+                                    ? Math.round((completedCount / assignedCount) * 100) 
+                                    : 0;
+
+                                return (
+                                    <div
+                                        key={hackathon.id}
+                                        className="bg-gray-900 rounded-lg border border-gray-800 overflow-hidden hover:border-gray-700 transition-colors"
+                                    >
+                                        <div className="flex flex-col md:flex-row">
+                                            {/* Left: Image/Banner */}
+                                            <div className="md:w-1/3 h-48 md:h-auto relative">
+                                                {hackathon.banner_url ? (
+                                                    <img 
+                                                        src={hackathon.banner_url} 
+                                                        alt={hackathon.name}
+                                                        className="w-full h-full object-cover"
+                                                    />
+                                                ) : (
+                                                    <div className="w-full h-full bg-gradient-to-br from-[#24FF00] to-[#00A3FF]"></div>
+                                                )}
+                                                <div className="absolute top-4 left-4">
+                                                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${status.color}`}>
+                                                        {status.label}
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            {/* Right: Content */}
+                                            <div className="md:w-2/3 p-6">
+                                                <h2 className="text-2xl font-bold mb-4">{hackathon.name}</h2>
+
+                                                {/* Stats Grid */}
+                                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                                                    {/* Assigned Teams */}
+                                                    <div className="bg-gray-800 rounded-lg p-4">
+                                                        <div className="text-gray-400 text-sm mb-1">Assigned Teams</div>
+                                                        <div className="text-2xl font-bold text-white">
+                                                            {assignedCount}
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Completed */}
+                                                    <div className="bg-gray-800 rounded-lg p-4">
+                                                        <div className="text-gray-400 text-sm mb-1">Completed</div>
+                                                        <div className="text-2xl font-bold text-[#24FF00]">
+                                                            {completedCount}
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Progress */}
+                                                    <div className="bg-gray-800 rounded-lg p-4">
+                                                        <div className="text-gray-400 text-sm mb-1">Progress</div>
+                                                        <div className="text-2xl font-bold text-blue-400">
+                                                            {progress}%
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {/* Deadline */}
+                                                {hackathon.submission_deadline && (
+                                                    <div className="flex items-center text-gray-400 text-sm mb-6">
+                                                        <Clock className="h-4 w-4 mr-2" />
+                                                        <span>
+                                                            Submission Deadline: {new Date(hackathon.submission_deadline).toLocaleDateString('en-US', { 
+                                                                month: 'short', 
+                                                                day: 'numeric', 
+                                                                year: 'numeric' 
+                                                            })}
+                                                            {getDaysUntilDeadline(hackathon.submission_deadline) > 0 && (
+                                                                <span className="ml-2 text-[#24FF00]">
+                                                                    ({getDaysUntilDeadline(hackathon.submission_deadline)} days left)
+                                                                </span>
+                                                            )}
+                                                        </span>
+                                                    </div>
+                                                )}
+
+                                                {/* Action Button */}
+                                                <button
+                                                    onClick={() => handleViewSubmissions(hackathon.id)}
+                                                    className="flex items-center px-6 py-3 bg-[#24FF00] text-black rounded-lg font-semibold hover:bg-[#20DD00] transition-colors"
+                                                >
+                                                    <span>View Submissions</span>
+                                                    <ChevronRight className="h-5 w-5 ml-2" />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
                             </div>
-                        )}
-                    </div>
-                )}
+                        )
+                    )}
+
+                    {activeTab === 'invitations' && (
+                        <div>
+                            {invLoading ? (
+                                <div className="text-center py-12">
+                                    <div className="animate-spin h-8 w-8 mx-auto mb-4 border-4 border-[#5425FF] border-t-transparent rounded-full"></div>
+                                    <p className="text-gray-400">Loading invitations...</p>
+                                </div>
+                            ) : (
+                                <div>
+                                    {invitations.length === 0 ? (
+                                        <div className="text-center py-12">
+                                            <p className="text-gray-400">No invitations at the moment</p>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-6">
+                                            {invitations.map((inv: any) => (
+                                                <div key={inv.id} className="bg-white rounded-lg p-6 border border-gray-100 shadow-sm">
+                                                    <div className="flex gap-4 items-start md:items-center">
+                                                        <div className="w-40 h-28 rounded overflow-hidden bg-gray-100">
+                                                            {inv.banner_url ? (
+                                                                <img src={inv.banner_url} alt={inv.name} className="w-full h-full object-cover" />
+                                                            ) : (
+                                                                <div className="w-full h-full bg-gradient-to-br from-[#24FF00] to-[#00A3FF]"></div>
+                                                            )}
+                                                        </div>
+
+                                                        <div className="flex-1">
+                                                            <h3 className="text-xl font-bold mb-1">{inv.name}</h3>
+                                                            <div className="text-sm text-gray-500 mb-3">Invited by {inv.invitedBy || 'Organizer'}</div>
+                                                            {inv.description && <p className="text-gray-500 mb-3">{inv.description}</p>}
+
+                                                            <div className="flex items-center gap-3 mt-2">
+                                                                <button onClick={() => declineInvitation(inv)} className="px-4 py-2 rounded-lg bg-white border border-gray-200 text-gray-700">Decline</button>
+                                                                <button onClick={() => acceptInvitation(inv)} className="px-4 py-2 rounded-lg bg-[#24FF00] text-black font-bold">Accept Invite</button>
+                                                                <button onClick={() => handleViewSubmissions(inv.id)} className="ml-auto text-sm text-[#5425FF]">View Submissions</button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
             </div>
         </JudgeLayout>
     );

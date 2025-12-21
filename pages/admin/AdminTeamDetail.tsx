@@ -50,7 +50,7 @@ const AdminTeamDetail: React.FC = () => {
         setError(null);
         setMessage(null);
         try {
-            const res = await adminService.verifyTeam(id);
+            const res = await adminService.verifyTeam(id, action);
             setMessage(res.message || 'Updated');
             await load();
         } catch (e: any) {
