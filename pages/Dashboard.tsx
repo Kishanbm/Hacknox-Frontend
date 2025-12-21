@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '../components/Layout';
 import { CalendarModal } from '../components/CalendarModal';
 import { ENDPOINTS } from '../config/endpoints';
+import { teamService } from '../services/team.service';
+import { publicService } from '../services/public.service';
 import { 
   Trophy, Clock, Zap, AlertCircle, ArrowUpRight, 
   Activity, Layers, ChevronDown, ChevronUp, Calendar as CalendarIcon, 
@@ -14,7 +16,7 @@ import {
   FunnelChart, Funnel, LabelList
 } from 'recharts';
 
-// --- Data ---
+// --- Static chart data (can be replaced with real analytics later) ---
 
 const funnelData = [
   { value: 100, name: 'Joined', fill: '#6366f1' },
@@ -38,58 +40,7 @@ const readinessData = [
   { subject: 'Team', A: 100, fullMark: 100 },
 ];
 
-// Mock Active Hackathons for Slider
-const activeHackathons = [
-    {
-        id: 'h1',
-        name: 'HackOnX 2025',
-        organizer: 'SuperCompute India',
-        role: 'Leader',
-        team: 'Alpha Squad',
-        status: 'Live',
-        nextTask: 'Submit Pitch Deck',
-        deadline: '2 days left',
-        progress: 75,
-        color: 'from-indigo-600 to-purple-700',
-        bgImage: 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&q=80&w=1000'
-    },
-    {
-        id: 'h2',
-        name: 'Global AI Challenge',
-        organizer: 'Google Devs',
-        role: 'Member',
-        team: 'PixelPioneers',
-        status: 'Team Forming',
-        nextTask: 'Finalize Team',
-        deadline: '5 days left',
-        progress: 30,
-        color: 'from-blue-600 to-cyan-600',
-        bgImage: 'https://images.unsplash.com/photo-1620712943543-bcc4688e7485?auto=format&fit=crop&q=80&w=1000'
-    },
-    {
-        id: 'h3',
-        name: 'Sustainable Future',
-        organizer: 'EcoWorld',
-        role: 'Member',
-        team: 'GreenGen',
-        status: 'Upcoming',
-        nextTask: 'Brainstorming',
-        deadline: '10 days left',
-        progress: 10,
-        color: 'from-emerald-600 to-teal-600',
-        bgImage: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&q=80&w=1000'
-    }
-];
-
-const roadmapSteps = [
-    { id: 1, title: 'Registration', date: 'Mar 10', status: 'completed' },
-    { id: 2, title: 'Team Formation', date: 'Mar 12', status: 'completed' },
-    { id: 3, title: 'Idea Submission', date: 'Mar 14', status: 'active' },
-    { id: 4, title: 'Prototype Dev', date: 'Mar 16', status: 'upcoming' },
-    { id: 5, title: 'Final Demo', date: 'Mar 17', status: 'upcoming' },
-];
-
-const calendarDays = Array.from({ length: 35 }, (_, i) => i + 1); // Mock days
+const calendarDays = Array.from({ length: 35 }, (_, i) => i + 1);
 const calendarEvents = [
     { day: 14, type: 'deadline', color: 'bg-red-500' },
     { day: 16, type: 'event', color: 'bg-blue-500' },
@@ -100,33 +51,120 @@ const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // --- KPI Values ---
-  const activeHackathonsCount = 3;
-  const totalRelevantHackathons = 5;
-  const submissionsStarted = 3;
-  const submissionProgress = Math.round((submissionsStarted / totalRelevantHackathons) * 100);
-  const actionsRequired = 2;
-  const nextDeadline = "04h 23m";
-  const nextDeadlineEvent = "HackOnX Submission";
+  // State for real data
+  const [activeHackathons, setActiveHackathons] = useState<any[]>([]);
+  const [activeHackathonsCount, setActiveHackathonsCount] = useState(0);
+  const [submissionProgress, setSubmissionProgress] = useState(0);
+  const [actionsRequired, setActionsRequired] = useState(0);
+  const [nextDeadline, setNextDeadline] = useState("--");
+  const [nextDeadlineEvent, setNextDeadlineEvent] = useState("No upcoming");
+  const [roadmapSteps, setRoadmapSteps] = useState<any[]>([]);
 
-  // 🔗 API INTEGRATION POINT
+  // Fetch real data on mount
   useEffect(() => {
-    // In a real app, you would fetch data here:
-    // const fetchDashboardData = async () => {
-    //   try {
-    //     // 🔗 LINK: GET ${ENDPOINTS.USER.STATS}
-    //     const stats = await fetch(ENDPOINTS.USER.STATS); 
-    //     
-    //     // 🔗 LINK: GET ${ENDPOINTS.HACKATHONS.ACTIVE}
-    //     const events = await fetch(ENDPOINTS.HACKATHONS.ACTIVE);
-    //
-    //     // 🔗 LINK: GET ${ENDPOINTS.USER.ROADMAP}
-    //     const roadmap = await fetch(ENDPOINTS.USER.ROADMAP);
-    //   } catch (error) { console.error(error); }
-    // };
-    // fetchDashboardData();
+    const fetchDashboardData = async () => {
+      setIsLoading(true);
+      try {
+        // Fetch teams (which are linked to hackathons)
+        const teams = await teamService.getMyTeams();
+        
+        // Fetch public hackathons to get full details
+        const hackathonsRes = await publicService.getHackathons();
+        const hackathons = hackathonsRes || [];
+
+        // Build active hackathons from teams
+        const localUser = (() => {
+          try { return JSON.parse(localStorage.getItem('user') || 'null'); } catch { return null; }
+        })();
+
+        const activeEvents = (teams || [])
+          .filter((t: any) => t.hackathon_phase !== 'completed')
+          .map((t: any) => {
+            const hackathon = hackathons.find((h: any) => h.id === t.hackathon_id);
+            const isLeader = t.leader_id === localUser?.id;
+            const progress = t.submission_status === 'submitted' ? 100 : t.submission_status === 'draft' ? 50 : 10;
+            
+            return {
+              id: t.hackathon_id || t.id,
+              name: t.hackathon_title || hackathon?.title || 'Hackathon',
+              organizer: hackathon?.organizer_name || 'Organizer',
+              role: isLeader ? 'Leader' : 'Member',
+              team: t.name,
+              status: t.hackathon_phase === 'ongoing' ? 'Live' : (t.hackathon_phase === 'registration' ? 'Registration' : 'Upcoming'),
+              nextTask: t.is_verified ? 'Work on submission' : 'Complete team verification',
+              deadline: hackathon?.submission_deadline ? getTimeRemaining(hackathon.submission_deadline) : '—',
+              progress,
+              color: 'from-indigo-600 to-purple-700',
+              bgImage: hackathon?.banner_url || 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&q=80&w=1000'
+            };
+          });
+
+        setActiveHackathons(activeEvents);
+        setActiveHackathonsCount(activeEvents.length);
+
+        // Calculate submissions progress
+        const totalTeams = (teams || []).length;
+        const submittedCount = (teams || []).filter((t: any) => t.submission_status === 'submitted' || t.submission_status === 'draft').length;
+        setSubmissionProgress(totalTeams > 0 ? Math.round((submittedCount / totalTeams) * 100) : 0);
+
+        // Calculate actions required (unverified teams, missing submissions)
+        const actions = (teams || []).filter((t: any) => !t.is_verified || t.submission_status === 'no_submission').length;
+        setActionsRequired(actions);
+
+        // Find next deadline
+        const now = new Date();
+        const upcomingDeadlines = hackathons
+          .filter((h: any) => h.submission_deadline && new Date(h.submission_deadline) > now)
+          .sort((a: any, b: any) => new Date(a.submission_deadline).getTime() - new Date(b.submission_deadline).getTime());
+        
+        if (upcomingDeadlines.length > 0) {
+          const next = upcomingDeadlines[0];
+          setNextDeadline(getTimeRemaining(next.submission_deadline));
+          setNextDeadlineEvent(next.title + ' Submission');
+        }
+
+        // Build roadmap from first active event
+        if (activeEvents.length > 0) {
+          const firstHackathon = hackathons.find((h: any) => h.id === activeEvents[0].id);
+          if (firstHackathon) {
+            const steps = [
+              { id: 1, title: 'Registration', date: formatDate(firstHackathon.start_date), status: 'completed' },
+              { id: 2, title: 'Team Formation', date: formatDate(firstHackathon.start_date), status: activeEvents[0].team ? 'completed' : 'active' },
+              { id: 3, title: 'Building', date: '—', status: activeEvents[0].progress > 10 ? 'completed' : 'active' },
+              { id: 4, title: 'Submission', date: formatDate(firstHackathon.submission_deadline), status: activeEvents[0].progress === 100 ? 'completed' : 'upcoming' },
+              { id: 5, title: 'Results', date: formatDate(firstHackathon.result_date), status: 'upcoming' },
+            ];
+            setRoadmapSteps(steps);
+          }
+        }
+
+      } catch (error) {
+        console.error('Dashboard fetch error:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchDashboardData();
   }, []);
+
+  // Helper to format time remaining
+  const getTimeRemaining = (deadline: string) => {
+    const diff = new Date(deadline).getTime() - Date.now();
+    if (diff <= 0) return 'Passed';
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    if (days > 0) return `${days}d ${hours}h`;
+    const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    return `${hours}h ${mins}m`;
+  };
+
+  const formatDate = (date: string | undefined) => {
+    if (!date) return '—';
+    return new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
 
   return (
     <DashboardLayout>

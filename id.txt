@@ -1,0 +1,112 @@
+Backend Update: Multi-Hackathon Architecture Migration
+1. Executive Summary
+Refactored the backend to support multiple concurrent hackathons instead of a single global event.
+Previously, the app assumed a single global event. Now, every dashboard (Participant, Judge, and Admin) must operate within the context of a specific hackathon_id.
+The Global Requirement: All API calls to resource endpoints (Teams, Submissions, Assignments, Evaluations) must now include a hackathon_id as a query parameter or header.
+
+2. The "New Rule" (Breaking Change)
+Every single API call related to a specific event (Dashboard, Teams, Submissions, Judging) MUST now include the selected Hackathon ID in the headers.
+Action Required: Update your global axios or fetch interceptor to inject this header automatically once the user selects an event.
+JavaScript
+// Example Header Injection
+config.headers['x-hackathon-id'] = selectedHackathonId; // From LocalStorage/Context
+
+If this header is missing, the API will return 400 Bad Request or 403 Forbidden.
+
+3. Phase 1: Participant Portal Updates
+A. New "Discover Hackathons" Page (The Entry Point)
+Users can no longer land directly on the "Dashboard". They must first choose an event.
+New Route: /participant/discover (or make this the home /participant landing).
+New API: GET /api/public/hackathons/active
+UI Requirement:
+Display a grid/list of active hackathons.
+Show details: Name, Deadline, Max Team Size.
+Action: When clicked, save the hackathon.id to Global Context/LocalStorage and redirect to /participant/dashboard.
+B. Dashboard & Team Pages (Scoped Data)
+No UI Changes needed, but Logic Change required.
+Update: Ensure the GET /api/participant/dashboard call includes the x-hackathon-id header.
+Result: The backend will now return data only for that specific event.
+Team Creation/Join:
+The backend now automatically links the new team to the active hackathon_id from the header. You don't need to send it in the body, just ensure the header is present.
+
+4. Phase 2: Admin Portal Updates
+Admins can now manage multiple events. The global "Admin Dashboard" is now a "Hackathon Manager".
+A. New "My Hackathons" Dashboard
+New Route: /admin/hackathons
+New API: GET /api/admin/hackathons/my-hackathons
+UI Requirement: A list of events this admin owns.
+"Create New" Button: Calls POST /api/admin/hackathons (Body: { name, submission_deadline, max_team_size }).
+Action: Clicking an event enters "Manager Mode" (sets the hackathon_id context).
+B. "Manager Mode" (Existing Pages)
+Once inside an event (e.g., managing "Winter Hack 2024"):
+Existing Tabs (Teams, Judges, Stats): No UI changes.
+Logic Change: Ensure all these existing admin API calls send the x-hackathon-id header.
+Result: The Team List will now only show teams for "Winter Hack 2024", not every team in the database.
+
+5. Phase 3: Judge Portal Updates
+Judges are no longer global; they are assigned to specific events.
+A. New "My Judging Events" List
+New Route: /judge/events
+New API: GET /api/judge/events
+UI Requirement: Show cards for events where the user is an assigned Judge.
+Action: Clicking an event sets the context and redirects to the Worklist.
+B. The Worklist (Assignments)
+API Update: GET /api/judge/assignments now requires the header.
+Behavior: It will return only the teams assigned to the judge for that specific event. Cross-event pollution is fixed on the backend.
+
+API Requirements Breakdown
+Public Access
+Role: Public
+Feature: List Events
+API Endpoint: /api/public/hackathons/active
+Method: GET
+New Requirement: None
+Participant Access
+Role: Participant
+Feature: Dashboard
+API Endpoint: /api/participant/dashboard
+Method: GET
+New Requirement: Header: x-hackathon-id
+Role: Participant
+Feature: Create Team
+API Endpoint: /api/teams
+Method: POST
+New Requirement: Header: x-hackathon-id
+Admin Access
+Role: Admin
+Feature: List My Events
+API Endpoint: /api/admin/hackathons/my-hackathons
+Method: GET
+New Requirement: Auth Token
+Role: Admin
+Feature: Create Event
+API Endpoint: /api/admin/hackathons
+Method: POST
+New Requirement: Auth Token
+Judge Access
+Role: Judge
+Feature: List Events
+API Endpoint: /api/judge/events
+Method: GET
+New Requirement: Auth Token
+Role: Judge
+Feature: Submit Score
+API Endpoint: /api/judge/evaluation
+Method: POST
+New Requirement: Header: x-hackathon-id
+
+ Migration Checklist for Frontend 
+[ ] State Management: Create a Global Context to store activeHackathonId.
+[ ] Interceptor: Configure Axios to auto-inject x-hackathon-id if the ID exists in state.
+[ ] New Page: Build the "Discover Hackathons" card grid for Participants.
+[ ] New Page: Build the "My Hackathons" list for Admins.
+[ ] New Page: Build the "Judging Events" list for Judges.
+[ ] Testing: Verify that switching events refreshes the dashboard data correctly.
+
+
+ The Frontend "State" Flow
+Selection: User picks a hackathon on the "Discover" page.
+Storage: The Frontend saves that id in Local Storage or React Context.
+Automatic Injection: Every time the dev calls api.get('/dashboard'), their code automatically pulls the ID from storage and attaches it to the request.
+Backend Receipt: Your middleware requireHackathonId catches that ID and filters the database.
+

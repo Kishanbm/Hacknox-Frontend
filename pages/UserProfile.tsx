@@ -1,25 +1,49 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '../components/Layout';
 import { MapPin, Github, Linkedin, Trophy, Star, Zap, ChevronLeft, UserPlus, MessageCircle } from 'lucide-react';
+import { authService } from '../services/auth.service';
 
 const UserProfile: React.FC = () => {
     const { id } = useParams();
     const navigate = useNavigate();
 
-    // Mock Data based on ID (In reality fetch)
-    const user = {
-        name: id === 'm5' ? 'David Kim' : 'Sarah Chen',
-        handle: id === 'm5' ? '@davidkim_dev' : '@sarah_c',
-        avatar: id === 'm5' ? 'DK' : 'SC',
-        role: 'Full Stack Developer',
-        location: 'Seoul, South Korea',
-        bio: 'Building things on the internet. Obsessed with clean code and pixel-perfect UIs.',
-        skills: ['React', 'Node.js', 'PostgreSQL', 'AWS'],
-        xp: 3400,
-        streak: 5,
-        wins: 1
-    };
+    const [user, setUser] = useState<any>(null);
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        const load = async () => {
+            if (!id) return;
+            setIsLoading(true);
+            setError(null);
+            try {
+                const u = await authService.getUserById(id);
+                setUser(u);
+            } catch (err: any) {
+                setError(err?.message || 'Failed to load user');
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        load();
+    }, [id]);
+
+    if (isLoading) {
+        return (
+            <DashboardLayout>
+                <div className="h-96 flex items-center justify-center">Loading user...</div>
+            </DashboardLayout>
+        );
+    }
+
+    if (error || !user) {
+        return (
+            <DashboardLayout>
+                <div className="h-96 flex items-center justify-center">{error || 'User not found'}</div>
+            </DashboardLayout>
+        );
+    }
 
     return (
         <DashboardLayout>
@@ -33,10 +57,10 @@ const UserProfile: React.FC = () => {
                     <div className="space-y-6">
                          <div className="bg-white rounded-3xl p-6 md:p-8 border border-gray-100 shadow-sm text-center">
                              <div className="w-24 h-24 md:w-32 md:h-32 bg-gradient-to-tr from-primary to-purple-400 rounded-full mx-auto mb-6 flex items-center justify-center text-3xl md:text-4xl font-heading text-white border-4 border-white shadow-lg">
-                                 {user.avatar}
+                                 {user.avatar_url ? <img src={user.avatar_url} alt="avatar" className="w-full h-full object-cover rounded-full"/> : (user.first_name?.[0] || user.email?.[0] || 'U')}
                              </div>
-                             <h1 className="text-2xl md:text-3xl font-heading text-gray-900 mb-1">{user.name}</h1>
-                             <p className="text-gray-500 font-medium mb-4 text-sm md:text-base">{user.handle}</p>
+                             <h1 className="text-2xl md:text-3xl font-heading text-gray-900 mb-1">{(user.first_name || '') + (user.last_name ? ' ' + user.last_name : '')}</h1>
+                             <p className="text-gray-500 font-medium mb-4 text-sm md:text-base">{user.email}</p>
                              
                              <div className="flex justify-center gap-3 mb-6">
                                  <button className="flex-1 py-3 px-4 bg-gray-900 text-white rounded-xl font-bold hover:bg-black transition-colors flex items-center justify-center gap-2 text-sm shadow-lg">
@@ -49,24 +73,26 @@ const UserProfile: React.FC = () => {
 
                              <div className="border-t border-gray-50 pt-6 space-y-3 text-left">
                                  <div className="flex items-center gap-3 text-gray-600 text-sm">
-                                     <MapPin size={16} className="text-gray-400" /> {user.location}
+                                     <MapPin size={16} className="text-gray-400" /> {user.location || '—'}
                                  </div>
                                  <div className="flex items-center gap-3 text-gray-600 text-sm">
-                                     <Github size={16} className="text-gray-400" /> <a href="#" className="hover:text-black hover:underline truncate block w-full">github.com/{user.handle.replace('@','')}</a>
+                                     <Github size={16} className="text-gray-400" /> <a href={user.github_url || '#'} className="hover:text-black hover:underline truncate block w-full">{user.github_url ? user.github_url.replace(/^https?:\/\//,'') : 'Not provided'}</a>
                                  </div>
                              </div>
                          </div>
 
+                         {(user.skills && user.skills.length > 0) && (
                          <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm">
                              <h3 className="font-bold text-gray-900 mb-4">Skills</h3>
                              <div className="flex flex-wrap gap-2">
-                                 {user.skills.map(skill => (
+                                 {user.skills.map((skill: string) => (
                                      <span key={skill} className="px-3 py-1 bg-gray-50 text-gray-600 rounded-lg text-xs font-bold border border-gray-200">
                                          {skill}
                                      </span>
                                  ))}
                              </div>
                          </div>
+                         )}
                     </div>
 
                     {/* Main Content */}
@@ -78,21 +104,21 @@ const UserProfile: React.FC = () => {
                                  <div className="w-8 h-8 md:w-10 md:h-10 bg-yellow-100 text-yellow-600 rounded-full flex items-center justify-center mb-2">
                                      <Trophy size={16} className="md:w-5 md:h-5" />
                                  </div>
-                                 <div className="font-heading text-lg md:text-xl text-gray-900">{user.wins}</div>
+                                 <div className="font-heading text-lg md:text-xl text-gray-900">{user.wins ?? 0}</div>
                                  <div className="text-[10px] text-gray-400 uppercase font-bold">Wins</div>
                              </div>
                              <div className="bg-white p-4 md:p-6 rounded-2xl md:rounded-3xl border border-gray-100 flex flex-col items-center justify-center text-center shadow-sm">
                                  <div className="w-8 h-8 md:w-10 md:h-10 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center mb-2">
                                      <Zap size={16} className="md:w-5 md:h-5" />
                                  </div>
-                                 <div className="font-heading text-lg md:text-xl text-gray-900">{user.streak}</div>
+                                 <div className="font-heading text-lg md:text-xl text-gray-900">{user.streak ?? 0}</div>
                                  <div className="text-[10px] text-gray-400 uppercase font-bold">Streak</div>
                              </div>
                              <div className="bg-white p-4 md:p-6 rounded-2xl md:rounded-3xl border border-gray-100 flex flex-col items-center justify-center text-center shadow-sm">
                                  <div className="w-8 h-8 md:w-10 md:h-10 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-2">
                                      <Star size={16} className="md:w-5 md:h-5" />
                                  </div>
-                                 <div className="font-heading text-lg md:text-xl text-gray-900">{user.xp}</div>
+                                 <div className="font-heading text-lg md:text-xl text-gray-900">{user.xp ?? 0}</div>
                                  <div className="text-[10px] text-gray-400 uppercase font-bold">XP</div>
                              </div>
                         </div>
@@ -101,7 +127,7 @@ const UserProfile: React.FC = () => {
                         <div className="bg-white rounded-3xl p-6 md:p-8 border border-gray-100 shadow-sm">
                             <h3 className="font-bold text-gray-900 mb-3">About</h3>
                             <p className="text-gray-600 leading-relaxed text-sm">
-                                {user.bio}
+                                {user.bio || 'No bio provided.'}
                             </p>
                         </div>
                         

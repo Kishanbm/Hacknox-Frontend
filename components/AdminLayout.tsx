@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import { 
   LayoutDashboard, 
   Users, 
   Gavel, 
+  Trophy,
   Shield,
   LogOut,
   Calendar,
@@ -23,6 +25,8 @@ interface SidebarProps {
 export const AdminLayout: React.FC<SidebarProps> = ({ children }) => {
   const location = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const navigate = useNavigate();
+  const auth = useAuth();
 
   // Close sidebar on route change
   useEffect(() => {
@@ -32,6 +36,7 @@ export const AdminLayout: React.FC<SidebarProps> = ({ children }) => {
   const navItems = [
     { label: 'Control Center', icon: <LayoutDashboard size={20} />, path: '/admin/dashboard' },
     { label: 'Hackathons', icon: <Calendar size={20} />, path: '/admin/hackathons' },
+    { label: 'Leaderboard', icon: <Trophy size={20} />, path: '/admin/leaderboard' },
     { label: 'Participants', icon: <Users size={20} />, path: '/admin/participants' },
     { label: 'Judge Manager', icon: <Gavel size={20} />, path: '/admin/judges' },
     { label: 'Assignments', icon: <GitMerge size={20} />, path: '/admin/assignments' },
@@ -130,7 +135,18 @@ export const AdminLayout: React.FC<SidebarProps> = ({ children }) => {
                         Super User
                     </div>
                 </div>
-                <button className="p-2 text-gray-400 hover:text-red-500 hover:bg-white rounded-xl transition-all shadow-sm hover:shadow">
+                <button
+                  onClick={async () => {
+                    try {
+                      await auth.logout();
+                    } catch (err) {
+                      console.error('Logout failed', err);
+                    } finally {
+                      navigate('/');
+                    }
+                  }}
+                  className="p-2 text-gray-400 hover:text-red-500 hover:bg-white rounded-xl transition-all shadow-sm hover:shadow"
+                >
                     <LogOut size={18} />
                 </button>
              </div>

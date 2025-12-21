@@ -1,13 +1,78 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '../components/Layout';
 import { 
     UserCircle, MapPin, Link as LinkIcon, Github, Twitter, Linkedin, 
     Edit2, Award, Trophy, Star, Zap, Code, Briefcase, Building2, Calendar, Share2
 } from 'lucide-react';
+import { authService } from '../services/auth.service';
+import { MeResponse } from '../types/api';
 
 const Profile: React.FC = () => {
     const navigate = useNavigate();
+    const [user, setUser] = useState<MeResponse | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        const fetchProfile = async () => {
+            try {
+                setIsLoading(true);
+                const data = await authService.me();
+                setUser(data);
+            } catch (err: any) {
+                console.error('Failed to fetch profile:', err);
+                setError(err.message || 'Failed to load profile');
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchProfile();
+    }, []);
+
+    // Show loading state
+    if (isLoading) {
+        return (
+            <DashboardLayout>
+                <div className="flex items-center justify-center min-h-[60vh]">
+                    <div className="text-center">
+                        <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                        <p className="text-gray-600">Loading profile...</p>
+                    </div>
+                </div>
+            </DashboardLayout>
+        );
+    }
+
+    // Show error state
+    if (error || !user) {
+        return (
+            <DashboardLayout>
+                <div className="flex items-center justify-center min-h-[60vh]">
+                    <div className="text-center">
+                        <p className="text-red-600 mb-4">{error || 'Failed to load profile'}</p>
+                        <button
+                            onClick={() => window.location.reload()}
+                            className="px-4 py-2 bg-primary text-white rounded-lg font-bold hover:bg-primary/90"
+                        >
+                            Retry
+                        </button>
+                    </div>
+                </div>
+            </DashboardLayout>
+        );
+    }
+
+    // Get user initials for avatar
+    const getInitials = () => {
+        const first = user.Profiles?.first_name?.[0] || '';
+        const last = user.Profiles?.last_name?.[0] || '';
+        return (first + last).toUpperCase() || 'U';
+    };
+
+    // Get full name
+    const fullName = `${user.Profiles?.first_name || ''} ${user.Profiles?.last_name || ''}`.trim() || 'User';
 
     const workExperience = [
         { 
@@ -48,34 +113,36 @@ const Profile: React.FC = () => {
                     {/* Content Body */}
                     <div className="px-8 pb-8 pt-0 relative flex flex-col items-center text-center">
                         {/* Avatar - Centered and Overlapping */}
-                        <div className="w-32 h-32 rounded-full border-4 border-white bg-gray-900 text-white flex items-center justify-center text-4xl font-heading shadow-xl relative -mt-16 mb-4 z-10">
-                            AM
-                            <div className="absolute bottom-2 right-2 w-6 h-6 bg-green-500 border-4 border-white rounded-full"></div>
+                        <div className="w-32 h-32 rounded-full border-4 border-white bg-gray-900 text-white flex items-center justify-center text-4xl font-heading shadow-xl relative -mt-16 mb-4 z-10 overflow-hidden">
+                            {user.Profiles?.avatar_url ? (
+                                <img 
+                                    src={user.Profiles.avatar_url} 
+                                    alt={fullName}
+                                    className="w-full h-full object-cover"
+                                />
+                            ) : (
+                                getInitials()
+                            )}
                         </div>
 
                         {/* Name & Headline */}
-                        <h1 className="text-3xl font-heading text-gray-900 mb-2">Alex Morgan</h1>
+                        <h1 className="text-3xl font-heading text-gray-900 mb-2">{fullName}</h1>
                         
                         <div className="flex flex-wrap items-center justify-center gap-2 mb-4">
                             <span className="px-3 py-1 bg-purple-50 text-purple-700 border border-purple-100 rounded-full text-xs font-bold uppercase tracking-wide flex items-center gap-1">
-                                <Code size={14} /> Full Stack Developer
+                                {user.role === 'participant' ? 'Participant' : user.role === 'judge' ? 'Judge' : 'Admin'}
                             </span>
-                            <span className="px-3 py-1 bg-indigo-50 text-indigo-700 border border-indigo-100 rounded-full text-xs font-bold uppercase tracking-wide flex items-center gap-1">
-                                <Zap size={14} /> AI Enthusiast
-                            </span>
+                            {((user as any).is_verified || (user as any).verified || (user.Profiles as any)?.is_verified) && (
+                                <span className="px-3 py-1 bg-green-50 text-green-700 border border-green-100 rounded-full text-xs font-bold uppercase tracking-wide flex items-center gap-1">
+                                    ✓ Verified
+                                </span>
+                            )}
                         </div>
 
                         {/* Meta Info */}
                         <div className="flex flex-wrap items-center justify-center gap-6 text-sm text-gray-500 font-medium">
                             <div className="flex items-center gap-2">
-                                <MapPin size={16} className="text-gray-400" /> Bengaluru, India
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <LinkIcon size={16} className="text-gray-400" /> 
-                                <a href="#" className="hover:text-primary transition-colors">alexmorgan.dev</a>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <Calendar size={16} className="text-gray-400" /> Joined Mar 2024
+                                <UserCircle size={16} className="text-gray-400" /> {user.email}
                             </div>
                         </div>
                     </div>
@@ -100,10 +167,7 @@ const Profile: React.FC = () => {
                                     <div className="text-2xl font-heading text-gray-900">12</div>
                                     <div className="text-[10px] font-bold text-gray-400 uppercase">Streak</div>
                                 </div>
-                                <div className="col-span-2 p-3 bg-gradient-to-r from-gray-900 to-gray-800 text-white rounded-2xl shadow-md">
-                                    <div className="text-3xl font-heading text-[#24FF00]">1,250</div>
-                                    <div className="text-[10px] font-bold text-gray-400 uppercase">Total XP</div>
-                                </div>
+                                
                             </div>
                         </div>
 
@@ -127,27 +191,29 @@ const Profile: React.FC = () => {
                                 <Share2 size={18} className="text-blue-500"/> Connect
                             </h3>
                             <div className="space-y-3">
-                                <a href="#" className="flex items-center justify-between p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors group">
-                                    <div className="flex items-center gap-3">
-                                        <Github size={18} className="text-gray-600 group-hover:text-black" />
-                                        <span className="text-sm font-bold text-gray-700">Github</span>
+                                {user.Profiles?.github_url && (
+                                    <a href={user.Profiles.github_url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors group">
+                                        <div className="flex items-center gap-3">
+                                            <Github size={18} className="text-gray-600 group-hover:text-black" />
+                                            <span className="text-sm font-bold text-gray-700">Github</span>
+                                        </div>
+                                        <span className="text-xs text-gray-400">{user.Profiles.github_url.split('/').pop()}</span>
+                                    </a>
+                                )}
+                                {user.Profiles?.linkedin_url && (
+                                    <a href={user.Profiles.linkedin_url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between p-3 bg-gray-50 rounded-xl hover:bg-blue-50 transition-colors group">
+                                        <div className="flex items-center gap-3">
+                                            <Linkedin size={18} className="text-gray-600 group-hover:text-blue-700" />
+                                            <span className="text-sm font-bold text-gray-700">LinkedIn</span>
+                                        </div>
+                                        <span className="text-xs text-gray-400">View Profile</span>
+                                    </a>
+                                )}
+                                {!user.Profiles?.github_url && !user.Profiles?.linkedin_url && (
+                                    <div className="text-center py-4 text-gray-400 text-sm">
+                                        No social links added yet
                                     </div>
-                                    <span className="text-xs text-gray-400">@alexcodes</span>
-                                </a>
-                                <a href="#" className="flex items-center justify-between p-3 bg-gray-50 rounded-xl hover:bg-blue-50 transition-colors group">
-                                    <div className="flex items-center gap-3">
-                                        <Linkedin size={18} className="text-gray-600 group-hover:text-blue-700" />
-                                        <span className="text-sm font-bold text-gray-700">LinkedIn</span>
-                                    </div>
-                                    <span className="text-xs text-gray-400">/in/alex</span>
-                                </a>
-                                <a href="#" className="flex items-center justify-between p-3 bg-gray-50 rounded-xl hover:bg-sky-50 transition-colors group">
-                                    <div className="flex items-center gap-3">
-                                        <Twitter size={18} className="text-gray-600 group-hover:text-sky-500" />
-                                        <span className="text-sm font-bold text-gray-700">Twitter</span>
-                                    </div>
-                                    <span className="text-xs text-gray-400">@alex_m</span>
-                                </a>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -159,9 +225,15 @@ const Profile: React.FC = () => {
                             <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
                                 <UserCircle size={20} className="text-primary"/> Biography
                             </h3>
-                            <p className="text-gray-600 leading-relaxed text-sm md:text-base">
-                                Passionate full-stack developer with a knack for building scalable web applications. I love participating in hackathons to challenge myself and learn new technologies. Currently exploring the intersection of Web3 and AI to build decentralized intelligent agents.
-                            </p>
+                            {user.Profiles?.bio ? (
+                                <p className="text-gray-600 leading-relaxed text-sm md:text-base">
+                                    {user.Profiles.bio}
+                                </p>
+                            ) : (
+                                <p className="text-gray-400 leading-relaxed text-sm md:text-base italic">
+                                    No bio added yet. Click "Edit Profile" to add your bio.
+                                </p>
+                            )}
                         </div>
 
                         {/* Work Experience */}

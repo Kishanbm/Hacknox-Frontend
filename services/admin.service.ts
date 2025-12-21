@@ -1,0 +1,335 @@
+import apiClient from '../lib/axios';
+
+// ==================== HACKATHON MANAGEMENT ====================
+
+export interface CreateHackathonData {
+  name: string;
+  submission_deadline: string;
+  max_team_size?: number;
+  event_info_json?: any;
+}
+
+export interface UpdateHackathonData {
+  name?: string;
+  submission_deadline?: string;
+  max_team_size?: number;
+  status?: string;
+  event_info_json?: any;
+}
+
+export const adminService = {
+  // 1. Get My Hackathons
+  getMyHackathons: async () => {
+    const response = await apiClient.get('/admin/hackathons');
+    return response.data;
+  },
+
+  // Get single hackathon detail
+  getHackathon: async (id: string) => {
+    // Backend does not expose GET /:id — fall back to fetching list and finding the item
+    const res = await apiClient.get('/admin/hackathons');
+    const list = res.data?.hackathons || res.data || [];
+    return list.find((h: any) => h.id === id) || null;
+  },
+
+  // Get analytics for a specific hackathon by overriding header per-request
+  getAnalyticsForHackathon: async (hackathonId: string) => {
+    const response = await apiClient.get('/admin/analytics/overview', {
+      headers: { 'x-hackathon-id': hackathonId }
+    });
+    return response.data;
+  },
+
+  // Get judges list for a specific hackathon (returns array or metadata)
+  getJudgesForHackathon: async (hackathonId: string, page = 1, limit = 100) => {
+    const response = await apiClient.get('/admin/judges', {
+      headers: { 'x-hackathon-id': hackathonId },
+      params: { page, limit }
+    });
+    return response.data;
+  },
+
+  // 2. Create Hackathon
+  createHackathon: async (data: CreateHackathonData) => {
+    const response = await apiClient.post('/admin/hackathons', data);
+    return response.data;
+  },
+
+  // 3. Update Hackathon
+  updateHackathon: async (id: string, data: UpdateHackathonData) => {
+    const response = await apiClient.patch(`/admin/hackathons/${id}`, data);
+    return response.data;
+  },
+
+  // 4. Delete Hackathon
+  deleteHackathon: async (id: string) => {
+    const response = await apiClient.delete(`/admin/hackathons/${id}`);
+    return response.data;
+  },
+
+  // ==================== JUDGE MANAGEMENT ====================
+
+  // 5. Get Judges List
+  getJudges: async (page = 1, limit = 10, hackathonId?: string) => {
+    const config: any = { params: { page, limit } };
+    if (hackathonId) config.headers = { 'x-hackathon-id': hackathonId };
+    else config.headers = { 'x-hackathon-id': false };
+    const response = await apiClient.get('/admin/judges', config);
+    return response.data;
+  },
+
+  // 6. Create Judge
+  createJudge: async (data: { email: string; firstName: string; lastName: string }) => {
+    const response = await apiClient.post('/admin/judge', data);
+    return response.data;
+  },
+
+  // 7. Update Judge
+  updateJudge: async (judgeId: string, data: any) => {
+    const response = await apiClient.patch(`/admin/judge/${judgeId}`, data);
+    return response.data;
+  },
+
+  // 8. Delete Judge
+  deleteJudge: async (judgeId: string, type: 'soft' | 'hard' = 'soft') => {
+    const response = await apiClient.delete(`/admin/judge/${judgeId}`, {
+      params: { type }
+    });
+    return response.data;
+  },
+
+  // ==================== TEAM MANAGEMENT ====================
+
+  // 9. Get Teams List
+  getTeams: async (page = 1, limit = 10, filters: any = {}, search = '', hackathonId?: string) => {
+    const config: any = { params: { page, limit, ...filters, search } };
+    if (hackathonId) config.headers = { 'x-hackathon-id': hackathonId };
+    else config.headers = { 'x-hackathon-id': false };
+    const response = await apiClient.get('/admin/teams', config);
+    return response.data;
+  },
+
+  // 10. Get Team Detail
+  getTeamDetail: async (teamId: string) => {
+    const response = await apiClient.get(`/admin/team/${teamId}`);
+    return response.data;
+  },
+
+  // 11. Update Team
+  updateTeam: async (teamId: string, data: any) => {
+    const response = await apiClient.patch(`/admin/team/${teamId}`, data);
+    return response.data;
+  },
+
+  // 12. Verify Team
+  verifyTeam: async (teamId: string) => {
+    const response = await apiClient.post(`/admin/team/${teamId}/verify`);
+    return response.data;
+  },
+
+  // 13. Export Teams CSV
+  exportTeamsCSV: async () => {
+    const response = await apiClient.get('/admin/teams/export', {
+      responseType: 'blob'
+    });
+    return response.data;
+  },
+
+  // ==================== SUBMISSIONS MANAGEMENT ====================
+
+  // 14. Get Submissions Panel
+  getSubmissions: async (page = 1, limit = 10, filters: any = {}) => {
+    const response = await apiClient.get('/admin/submissions', {
+      params: { page, limit, ...filters }
+    });
+    return response.data;
+  },
+
+  // 15. Get Submission Detail
+  getSubmissionDetail: async (submissionId: string) => {
+    const response = await apiClient.get(`/admin/submission/${submissionId}`);
+    return response.data;
+  },
+
+  // 16. Change Submission Status
+  changeSubmissionStatus: async (submissionId: string, data: { newStatus: string; adminNote?: string }, hackathonId?: string) => {
+    const config: any = {};
+    if (hackathonId) config.headers = { 'x-hackathon-id': hackathonId };
+    else config.headers = { 'x-hackathon-id': false };
+    const response = await apiClient.patch(`/admin/submission/${submissionId}/status`, data, config);
+    return response.data;
+  },
+
+  // 17. Download Submission
+  downloadSubmission: async (submissionId: string, hackathonId?: string) => {
+    const config: any = {};
+    if (hackathonId) config.headers = { 'x-hackathon-id': hackathonId };
+    else config.headers = { 'x-hackathon-id': false };
+    const response = await apiClient.get(`/admin/submission/${submissionId}/download`, config);
+    return response.data;
+  },
+
+  // ==================== JUDGE ASSIGNMENTS ====================
+
+  // 18. Get Judge Assignments
+  getJudgeAssignments: async (hackathonId?: string) => {
+    const config: any = {};
+    if (hackathonId) config.headers = { 'x-hackathon-id': hackathonId };
+    else config.headers = { 'x-hackathon-id': false };
+    const response = await apiClient.get('/admin/judge-assignments', config);
+    return response.data;
+  },
+
+  // 19. Assign Teams to Judges
+  assignTeamsToJudges: async (data: { judgeId: string; teamIds: string[] } | any[], hackathonId?: string) => {
+    const config: any = {};
+    if (hackathonId) config.headers = { 'x-hackathon-id': hackathonId };
+    else config.headers = { 'x-hackathon-id': false };
+    const payload = Array.isArray(data) ? data : [data];
+    const response = await apiClient.post('/admin/assignments/assign', payload, config);
+    return response.data;
+  },
+
+  // 20. Reassign Team
+  reassignTeam: async (data: { teamId: string; oldJudgeId: string; newJudgeId: string }, hackathonId?: string) => {
+    const config: any = {};
+    if (hackathonId) config.headers = { 'x-hackathon-id': hackathonId };
+    else config.headers = { 'x-hackathon-id': false };
+    const response = await apiClient.post('/admin/assignments/reassign', data, config);
+    return response.data;
+  },
+
+  // 21. Auto Balance Assignments
+  autoBalanceAssignments: async (hackathonId?: string) => {
+    const config: any = {};
+    if (hackathonId) config.headers = { 'x-hackathon-id': hackathonId };
+    else config.headers = { 'x-hackathon-id': false };
+    const response = await apiClient.post('/admin/assignments/auto-balance', {}, config);
+    return response.data;
+  },
+
+  // ==================== SCORING & LEADERBOARD ====================
+
+  // 22. Aggregate Scores
+  aggregateScores: async (hackathonId?: string) => {
+    const config: any = {};
+    // opt-out of axios interceptor header when no hackathon selected
+    if (hackathonId) config.headers = { 'x-hackathon-id': hackathonId };
+    else config.headers = { 'x-hackathon-id': false };
+    const response = await apiClient.post('/admin/scores/aggregate', {}, config);
+    return response.data;
+  },
+
+  // 23. Compute Leaderboard
+  computeLeaderboard: async (hackathonId?: string) => {
+    const config: any = {};
+    if (hackathonId) config.headers = { 'x-hackathon-id': hackathonId };
+    else config.headers = { 'x-hackathon-id': false };
+    const response = await apiClient.post('/admin/scores/compute-leaderboard', {}, config);
+    return response.data;
+  },
+
+  // 24. Get Internal Leaderboard
+  getLeaderboard: async (isPublished?: boolean, hackathonId?: string) => {
+    const params: any = {};
+    // send both common param names to be tolerant of backend variations
+    if (typeof isPublished === 'boolean') {
+      params.is_published = isPublished;
+      params.isPublished = isPublished;
+    }
+    const config: any = { params };
+    if (hackathonId) config.headers = { 'x-hackathon-id': hackathonId };
+    else config.headers = { 'x-hackathon-id': false };
+    const response = await apiClient.get('/admin/leaderboard', config);
+    return response.data;
+  },
+
+  // 25. Publish Leaderboard
+  publishLeaderboard: async (isPublic: boolean, hackathonId?: string) => {
+    const config: any = {};
+    if (hackathonId) config.headers = { 'x-hackathon-id': hackathonId };
+    else config.headers = { 'x-hackathon-id': false };
+    // Backend expects `isPublished` boolean field in some versions; include both to be safe
+    const payload = { is_public: isPublic, isPublished: isPublic };
+    const response = await apiClient.post('/admin/leaderboard/publish', payload, config);
+    return response.data;
+  },
+
+  // ==================== ANNOUNCEMENTS ====================
+
+  // 26. Get Announcements
+  getAnnouncements: async (page = 1, limit = 10, hackathonId?: string) => {
+    const config: any = { params: { page, limit } };
+    if (hackathonId) config.headers = { 'x-hackathon-id': hackathonId };
+    else config.headers = { 'x-hackathon-id': false };
+    const response = await apiClient.get('/admin/announcements', config);
+    return response.data;
+  },
+
+  // 27. Create Announcement
+  createAnnouncement: async (data: any, hackathonId?: string) => {
+    const config: any = {};
+    if (hackathonId) config.headers = { 'x-hackathon-id': hackathonId };
+    // include hackathonId in body as a fallback in case headers are stripped
+    const payload = { ...data } as any;
+    if (hackathonId) payload.hackathonId = hackathonId;
+    const response = await apiClient.post('/admin/announcements', payload, config);
+    return response.data;
+  },
+
+  // 28. Send Announcement
+  sendAnnouncement: async (data: any, hackathonId?: string) => {
+    const config: any = {};
+    if (hackathonId) config.headers = { 'x-hackathon-id': hackathonId };
+    const payload = { ...data } as any;
+    if (hackathonId) payload.hackathonId = hackathonId;
+    const response = await apiClient.post('/admin/announcements/send', payload, config);
+    return response.data;
+  },
+
+  // 29. Schedule Announcement
+  scheduleAnnouncement: async (data: any, hackathonId?: string) => {
+    const config: any = {};
+    if (hackathonId) config.headers = { 'x-hackathon-id': hackathonId };
+    const payload = { ...data } as any;
+    if (hackathonId) payload.hackathonId = hackathonId;
+    const response = await apiClient.post('/admin/announcements/schedule', payload, config);
+    return response.data;
+  },
+
+  // ==================== ANALYTICS ====================
+
+  // 30. Get Analytics Overview
+  getAnalyticsOverview: async () => {
+    const response = await apiClient.get('/admin/analytics/overview');
+    return response.data;
+  },
+
+  // 31. Get Analytics Detail
+  getAnalyticsDetail: async () => {
+    const response = await apiClient.get('/admin/analytics/detail');
+    return response.data;
+  },
+
+  // 32. Get State/College Breakdown
+  getBreakdown: async () => {
+    const response = await apiClient.get('/admin/overview/breakdown');
+    return response.data;
+  },
+
+  // ==================== AUDIT & SETTINGS ====================
+
+  // 33. Get Audit Logs
+  getAuditLogs: async (page = 1, limit = 50) => {
+    const response = await apiClient.get('/admin/settings/audit-logs', {
+      params: { page, limit }
+    });
+    return response.data;
+  },
+
+  // 34. Update Settings
+  updateSettings: async (data: any) => {
+    const response = await apiClient.patch('/admin/settings', data);
+    return response.data;
+  },
+};

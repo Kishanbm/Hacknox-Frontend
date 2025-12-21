@@ -78,10 +78,10 @@ const LandingPage: React.FC = () => {
           </div>
 
           <div className="flex justify-center gap-4">
-            <button className="bg-purple-600 text-white px-8 py-3 rounded-md font-bold shadow-lg hover:bg-purple-700 hover:-translate-y-1 transition-all">
+            <Link to="/signup" className="bg-purple-600 text-white px-8 py-3 rounded-md font-bold shadow-lg hover:bg-purple-700 hover:-translate-y-1 transition-all">
               Register Now
-            </button>
-            <Link to="/dashboard" className="bg-white text-purple-600 border-2 border-purple-100 px-8 py-3 rounded-md font-bold hover:bg-purple-50 transition-all">
+            </Link>
+            <Link to="/login" className="bg-white text-purple-600 border-2 border-purple-100 px-8 py-3 rounded-md font-bold hover:bg-purple-50 transition-all">
               Login
             </Link>
           </div>
@@ -271,9 +271,9 @@ const LandingPage: React.FC = () => {
             </div>
 
             <div className="mt-12">
-                <button className="bg-purple-600 text-white px-12 py-4 rounded-md font-bold text-lg shadow-xl hover:bg-purple-700 transition-all">
-                    Register Now
-                </button>
+                <Link to="/signup" className="bg-purple-600 text-white px-12 py-4 rounded-md font-bold text-lg shadow-xl hover:bg-purple-700 transition-all">
+                  Register Now
+                </Link>
             </div>
         </div>
       </section>

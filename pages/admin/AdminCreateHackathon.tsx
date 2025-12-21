@@ -1,15 +1,50 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { AdminLayout } from '../../components/AdminLayout';
 import { ChevronLeft, Save, Plus, Trash2, Gavel, Layers, Code, Calendar } from 'lucide-react';
+import { adminService } from '../../services/admin.service';
 
 const AdminCreateHackathon: React.FC = () => {
     const navigate = useNavigate();
+    const { id } = useParams();
+    const isEditMode = !!id;
     
     // Form States
+    const [name, setName] = useState('');
+    const [submissionDeadline, setSubmissionDeadline] = useState('');
+    const [maxTeamSize, setMaxTeamSize] = useState(4);
+    const [judgesPerSubmission, setJudgesPerSubmission] = useState(3);
     const [criteria, setCriteria] = useState([{ name: 'Innovation', weight: 25 }]);
     const [techStack, setTechStack] = useState(['React', 'Node.js', 'Python']);
     const [newTech, setNewTech] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [saving, setSaving] = useState(false);
+
+    useEffect(() => {
+        if (isEditMode) {
+            // Fetch hackathon details and prefill the form
+            (async () => {
+                try {
+                    setLoading(true);
+                    const data = await adminService.getHackathon(id!);
+                    // expected fields: name, submission_deadline, max_team_size, event_info_json
+                    setName(data.name || '');
+                    setSubmissionDeadline(data.submission_deadline || '');
+                    setMaxTeamSize(data.max_team_size || 4);
+
+                    const info = data.event_info_json || {};
+                    setJudgesPerSubmission(info.judges_per_submission || 3);
+                    setCriteria(info.evaluation_criteria || [{ name: 'Innovation', weight: 25 }]);
+                    setTechStack(info.tech_stack || ['React', 'Node.js', 'Python']);
+                } catch (err) {
+                    console.error('[AdminCreateHackathon] Failed to load hackathon for edit', err);
+                    alert('Failed to load hackathon details for editing.');
+                } finally {
+                    setLoading(false);
+                }
+            })();
+        }
+    }, [id, isEditMode]);
 
     const addCriteria = () => {
         setCriteria([...criteria, { name: '', weight: 0 }]);
@@ -33,6 +68,46 @@ const AdminCreateHackathon: React.FC = () => {
         }
     };
 
+    const handleSave = async () => {
+        if (!name || !submissionDeadline) {
+            alert('Please fill in Hackathon Name and Submission Deadline');
+            return;
+        }
+
+        const eventInfo = {
+            judges_per_submission: judgesPerSubmission,
+            evaluation_criteria: criteria,
+            tech_stack: techStack
+        };
+
+        try {
+            setSaving(true);
+            if (isEditMode) {
+                await adminService.updateHackathon(id!, {
+                    name,
+                    submission_deadline: submissionDeadline,
+                    max_team_size: maxTeamSize,
+                    event_info_json: eventInfo
+                });
+                alert('Hackathon updated successfully!');
+            } else {
+                await adminService.createHackathon({
+                    name,
+                    submission_deadline: submissionDeadline,
+                    max_team_size: maxTeamSize,
+                    event_info_json: eventInfo
+                });
+                alert('Hackathon created successfully!');
+            }
+            navigate('/admin/hackathons');
+        } catch (error: any) {
+            console.error('[AdminCreateHackathon] Error saving:', error);
+            alert('Failed to save: ' + (error.response?.data?.message || error.message));
+        } finally {
+            setSaving(false);
+        }
+    };
+
     return (
         <AdminLayout>
             <div className="max-w-4xl mx-auto pb-12">
@@ -41,9 +116,17 @@ const AdminCreateHackathon: React.FC = () => {
                 </button>
 
                 <div className="flex justify-between items-center mb-8">
-                    <h1 className="text-3xl font-heading text-gray-900">Configure Event</h1>
-                    <button className="px-6 py-2.5 bg-[#111827] text-white rounded-xl font-bold hover:bg-black transition-colors flex items-center gap-2 shadow-lg">
-                        <Save size={18} /> Save & Publish
+                    <h1 className="text-3xl font-heading text-gray-900">{isEditMode ? 'Edit Event' : 'Configure Event'}</h1>
+                    <button 
+                        onClick={handleSave}
+                        disabled={saving}
+                        className="px-6 py-2.5 bg-[#111827] text-white rounded-xl font-bold hover:bg-black transition-colors flex items-center gap-2 shadow-lg disabled:opacity-70 disabled:cursor-not-allowed"
+                    >
+                        {saving ? (
+                            <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> Saving...</>
+                        ) : (
+                            <><Save size={18} /> {isEditMode ? 'Update' : 'Save & Publish'}</>
+                        )}
                     </button>
                 </div>
 
@@ -56,19 +139,33 @@ const AdminCreateHackathon: React.FC = () => {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="md:col-span-2">
                                 <label className="block text-sm font-bold text-gray-700 mb-2">Hackathon Name</label>
-                                <input type="text" placeholder="e.g. HackOnX 2025" className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-[#5425FF] font-medium" />
+                                <input 
+                                    type="text" 
+                                    placeholder="e.g. HackOnX 2025" 
+                                    value={name}
+                                    onChange={(e) => setName(e.target.value)}
+                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-[#5425FF] font-medium" 
+                                />
                             </div>
                             <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-2">Start Date</label>
-                                <input type="date" className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-[#5425FF]" />
+                                <label className="block text-sm font-bold text-gray-700 mb-2">Submission Deadline</label>
+                                <input 
+                                    type="datetime-local" 
+                                    value={submissionDeadline}
+                                    onChange={(e) => setSubmissionDeadline(e.target.value)}
+                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-[#5425FF]" 
+                                />
                             </div>
                             <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-2">End Date</label>
-                                <input type="date" className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-[#5425FF]" />
-                            </div>
-                            <div className="md:col-span-2">
-                                <label className="block text-sm font-bold text-gray-700 mb-2">Tagline</label>
-                                <input type="text" placeholder="One line description" className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-[#5425FF]" />
+                                <label className="block text-sm font-bold text-gray-700 mb-2">Max Team Size</label>
+                                <input 
+                                    type="number" 
+                                    min="1"
+                                    max="10"
+                                    value={maxTeamSize}
+                                    onChange={(e) => setMaxTeamSize(Number(e.target.value))}
+                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-[#5425FF]" 
+                                />
                             </div>
                         </div>
                     </div>
@@ -80,12 +177,16 @@ const AdminCreateHackathon: React.FC = () => {
                         </h3>
                         <div className="mb-6">
                             <label className="block text-sm font-bold text-gray-700 mb-2">Judges per Submission</label>
-                            <select className="w-full md:w-1/3 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-[#5425FF]">
-                                <option>1 Judge</option>
-                                <option>2 Judges</option>
-                                <option selected>3 Judges</option>
-                                <option>4 Judges (Panel)</option>
-                                <option>5 Judges</option>
+                            <select 
+                                value={judgesPerSubmission}
+                                onChange={(e) => setJudgesPerSubmission(Number(e.target.value))}
+                                className="w-full md:w-1/3 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-[#5425FF]"
+                            >
+                                <option value={1}>1 Judge</option>
+                                <option value={2}>2 Judges</option>
+                                <option value={3}>3 Judges</option>
+                                <option value={4}>4 Judges (Panel)</option>
+                                <option value={5}>5 Judges</option>
                             </select>
                             <p className="text-xs text-gray-500 mt-2">Recommended: 3 judges for balanced scoring.</p>
                         </div>

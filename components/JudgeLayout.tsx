@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import { 
   LayoutDashboard, 
   FileCheck, 
@@ -19,6 +20,8 @@ interface SidebarProps {
 export const JudgeLayout: React.FC<SidebarProps> = ({ children }) => {
   const location = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const navigate = useNavigate();
+  const auth = useAuth();
 
   // Close sidebar on route change
   useEffect(() => {
@@ -111,7 +114,18 @@ export const JudgeLayout: React.FC<SidebarProps> = ({ children }) => {
                         <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div> Online
                     </div>
                 </div>
-                <button className="p-2 text-gray-400 hover:text-red-500 hover:bg-white rounded-lg transition-colors shadow-sm hover:shadow">
+                <button
+                  onClick={async () => {
+                    try {
+                      await auth.logout();
+                    } catch (err) {
+                      console.error('Logout failed', err);
+                    } finally {
+                      navigate('/');
+                    }
+                  }}
+                  className="p-2 text-gray-400 hover:text-red-500 hover:bg-white rounded-lg transition-colors shadow-sm hover:shadow"
+                >
                     <LogOut size={18} />
                 </button>
              </div>

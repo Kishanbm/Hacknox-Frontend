@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { DashboardLayout } from '../components/Layout';
 import { 
@@ -6,43 +6,106 @@ import {
     Github, Copy, CheckCircle2, MoreVertical, Crown, Shield, UserMinus,
     LogOut, Rocket
 } from 'lucide-react';
+import { teamService } from '../services/team.service';
 
 const TeamDetail: React.FC = () => {
     const { id } = useParams();
     const navigate = useNavigate();
     const [copied, setCopied] = useState(false);
+    const [team, setTeam] = useState<any>(null);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
-    // Mock Data based on ID
-    const team = {
-        id: id,
-        name: 'Alpha Squad',
-        code: 'X7K9P2',
-        hackathon: {
-            name: 'HackOnX 2025',
-            status: 'Live',
-            daysLeft: 2,
-            id: 'h1'
-        },
-        description: 'Building the next gen neural network visualization tool for education.',
-        role: 'Leader', // Current user role
-        members: [
-            { id: 'm1', name: "Alex Morgan", role: "Leader", status: "Online", avatar: "AM", title: "Full Stack Dev" },
-            { id: 'm2', name: "Sarah Chen", role: "Member", status: "Online", avatar: "SC", title: "ML Engineer" },
-            { id: 'm3', name: "Mike Ross", role: "Member", status: "Offline", avatar: "MR", title: "Frontend Dev" },
-        ],
-        checklist: [
-            { id: 1, task: 'Create GitHub Repo', completed: true },
-            { id: 2, task: 'Submit Team Details', completed: true },
-            { id: 3, task: 'Upload Pitch Deck', completed: false },
-            { id: 4, task: 'Final Submission', completed: false },
-        ]
-    };
+    useEffect(() => {
+        const loadTeam = async () => {
+            if (!id) return;
+            setIsLoading(true);
+            setError(null);
+            try {
+                const data = await teamService.getTeamById(id);
+                // Map backend response to expected UI format
+                const localUser = (() => {
+                    try { return JSON.parse(localStorage.getItem('user') || 'null'); } catch { return null; }
+                })();
+                
+                const members = (data.members || []).map((m: any) => {
+                    const user = m.user || {};
+                    // supabase may return Profiles or profile depending on select alias
+                    const profile = Array.isArray(user.Profiles) ? user.Profiles[0] : (Array.isArray(user.profile) ? user.profile[0] : (user.profile || user.Profiles || {}));
+                    const name = profile?.first_name ? `${profile.first_name} ${profile.last_name || ''}`.trim() : user.email || m.user_id || 'Member';
+                    const avatar = profile?.avatar_url || name.split(' ').map((s:string)=>s[0]).slice(0,2).join('').toUpperCase();
+                    const isLeader = data.leader_id === user.id;
+                    return {
+                        id: user.id || m.user_id,
+                        name,
+                        role: isLeader ? 'Leader' : 'Member',
+                        status: 'Offline',
+                        avatar,
+                        title: isLeader ? 'Team Leader' : 'Member'
+                    };
+                });
+
+                const userRole = members.find((m: any) => m.id === localUser?.id)?.role || 'Member';
+
+                setTeam({
+                    id: data.id,
+                    name: data.name,
+                    code: data.join_code || '',
+                    hackathon: {
+                        name: data.hackathon_title || 'Hackathon',
+                        status: 'Live',
+                        daysLeft: 2,
+                        id: data.hackathon_id || ''
+                    },
+                    description: data.description || 'No description',
+                    role: userRole,
+                    members,
+                    checklist: []
+                });
+            } catch (err: any) {
+                console.error('Failed to load team', err);
+                setError(err?.message || 'Failed to load team');
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        loadTeam();
+    }, [id]);
 
     const copyCode = () => {
-        navigator.clipboard.writeText(team.code);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
+        if (team?.code) {
+            navigator.clipboard.writeText(team.code);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        }
     };
+
+    if (isLoading) {
+        return (
+            <DashboardLayout>
+                <div className="h-96 flex items-center justify-center">
+                    <div className="text-center">
+                        <div className="inline-block animate-pulse px-6 py-3 bg-gray-100 rounded-xl">Loading team...</div>
+                    </div>
+                </div>
+            </DashboardLayout>
+        );
+    }
+
+    if (error || !team) {
+        return (
+            <DashboardLayout>
+                <div className="h-96 flex items-center justify-center">
+                    <div className="text-center">
+                        <p className="text-red-500 mb-4">{error || 'Team not found'}</p>
+                        <button onClick={() => navigate('/dashboard/teams')} className="px-4 py-2 bg-gray-900 text-white rounded-xl font-bold">
+                            Back to Teams
+                        </button>
+                    </div>
+                </div>
+            </DashboardLayout>
+        );
+    }
 
     return (
         <DashboardLayout>

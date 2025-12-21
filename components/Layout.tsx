@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import { 
   LayoutDashboard, 
   Users, 
@@ -26,6 +27,9 @@ export const DashboardLayout: React.FC<SidebarProps> = ({ children }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
+  const { logout } = useAuth();
+  const { user } = useAuth();
 
   // Close sidebar on route change
   useEffect(() => {
@@ -127,21 +131,36 @@ export const DashboardLayout: React.FC<SidebarProps> = ({ children }) => {
             </nav>
         </div>
 
-        <div className="p-6 mt-auto">
-          <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-2xl p-5 text-white relative overflow-hidden shadow-xl">
-            <div className="absolute top-0 right-0 w-24 h-24 bg-primary opacity-20 rounded-full -mr-10 -mt-10 blur-xl"></div>
-             <div className="relative z-10">
-                <div className="flex items-center gap-2 mb-2 text-secondary">
+        {/* <div className="p-6 mt-auto"> */}
+          {/* <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-2xl p-5 text-white relative overflow-hidden shadow-xl">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-primary opacity-20 rounded-full -mr-10 -mt-10 blur-xl"></div> */}
+             {/* <div className="relative z-10"> */}
+                {/* <div className="flex items-center gap-2 mb-2 text-secondary">
                    <Trophy size={16} />
                    <h4 className="font-heading text-sm">Level 5</h4>
-                </div>
-                <div className="w-full bg-gray-700 h-1.5 rounded-full mb-2">
+                </div> */}
+                {/* <div className="w-full bg-gray-700 h-1.5 rounded-full mb-2">
                     <div className="bg-secondary h-1.5 rounded-full" style={{width: '75%'}}></div>
-                </div>
-                <p className="text-xs text-gray-400">1,250 XP to next level</p>
-             </div>
-          </div>
-        </div>
+                </div> */}
+                {/* <p className="text-xs text-gray-400">1,250 XP to next level</p> */}
+             {/* </div> */}
+          {/* </div>
+        </div> */}
+         <div className="px-6 pt-4 pb-6">
+           <button
+             onClick={async () => {
+               try {
+                 await logout();
+                 navigate('/');
+               } catch (e) {
+                 console.error('Logout failed', e);
+               }
+             }}
+             className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+           >
+             Logout
+           </button>
+         </div>
       </aside>
 
       {/* Main Content */}
@@ -175,57 +194,22 @@ export const DashboardLayout: React.FC<SidebarProps> = ({ children }) => {
 
                 {/* Notifications */}
                 <div className="relative" ref={notifRef}>
-                    <button 
-                        onClick={() => setShowNotifications(!showNotifications)}
-                        className="relative w-10 h-10 md:w-11 md:h-11 bg-white rounded-full flex items-center justify-center text-gray-500 hover:text-primary shadow-sm border border-gray-100 transition-colors group"
-                    >
-                        <Bell size={20} className="group-hover:animate-swing" />
-                        <span className="absolute top-3 right-3 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>
-                    </button>
-
-                    {showNotifications && (
-                        <div className="absolute right-0 top-14 w-80 md:w-96 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-                            <div className="p-4 border-b border-gray-50 flex justify-between items-center bg-gray-50/50">
-                                <h4 className="font-bold text-gray-900">Notifications</h4>
-                                <button className="text-xs text-primary font-bold hover:underline">Mark all read</button>
-                            </div>
-                            <div className="max-h-[60vh] overflow-y-auto">
-                                {notifications.map(n => (
-                                    <div key={n.id} className={`p-4 border-b border-gray-50 hover:bg-gray-50 transition-colors flex gap-4 ${n.unread ? 'bg-blue-50/30' : ''}`}>
-                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
-                                            n.type === 'invite' ? 'bg-purple-100 text-purple-600' :
-                                            n.type === 'alert' ? 'bg-red-100 text-red-600' :
-                                            'bg-blue-100 text-blue-600'
-                                        }`}>
-                                            {n.type === 'invite' && <Users size={18} />}
-                                            {n.type === 'alert' && <AlertTriangle size={18} />}
-                                            {n.type === 'info' && <Info size={18} />}
-                                        </div>
-                                        <div className="flex-1">
-                                            <div className="flex justify-between items-start mb-1">
-                                                <p className="text-sm font-bold text-gray-900">{n.title}</p>
-                                                {n.unread && <div className="w-2 h-2 bg-primary rounded-full mt-1.5"></div>}
-                                            </div>
-                                            <p className="text-xs text-gray-600 mb-1">{n.desc}</p>
-                                            <p className="text-[10px] text-gray-400 font-medium">{n.time}</p>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                            <div className="p-3 text-center border-t border-gray-50 bg-gray-50/30">
-                                <button className="text-xs font-bold text-gray-500 hover:text-gray-900">View All History</button>
-                            </div>
-                        </div>
-                    )}
+                  <button 
+                    onClick={() => navigate('/dashboard/notifications')}
+                    className="relative w-10 h-10 md:w-11 md:h-11 bg-white rounded-full flex items-center justify-center text-gray-500 hover:text-primary shadow-sm border border-gray-100 transition-colors group"
+                  >
+                    <Bell size={20} className="group-hover:animate-swing" />
+                    <span className="absolute top-3 right-3 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>
+                  </button>
                 </div>
                 
                 <div className="flex items-center gap-3 pl-0 md:pl-4 md:border-l border-gray-200">
                     <div className="text-right hidden sm:block">
-                        <div className="text-sm font-bold text-gray-900">Alex Morgan</div>
-                        <div className="text-xs text-primary font-bold">@alexcodes</div>
+                      <div className="text-sm font-bold text-gray-900">{user?.firstName ? `${user.firstName} ${user.lastName || ''}` : user?.email}</div>
+                      <div className="text-xs text-primary font-bold">{user?.email || ''}</div>
                     </div>
                     <div className="w-10 h-10 md:w-11 md:h-11 bg-gradient-to-tr from-primary to-purple-400 rounded-full flex items-center justify-center text-white font-heading border-2 border-white shadow-md cursor-pointer hover:ring-2 hover:ring-offset-2 hover:ring-primary transition-all text-sm md:text-base">
-                        AM
+                      {user?.firstName ? `${(user.firstName[0]||'').toUpperCase()}${(user.lastName?.[0]||'').toUpperCase()}` : (user?.email?.slice(0,2).toUpperCase()||'ME')}
                     </div>
                 </div>
             </div>

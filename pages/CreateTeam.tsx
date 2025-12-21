@@ -1,25 +1,65 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '../components/Layout';
 import { Users, ChevronLeft, Flag, Target, UserPlus, CheckCircle2, Loader2 } from 'lucide-react';
+import { publicService } from '../services/public.service';
+import { teamService } from '../services/team.service';
 
 const CreateTeam: React.FC = () => {
     const navigate = useNavigate();
-    const [status, setStatus] = useState<'idle' | 'loading' | 'success'>('idle');
+    const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+    const [hackathons, setHackathons] = useState<any[]>([]);
+    const [selectedHackathonId, setSelectedHackathonId] = useState<string>('');
+    const [teamName, setTeamName] = useState<string>('');
+    const [errorMessage, setErrorMessage] = useState<string>('');
     
-    // Mock Hackathons for dropdown
-    const hackathons = ['HackOnX 2025', 'Global AI Challenge', 'Sustainable Future'];
+    useEffect(() => {
+        const loadHackathons = async () => {
+            try {
+                const data = await publicService.getHackathons({ status: 'active' });
+                setHackathons(data || []);
+                if (data && data.length > 0) setSelectedHackathonId(data[0].id);
+            } catch (err) {
+                console.error('Failed to load hackathons', err);
+            }
+        };
+        loadHackathons();
+    }, []);
 
-    const handleCreate = () => {
+    const handleCreate = async () => {
         setStatus('loading');
-        // Simulate API call
-        setTimeout(() => {
+        setErrorMessage('');
+        
+        if (!teamName.trim()) {
+            setErrorMessage('Team name is required');
+            setStatus('error');
+            return;
+        }
+        
+        if (!selectedHackathonId) {
+            setErrorMessage('Please select a hackathon');
+            setStatus('error');
+            return;
+        }
+
+        try {
+            // Store hackathon id so backend knows which hackathon context
+            localStorage.setItem('selectedHackathonId', selectedHackathonId);
+            
+            await teamService.createTeam({
+                name: teamName,
+                hackathonId: selectedHackathonId,
+            });
+            
             setStatus('success');
-            // Redirect after showing success state
             setTimeout(() => {
                 navigate('/dashboard/teams');
             }, 1500);
-        }, 1500);
+        } catch (err: any) {
+            console.error('Failed to create team', err);
+            setErrorMessage(err?.message || 'Failed to create team');
+            setStatus('error');
+        }
     };
 
     if (status === 'success') {
@@ -70,8 +110,12 @@ const CreateTeam: React.FC = () => {
                             <label className="block text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
                                 <Target size={16} /> Select Hackathon
                             </label>
-                            <select className="w-full px-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-primary transition-colors font-medium text-gray-900 appearance-none">
-                                {hackathons.map(h => <option key={h}>{h}</option>)}
+                            <select 
+                                value={selectedHackathonId} 
+                                onChange={(e) => setSelectedHackathonId(e.target.value)}
+                                className="w-full px-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-primary transition-colors font-medium text-gray-900 appearance-none"
+                            >
+                                {hackathons.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}
                             </select>
                         </div>
 
@@ -81,10 +125,18 @@ const CreateTeam: React.FC = () => {
                             </label>
                             <input 
                                 type="text" 
+                                value={teamName}
+                                onChange={(e) => setTeamName(e.target.value)}
                                 placeholder="e.g. Quantum Coders" 
                                 className="w-full px-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-primary transition-colors font-medium text-gray-900"
                             />
                         </div>
+
+                        {errorMessage && status === 'error' && (
+                            <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
+                                {errorMessage}
+                            </div>
+                        )}
 
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-2">Team Bio / Pitch</label>
@@ -109,9 +161,10 @@ const CreateTeam: React.FC = () => {
 
                         <button 
                             onClick={handleCreate}
-                            className="w-full py-4 bg-primary text-white rounded-xl font-bold hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20 mt-4"
+                            disabled={status === 'loading'}
+                            className="w-full py-4 bg-primary text-white rounded-xl font-bold hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20 mt-4 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            Create Team
+                            {status === 'loading' ? 'Creating...' : 'Create Team'}
                         </button>
                     </div>
                 </div>

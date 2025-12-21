@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '../components/Layout';
 import { 
@@ -6,6 +6,10 @@ import {
     Github, Twitter, Linkedin, Camera, Briefcase, Plus, Trash2, 
     Calendar, FileText, Layers, Share2
 } from 'lucide-react';
+import { authService } from '../services/auth.service';
+import { useAuth } from '../contexts/AuthContext';
+import apiClient from '../lib/axios';
+import { MeResponse } from '../types/api';
 
 interface Experience {
     id: number;
@@ -18,21 +22,61 @@ interface Experience {
 const EditProfile: React.FC = () => {
     const navigate = useNavigate();
     const [isLoading, setIsLoading] = useState(false);
+    const [isFetching, setIsFetching] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [successMessage, setSuccessMessage] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<'general' | 'experience' | 'socials'>('general');
+    
+    // User Data
+    const [user, setUser] = useState<MeResponse | null>(null);
+    
+    // Form States
+    const [firstName, setFirstName] = useState('');
+    const [lastName, setLastName] = useState('');
+    const [bio, setBio] = useState('');
+    const [githubUrl, setGithubUrl] = useState('');
+    const [linkedinUrl, setLinkedinUrl] = useState('');
+    const [phone, setPhone] = useState('');
     
     // Image Preview States
     const [bannerPreview, setBannerPreview] = useState<string | null>(null);
     const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+    const [avatarUrl, setAvatarUrl] = useState<string>('');
 
-    // Form States
-    const [experience, setExperience] = useState<Experience[]>([
-        { id: 1, role: 'Senior Full Stack Developer', company: 'TechFlow Systems', period: '2022 - Present', description: 'Leading the frontend architecture migration to React 18 and mentoring junior developers.' },
-        { id: 2, role: 'Frontend Engineer', company: 'Creative Solutions', period: '2020 - 2022', description: 'Developed responsive web applications for e-commerce clients using Next.js and Tailwind CSS.' }
-    ]);
+    // Experience (not used in backend but kept for UI)
+    const [experience, setExperience] = useState<Experience[]>([]);
 
     // File Input Refs
     const bannerInputRef = useRef<HTMLInputElement>(null);
     const avatarInputRef = useRef<HTMLInputElement>(null);
+
+    // Fetch profile on mount
+    useEffect(() => {
+        const fetchProfile = async () => {
+            try {
+                setIsFetching(true);
+                const data = await authService.me();
+                setUser(data);
+                
+                // Populate form fields
+                setFirstName(data.Profiles?.first_name || '');
+                setLastName(data.Profiles?.last_name || '');
+                setBio(data.Profiles?.bio || '');
+                setGithubUrl(data.Profiles?.github_url || '');
+                setLinkedinUrl(data.Profiles?.linkedin_url || '');
+                setPhone(data.Profiles?.phone || '');
+                setAvatarUrl(data.Profiles?.avatar_url || '');
+                setAvatarPreview(data.Profiles?.avatar_url || null);
+            } catch (err: any) {
+                console.error('Failed to fetch profile:', err);
+                setError(err.message || 'Failed to load profile');
+            } finally {
+                setIsFetching(false);
+            }
+        };
+
+        fetchProfile();
+    }, []);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'banner' | 'avatar') => {
         const file = e.target.files?.[0];
@@ -41,7 +85,23 @@ const EditProfile: React.FC = () => {
             if (type === 'banner') {
                 setBannerPreview(objectUrl);
             } else {
-                setAvatarPreview(objectUrl);
+                // Upload avatar to backend and store returned URL
+                (async () => {
+                    try {
+                        setIsLoading(true);
+                        const form = new FormData();
+                        form.append('avatar', file);
+                        // apiClient.baseURL already points to /api
+                        const resp = await apiClient.upload<{ message: string; url: string }>('uploads/avatar', form);
+                        const url = resp.data.url;
+                        setAvatarPreview(url);
+                        setAvatarUrl(url);
+                    } catch (err) {
+                        console.error('Avatar upload failed', err);
+                    } finally {
+                        setIsLoading(false);
+                    }
+                })();
             }
         }
     };
@@ -71,14 +131,61 @@ const EditProfile: React.FC = () => {
         setExperience(experience.map(exp => exp.id === id ? { ...exp, [field]: value } : exp));
     };
 
-    const handleSave = () => {
-        setIsLoading(true);
-        // Simulate API call
-        setTimeout(() => {
+    const { refetchUser } = useAuth();
+
+    const handleSave = async () => {
+        try {
+            setIsLoading(true);
+            setError(null);
+            setSuccessMessage(null);
+            
+            // Prepare profile data
+            const profileData: any = {};
+            
+            if (firstName) profileData.first_name = firstName;
+            if (lastName) profileData.last_name = lastName;
+            if (bio) profileData.bio = bio;
+            if (githubUrl) profileData.github_url = githubUrl;
+            if (linkedinUrl) profileData.linkedin_url = linkedinUrl;
+            if (phone) profileData.phone = phone;
+            if (avatarUrl) profileData.avatar_url = avatarUrl;
+            
+            const resp = await authService.updateProfile(profileData);
+            setSuccessMessage('Profile updated successfully!');
+
+            // Refresh global auth user so UI updates (header, nav, etc.)
+            try {
+                await refetchUser();
+            } catch (e) {
+                console.warn('refetchUser failed after profile update', e);
+            }
+            
+            // Navigate back after a short delay
+            setTimeout(() => {
+                navigate('/dashboard/profile');
+            }, 1000);
+            
+        } catch (err: any) {
+            console.error('Failed to update profile:', err);
+            setError(err.message || 'Failed to update profile');
+        } finally {
             setIsLoading(false);
-            navigate('/dashboard/profile');
-        }, 1500);
+        }
     };
+
+    // Show loading state while fetching
+    if (isFetching) {
+        return (
+            <DashboardLayout>
+                <div className="flex items-center justify-center min-h-[60vh]">
+                    <div className="text-center">
+                        <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                        <p className="text-gray-600">Loading profile...</p>
+                    </div>
+                </div>
+            </DashboardLayout>
+        );
+    }
 
     return (
         <DashboardLayout>
@@ -111,6 +218,20 @@ const EditProfile: React.FC = () => {
                         )}
                     </button>
                 </div>
+
+                {/* Error Message */}
+                {error && (
+                    <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3">
+                        <span className="text-red-600 text-sm">{error}</span>
+                    </div>
+                )}
+
+                {/* Success Message */}
+                {successMessage && (
+                    <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-xl flex items-start gap-3">
+                        <span className="text-green-600 text-sm">{successMessage}</span>
+                    </div>
+                )}
 
                 {/* Tabs */}
                 <div className="flex p-1 bg-white border border-gray-200 rounded-xl w-full md:w-fit mb-8 overflow-x-auto no-scrollbar">
@@ -180,7 +301,7 @@ const EditProfile: React.FC = () => {
                                         {avatarPreview ? (
                                             <img src={avatarPreview} alt="Avatar" className="w-full h-full object-cover" />
                                         ) : (
-                                            "AM"
+                                            ((firstName?.[0] || '') + (lastName?.[0] || '')).toUpperCase() || 'U'
                                         )}
                                         <div className="absolute inset-0 bg-black/50 opacity-0 group-hover/avatar:opacity-100 transition-opacity flex items-center justify-center text-white backdrop-blur-sm">
                                             <Upload size={20} />
@@ -195,26 +316,34 @@ const EditProfile: React.FC = () => {
                                     <User size={18} className="text-[#5425FF]" /> Identity
                                 </h3>
                                 <div>
-                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Display Name</label>
-                                    <input type="text" defaultValue="Alex Morgan" className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-[#5425FF] font-medium text-gray-900" />
+                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-2">First Name *</label>
+                                    <input 
+                                        type="text" 
+                                        value={firstName} 
+                                        onChange={(e) => setFirstName(e.target.value)}
+                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-[#5425FF] font-medium text-gray-900" 
+                                        placeholder="Enter first name"
+                                    />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Current Role</label>
-                                    <input type="text" defaultValue="Full Stack Developer" className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-[#5425FF] font-medium text-gray-900" />
+                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Last Name *</label>
+                                    <input 
+                                        type="text" 
+                                        value={lastName} 
+                                        onChange={(e) => setLastName(e.target.value)}
+                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-[#5425FF] font-medium text-gray-900" 
+                                        placeholder="Enter last name"
+                                    />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Location</label>
-                                    <div className="relative">
-                                        <MapPin size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                                        <input type="text" defaultValue="Bengaluru, India" className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-[#5425FF] font-medium text-gray-900" />
-                                    </div>
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Website</label>
-                                    <div className="relative">
-                                        <LinkIcon size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                                        <input type="url" defaultValue="https://alexmorgan.dev" className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-[#5425FF] font-medium text-gray-900" />
-                                    </div>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Phone</label>
+                                    <input 
+                                        type="text" 
+                                        value={phone} 
+                                        onChange={(e) => setPhone(e.target.value)}
+                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-[#5425FF] font-medium text-gray-900" 
+                                        placeholder="+91 1234567890"
+                                    />
                                 </div>
                             </div>
 
@@ -227,7 +356,8 @@ const EditProfile: React.FC = () => {
                                     </h3>
                                     <textarea 
                                         className="w-full h-40 p-4 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-[#5425FF] font-medium text-gray-700 resize-none leading-relaxed" 
-                                        defaultValue="Passionate full-stack developer with a knack for building scalable web applications. I love participating in hackathons to challenge myself and learn new technologies."
+                                        value={bio}
+                                        onChange={(e) => setBio(e.target.value)}
                                         placeholder="Tell us about yourself..."
                                     ></textarea>
                                 </div>
@@ -361,17 +491,13 @@ const EditProfile: React.FC = () => {
                                             <div className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center text-gray-600">
                                                 <Github size={18} />
                                             </div>
-                                            <input type="text" defaultValue="github.com/alexcodes" className="w-full pl-14 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-[#5425FF] font-medium text-gray-900" />
-                                        </div>
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Twitter / X</label>
-                                        <div className="relative">
-                                            <div className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center text-blue-500">
-                                                <Twitter size={18} />
-                                            </div>
-                                            <input type="text" placeholder="Twitter Profile URL" className="w-full pl-14 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-[#5425FF] font-medium text-gray-900" />
+                                            <input 
+                                                type="text" 
+                                                value={githubUrl} 
+                                                onChange={(e) => setGithubUrl(e.target.value)}
+                                                placeholder="https://github.com/username"
+                                                className="w-full pl-14 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-[#5425FF] font-medium text-gray-900" 
+                                            />
                                         </div>
                                     </div>
 
@@ -381,7 +507,13 @@ const EditProfile: React.FC = () => {
                                             <div className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center text-blue-700">
                                                 <Linkedin size={18} />
                                             </div>
-                                            <input type="text" defaultValue="linkedin.com/in/alex-morgan" className="w-full pl-14 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-[#5425FF] font-medium text-gray-900" />
+                                            <input 
+                                                type="text" 
+                                                value={linkedinUrl} 
+                                                onChange={(e) => setLinkedinUrl(e.target.value)}
+                                                placeholder="https://linkedin.com/in/username"
+                                                className="w-full pl-14 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-[#5425FF] font-medium text-gray-900" 
+                                            />
                                         </div>
                                     </div>
                                 </div>
