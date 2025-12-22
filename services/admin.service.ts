@@ -156,11 +156,19 @@ export const adminService = {
   },
 
   // 16. Change Submission Status
-  changeSubmissionStatus: async (submissionId: string, data: { newStatus: string; adminNote?: string }, hackathonId?: string) => {
+  changeSubmissionStatus: async (submissionId: string, data: { newStatus?: string; status?: string; adminNote?: string }, hackathonId?: string) => {
     const config: any = {};
     if (hackathonId) config.headers = { 'x-hackathon-id': hackathonId };
     else config.headers = { 'x-hackathon-id': false };
-    const response = await apiClient.patch(`/admin/submission/${submissionId}/status`, data, config);
+    // normalize payload: backend expects `status` (not `newStatus`)
+    const payload: any = {
+      status: data.status ?? data.newStatus,
+    };
+    if (data.adminNote) payload.adminNote = data.adminNote;
+    // include hackathon id in body as a fallback in case headers are lost
+    if (hackathonId) payload.hackathonId = hackathonId;
+    if (hackathonId) payload.hackathon_id = hackathonId;
+    const response = await apiClient.patch(`/admin/submission/${submissionId}/status`, payload, config);
     return response.data;
   },
 

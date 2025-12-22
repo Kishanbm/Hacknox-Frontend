@@ -254,15 +254,52 @@ const AdminLeaderboard: React.FC = () => {
             <div className="space-y-2.5">
               {rows.map((r: any, idx: number) => {
                 const rank = r.rank ?? idx + 1;
+                const isTop3 = rank <= 3;
+
+                const cardBg = rank === 1
+                  ? 'bg-slate-100 border-slate-300'
+                  : rank === 2
+                  ? 'bg-gray-100 border-gray-300'
+                  : rank === 3
+                  ? 'bg-amber-100 border-amber-300'
+                  : 'bg-white border-gray-200';
+
                 return (
-                  <div key={idx} className="p-3 border rounded flex items-center justify-between">
-                    <div>
-                      <div className="font-bold">{r.teamName || r.team_name || '—'}</div>
-                      <div className="text-xs text-gray-500">{r.project_title || r.project || ''}</div>
+                  <div key={idx} className={`p-3 rounded flex items-center justify-between border ${cardBg}`}>
+                    <div className="flex items-center gap-4">
+                      {/* Rank badge / medal */}
+                      {isTop3 ? (
+                        <div className="flex items-center gap-2">
+                          <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center shadow-sm">
+                            <span className="font-bold text-lg">{rank}</span>
+                          </div>
+                          <div className="text-2xl">{rank === 1 ? '🥇' : rank === 2 ? '🥈' : '🥉'}</div>
+                        </div>
+                      ) : (
+                        <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center">
+                          <span className="text-sm font-bold text-gray-600">{rank}</span>
+                        </div>
+                      )}
+
+                      <div>
+                        <div className="font-bold">{r.teamName || r.team_name || '—'}</div>
+                        <div className="text-xs text-gray-500">{r.project_title || r.project || ''}</div>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <div className="text-xs text-gray-500">Score</div>
-                      <div className="font-bold">{r.score ?? r.final_score ?? '—'}</div>
+
+                    <div className="flex items-center gap-4">
+                      <div className="text-right">
+                        <div className="text-xs text-gray-500">Score</div>
+                        <div className="font-bold">{r.score ?? r.final_score ?? '—'}</div>
+                      </div>
+
+                      <div className="flex-shrink-0">
+                        <span className={`px-3 py-1.5 rounded-full text-xs font-semibold ${
+                          r.isPublished || r.is_published ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600'
+                        }`}>
+                          {r.isPublished || r.is_published ? 'Published' : 'Unpublished'}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 );

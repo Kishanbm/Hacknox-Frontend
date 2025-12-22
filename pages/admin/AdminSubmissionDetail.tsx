@@ -12,6 +12,7 @@ const AdminSubmissionDetail: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [submission, setSubmission] = useState<any>(null);
+  const [hackathonId, setHackathonId] = useState<string | null>(null);
   const [statusForm, setStatusForm] = useState({ newStatus: 'under-review', adminNote: '' });
   const [changing, setChanging] = useState(false);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
@@ -26,6 +27,14 @@ const AdminSubmissionDetail: React.FC = () => {
       }
       const res = await adminService.getSubmissionDetail(id);
       setSubmission(res.submission);
+      // derive hackathon id from response if available
+      const hId = res.submission?.hackathon_id || res.submission?.hackathon?.id || res.submission?.hackathonId || null;
+      if (hId) setHackathonId(hId);
+      // fallback to selected hackathon in localStorage if not provided by API
+      if (!hId) {
+        const stored = localStorage.getItem('selectedHackathonId');
+        if (stored) setHackathonId(stored);
+      }
       setStatusForm((p) => ({
         ...p,
         newStatus: res.submission?.status || p.newStatus,
@@ -48,7 +57,7 @@ const AdminSubmissionDetail: React.FC = () => {
     const fetchUrl = async () => {
       try {
         if (!id) return;
-        const res = await adminService.downloadSubmission(id);
+        const res = await adminService.downloadSubmission(id, hackathonId || undefined);
         if (!mounted) return;
         setDownloadUrl(res.signedUrl || res.url || null);
       } catch (e: any) {
@@ -70,11 +79,12 @@ const AdminSubmissionDetail: React.FC = () => {
     try {
       if (!id) return;
       const res = await adminService.changeSubmissionStatus(
-        id, 
+        id,
         {
           newStatus: statusForm.newStatus,
           adminNote: statusForm.adminNote || undefined,
-        }
+        },
+        hackathonId || undefined
       );
       setMessage('Status updated');
       if (res.submission) {
@@ -98,7 +108,7 @@ const AdminSubmissionDetail: React.FC = () => {
     setError(null);
     try {
       if (!id) return;
-      const res = await adminService.downloadSubmission(id);
+      const res = await adminService.downloadSubmission(id, hackathonId || undefined);
       setDownloadUrl(res.signedUrl || res.url || null);
     } catch (e: any) {
       setError(e.message || 'Failed to get download link');

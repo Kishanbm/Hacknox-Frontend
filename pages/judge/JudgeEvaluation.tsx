@@ -28,6 +28,37 @@ const JudgeEvaluation: React.FC = () => {
     const [hackathon, setHackathon] = useState<any>(null);
     const [rubricCriteria, setRubricCriteria] = useState<any[]>([]);
 
+    // Map UI rubric keys to backend evaluation field names
+    const mapCriteriaKeyToBackend = (key: string) => {
+        if (!key) return `score_${key}`;
+        const k = key.toString().toLowerCase();
+        if (k.includes('feas') || k.includes('complex')) return 'score_feasibility';
+        if (k.includes('exec') || k.includes('execution')) return 'score_execution';
+        if (k.includes('present') || k.includes('presentation') || k.includes('design') || k.includes('ux')) return 'score_presentation';
+        if (k.includes('innov')) return 'score_innovation';
+        // default fallback
+        return `score_${k.replace(/[^a-z0-9_]/g, '_')}`;
+    };
+
+    const deriveRequiredScores = (scoresObj: any) => {
+        const get = (keys: string[]) => {
+            for (const k of keys) {
+                if (scoresObj[k] !== undefined && scoresObj[k] !== null) return Number(scoresObj[k]);
+            }
+            return 0;
+        };
+
+        const feasibility = get(['complexity', 'feasibility', 'complex', 'technical', 'execution', 'exec']);
+        const execution = get(['design', 'execution', 'exec', 'implementation']);
+        const presentation = get(['utility', 'presentation', 'present', 'ux', 'design']);
+
+        return {
+            score_feasibility: feasibility,
+            score_execution: execution,
+            score_presentation: presentation,
+        };
+    };
+
     const totalScore = Object.values(scores).reduce((a: number, b: number) => a + b, 0);
     const maxScore = rubricCriteria.length > 0 ? rubricCriteria.reduce((sum, c) => sum + (c.max_score || 10), 0) : 40;
 
@@ -98,8 +129,8 @@ const JudgeEvaluation: React.FC = () => {
                         const draftScores: any = {};
                         rubricCriteria.forEach((c: any) => {
                             const key = c.key || c.name;
-                            const backendKey = `score_${key}`;
-                            draftScores[key] = ev[backendKey] ?? 0;
+                            const backendKey = mapCriteriaKeyToBackend(key);
+                            draftScores[key] = ev[backendKey] ?? ev[`score_${key}`] ?? 0;
                         });
                         setScores(draftScores);
                     } else {
@@ -142,7 +173,7 @@ const JudgeEvaluation: React.FC = () => {
             if (rubricCriteria.length > 0) {
                 rubricCriteria.forEach((c: any) => {
                     const key = c.key || c.name;
-                    const backendKey = `score_${key}`;
+                    const backendKey = mapCriteriaKeyToBackend(key);
                     payload[backendKey] = Number(scores[key] || 0);
                 });
             } else {
@@ -152,6 +183,13 @@ const JudgeEvaluation: React.FC = () => {
                 payload.score_execution = Number(scores.design || 0);
                 payload.score_presentation = Number(scores.utility || 0);
             }
+
+            // Always include the three backend-required fields by deriving from likely UI keys
+            const derived = deriveRequiredScores(scores);
+            // For final submit we must send at least 1 (validation on backend requires min 1).
+            payload.score_feasibility = Number(payload.score_feasibility ?? derived.score_feasibility ?? 0);
+            payload.score_execution = Number(payload.score_execution ?? derived.score_execution ?? 0);
+            payload.score_presentation = Number(payload.score_presentation ?? derived.score_presentation ?? 0);
 
             const res = await judgeService.saveEvaluationDraft(teamId, payload);
             if (res && res.evaluation) setDraftId(res.evaluation.id || null);
@@ -173,7 +211,7 @@ const JudgeEvaluation: React.FC = () => {
             if (rubricCriteria.length > 0) {
                 rubricCriteria.forEach((c: any) => {
                     const key = c.key || c.name;
-                    const backendKey = `score_${key}`;
+                    const backendKey = mapCriteriaKeyToBackend(key);
                     payload[backendKey] = Number(scores[key] || 0);
                 });
             } else {
@@ -183,6 +221,12 @@ const JudgeEvaluation: React.FC = () => {
                 payload.score_execution = Number(scores.design || 0);
                 payload.score_presentation = Number(scores.utility || 0);
             }
+
+            // Ensure required fields exist for final submission
+            const derived = deriveRequiredScores(scores);
+            payload.score_feasibility = Number(payload.score_feasibility ?? derived.score_feasibility ?? 0);
+            payload.score_execution = Number(payload.score_execution ?? derived.score_execution ?? 0);
+            payload.score_presentation = Number(payload.score_presentation ?? derived.score_presentation ?? 0);
 
             if (evaluationStatus?.status === 'submitted') {
                 await judgeService.updateSubmittedEvaluation(teamId, payload);

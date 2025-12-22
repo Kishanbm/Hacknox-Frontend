@@ -72,7 +72,10 @@ export interface UpdateSubmissionData {
 
 const submissionsService = {
   getMySubmissions: async (): Promise<MySubmissionsResponse> => {
-    const response = await apiClient.get<MySubmissionsResponse>('/participant/my-submissions');
+    // Add a cache-busting timestamp param to avoid 304 cached empty responses
+    const response = await apiClient.get<MySubmissionsResponse>('/participant/my-submissions', {
+      params: { _ts: Date.now() },
+    });
     return response.data;
   },
 
@@ -86,6 +89,43 @@ const submissionsService = {
     const config = hackathonId ? { headers: { 'x-hackathon-id': hackathonId } } : undefined;
     const response = await apiClient.patch(`/submissions/${submissionId}`, data, config as any);
     return response.data;
+  },
+
+  createSubmission: async (data: { team_id: string } & UpdateSubmissionData, hackathonId?: string) => {
+    const config = hackathonId ? { headers: { 'x-hackathon-id': hackathonId } } : undefined;
+    const response = await apiClient.post(`/submissions`, data, config as any);
+    return response.data;
+  },
+
+  /**
+   * Create or update a submission draft with optional ZIP file upload.
+   * Uses multipart/form-data and the backend expects the file field name to be `zipFile`.
+   */
+  createSubmissionWithFile: async (
+    data: { team_id?: string } & UpdateSubmissionData,
+    file?: File | null,
+    hackathonId?: string,
+    onProgress?: (percent: number) => void
+  ) => {
+    const form = new FormData();
+    if (data.title) form.append('title', data.title);
+    if (data.description) form.append('description', data.description);
+    if (data.repo_url) form.append('repoUrl', data.repo_url as any);
+    if (data.demo_url) form.append('demoUrl', data.demo_url as any);
+    if (data.team_id) form.append('team_id', data.team_id as any);
+    if (file) form.append('zipFile', file, file.name);
+
+    const headers: any = { 'Content-Type': 'multipart/form-data' };
+    if (hackathonId) headers['x-hackathon-id'] = hackathonId;
+
+    const resp = await apiClient.upload('/submissions', form, (progressEvent: any) => {
+      if (onProgress && progressEvent.total) {
+        const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+        onProgress(percentCompleted);
+      }
+    });
+
+    return resp.data;
   },
 
   finalizeSubmission: async (submissionId: string, hackathonId?: string) => {

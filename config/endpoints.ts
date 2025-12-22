@@ -48,10 +48,13 @@ export const ENDPOINTS = {
     UPDATE: (id: string) => `/teams/${id}`,
     DELETE: (id: string) => `/teams/${id}`,
     LEAVE: (id: string) => `/teams/${id}/leave`,
-    INVITE_MEMBER: (id: string) => `/teams/${id}/invite`,
-    REMOVE_MEMBER: (teamId: string, memberId: string) => `/teams/${teamId}/members/${memberId}`,
+    // Backend expects invites to be created via POST /teams/member/add (leader-scoped)
+    INVITE_MEMBER: '/teams/member/add',
+    // Backend expects DELETE /teams/:teamId/member/remove with { memberId } in body
+    REMOVE_MEMBER: (teamId: string) => `/teams/${teamId}/member/remove`,
     INVITATIONS: '/teams/invitations',
     RESPOND_INVITATION: (id: string) => `/teams/invitations/${id}`,
+    ACCEPT_INVITE: '/teams/accept-invite',
   },
 
   // Submission Endpoints

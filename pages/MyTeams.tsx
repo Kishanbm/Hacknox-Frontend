@@ -3,10 +3,11 @@ import { useNavigate, Link } from 'react-router-dom';
 import { DashboardLayout } from '../components/Layout';
 import { 
   Users, MoreVertical, Plus, MessageCircle, Settings, 
-  Check, Clock, Trophy, Archive, Hash, ArrowUpRight
+  Check, Clock, Trophy, Archive, Hash, ArrowUpRight, Clipboard
 } from 'lucide-react';
 import { ParticipantTeam } from '../types';
 import { teamService } from '../services/team.service';
+import InviteModal from '../components/InviteModal';
 
 // Local UI types
 interface TeamInvite {
@@ -17,6 +18,8 @@ interface TeamInvite {
   inviterAvatar?: string;
   role: string;
   sentAt: string;
+  token?: string;
+  hackathonId?: string | null;
 }
 
 interface PastTeam {
@@ -39,6 +42,9 @@ const MyTeams: React.FC = () => {
   const [animatingId, setAnimatingId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteTeamId, setInviteTeamId] = useState<string | null>(null);
+  const [inviteHackathonId, setInviteHackathonId] = useState<string | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -121,7 +127,9 @@ const MyTeams: React.FC = () => {
           inviterName: inv.inviter_name || 'Team Leader',
           inviterAvatar: inv.inviter_avatar || '',
           role: inv.role || 'Member',
-          sentAt: inv.created_at || ''
+          sentAt: inv.created_at || '',
+          token: inv.token || null,
+          hackathonId: inv.hackathon_id || inv.team?.hackathon_id || null,
         }));
 
         setInvites(mappedInvites);
@@ -142,7 +150,19 @@ const MyTeams: React.FC = () => {
 
     (async () => {
       try {
-        await teamService.respondToInvitation(id, action === 'accept' ? 'accept' : 'decline');
+        if (action === 'accept') {
+          // Find token and hackathon context for this invite
+          const inv = invites.find(i => i.id === id);
+          // If we have a token, use canonical accept endpoint that expects token in body
+          if (inv?.token) {
+            try { localStorage.setItem('selectedHackathonId', inv.hackathonId || ''); } catch(e) {}
+            await teamService.acceptInviteWithToken(inv.token as string);
+          } else {
+            await teamService.respondToInvitation(id, 'accept');
+          }
+        } else {
+          await teamService.respondToInvitation(id, 'decline');
+        }
         setTimeout(() => {
           setInvites(prev => prev.filter(inv => inv.id !== id));
           setAnimatingId(null);
@@ -210,7 +230,10 @@ const MyTeams: React.FC = () => {
                   {activeTeams.map(team => (
                     <div key={team.id} className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-md transition-shadow group flex flex-col h-full">
                       <div className="p-5 md:p-6 border-b border-gray-50 bg-gray-50/50 flex flex-col sm:flex-row justify-between items-start gap-4">
-                        <div onClick={() => navigate(`/dashboard/teams/${team.id}`)} className="cursor-pointer flex-1">
+                        <div onClick={() => {
+                          try { localStorage.setItem('selectedHackathonId', team.hackathonId || team.hackathon_id || ''); } catch(e) {}
+                          navigate(`/dashboard/teams/${team.id}`);
+                        }} className="cursor-pointer flex-1">
                           <div className="flex flex-wrap items-center gap-2 mb-2">
                             <h3 className="text-lg md:text-xl font-bold text-gray-900 group-hover:text-primary transition-colors">{team.name}</h3>
                             <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide border ${team.status === 'Verified' ? 'bg-green-50 text-green-600 border-green-200' : 'bg-amber-50 text-amber-600 border-amber-200'}`}>
@@ -220,6 +243,23 @@ const MyTeams: React.FC = () => {
                           <div className="text-sm text-gray-500 font-medium flex flex-col gap-1">
                             <div className="flex items-center gap-2 text-gray-900"><Trophy size={14} className="text-primary"/> {team.hackathonName}</div>
                             {team.hackathonOrganizer && (<div className="text-xs text-gray-400 pl-6 hidden sm:block">Hosted by {team.hackathonOrganizer}</div>)}
+                              {/** Show join code if available */}
+                              {(() => {
+                                const joinCode = (team as any).join_code || (team as any).joinCode || (team as any).team_code || null;
+                                if (!joinCode) return null;
+                                return (
+                                  <div className="mt-2 flex items-center gap-2 text-xs text-gray-600">
+                                    <div className="px-2 py-1 bg-gray-100 rounded-md font-mono text-sm tracking-wider">{joinCode}</div>
+                                    <button
+                                      onClick={() => {
+                                        try { navigator.clipboard.writeText(joinCode); } catch (e) { }
+                                      }}
+                                      className="text-gray-400 hover:text-gray-600"
+                                      title="Copy team code"
+                                    ><Clipboard size={14} /></button>
+                                  </div>
+                                );
+                              })()}
                           </div>
                         </div>
 
@@ -232,7 +272,7 @@ const MyTeams: React.FC = () => {
                       <div className="p-5 md:p-6 flex-1">
                         <div className="flex justify-between items-center mb-4">
                           <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wide">Squad Members</h4>
-                          {team.role === 'Leader' && (<button className="text-primary text-xs font-bold hover:underline flex items-center gap-1"><Plus size={12}/> Invite</button>)}
+                          {team.role === 'Leader' && (<button onClick={() => { try { localStorage.setItem('selectedHackathonId', team.hackathonId || team.hackathon_id || ''); } catch(e) {} setInviteTeamId(team.id); setInviteHackathonId(team.hackathonId || team.hackathon_id || null); setInviteOpen(true); }} className="text-primary text-xs font-bold hover:underline flex items-center gap-1"><Plus size={12}/> Invite</button>)}
                         </div>
 
                         <div className="space-y-3">
@@ -255,10 +295,17 @@ const MyTeams: React.FC = () => {
 
                       <div className="p-4 bg-gray-50 flex gap-2 border-t border-gray-100">
                         <button className="flex-1 py-2 bg-white border border-gray-200 rounded-xl text-sm font-bold text-gray-700 hover:text-primary hover:border-primary transition-colors flex items-center justify-center gap-2"><MessageCircle size={16}/> <span className="hidden sm:inline">Chat</span></button>
-                        <button onClick={() => navigate(`/dashboard/teams/${team.id}`)} className="flex-1 py-2 bg-white border border-gray-200 rounded-xl text-sm font-bold text-gray-700 hover:text-primary hover:border-primary transition-colors flex items-center justify-center gap-2"><Settings size={16}/> Manage</button>
+                        <button onClick={() => { try { localStorage.setItem('selectedHackathonId', team.hackathonId || team.hackathon_id || ''); } catch(e) {} navigate(`/dashboard/teams/${team.id}`); }} className="flex-1 py-2 bg-white border border-gray-200 rounded-xl text-sm font-bold text-gray-700 hover:text-primary hover:border-primary transition-colors flex items-center justify-center gap-2"><Settings size={16}/> Manage</button>
                       </div>
                     </div>
                   ))}
+
+                  <InviteModal
+                    open={inviteOpen}
+                    onClose={() => { setInviteOpen(false); setInviteTeamId(null); setInviteHackathonId(null); }}
+                    teamId={inviteTeamId}
+                    hackathonId={inviteHackathonId}
+                  />
 
                   {/* Quick Join Card */}
                   <div onClick={() => navigate('/dashboard/teams/create')} className="border-2 border-dashed border-gray-200 rounded-3xl flex flex-col items-center justify-center p-8 md:p-12 text-center hover:bg-gray-50 transition-colors cursor-pointer group min-h-[300px] md:min-h-[400px]">

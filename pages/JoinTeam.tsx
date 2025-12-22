@@ -2,20 +2,27 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '../components/Layout';
 import { Hash, ChevronLeft, ArrowRight, Loader2, CheckCircle2 } from 'lucide-react';
+import teamService from '../services/team.service';
 
 const JoinTeam: React.FC = () => {
     const navigate = useNavigate();
-    const [status, setStatus] = useState<'idle' | 'loading' | 'success'>('idle');
+    const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+    const [code, setCode] = useState<string>('');
+    const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-    const handleJoin = () => {
+    const handleJoin = async () => {
+        if (!code || code.trim().length === 0) return setErrorMsg('Please enter a valid code');
         setStatus('loading');
-        // Simulate validation and API call
-        setTimeout(() => {
+        setErrorMsg(null);
+        try {
+            await teamService.joinTeam(code.trim().toUpperCase());
             setStatus('success');
-            setTimeout(() => {
-                navigate('/dashboard/teams');
-            }, 1500);
-        }, 1500);
+            setTimeout(() => navigate('/dashboard/teams'), 900);
+        } catch (err: any) {
+            console.error('Join failed', err);
+            setErrorMsg(err?.response?.data?.message || err?.message || 'Failed to join team');
+            setStatus('error');
+        }
     };
 
     if (status === 'success') {
@@ -62,6 +69,8 @@ const JoinTeam: React.FC = () => {
 
                     <div className="space-y-4">
                         <input 
+                            value={code}
+                            onChange={e => setCode(e.target.value.toUpperCase())}
                             type="text" 
                             placeholder="e.g. X7K9P2" 
                             className="w-full px-6 py-4 text-center text-2xl tracking-widest uppercase bg-gray-50 border-2 border-gray-200 rounded-2xl focus:outline-none focus:border-primary transition-colors font-bold text-gray-900"
@@ -70,10 +79,13 @@ const JoinTeam: React.FC = () => {
 
                         <button 
                             onClick={handleJoin}
-                            className="w-full py-4 bg-gray-900 text-white rounded-xl font-bold hover:bg-black transition-colors flex items-center justify-center gap-2"
+                            disabled={status === 'loading'}
+                            className="w-full py-4 bg-gray-900 disabled:opacity-60 text-white rounded-xl font-bold hover:bg-black transition-colors flex items-center justify-center gap-2"
                         >
-                            Join Team <ArrowRight size={20} />
+                            {status === 'loading' ? (<Loader2 className="animate-spin"/>) : 'Join Team'} <ArrowRight size={20} />
                         </button>
+
+                        {errorMsg && (<div className="text-sm text-red-500 text-center">{errorMsg}</div>)}
                     </div>
 
                     <p className="text-xs text-gray-400 mt-6">

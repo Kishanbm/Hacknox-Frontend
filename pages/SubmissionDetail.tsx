@@ -13,11 +13,15 @@ const SubmissionDetail: React.FC = () => {
   const [submission, setSubmission] = useState<SubmissionDetailType | null>(null);
   const [searchParams] = useSearchParams();
   const [hackathonIdParam, setHackathonIdParam] = useState<string | null>(null);
+  const creating = id === 'create' || id === 'new';
+  const [teamIdParam, setTeamIdParam] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [zipFile, setZipFile] = useState<File | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   
   const [formData, setFormData] = useState({
       title: '',
@@ -33,9 +37,29 @@ const SubmissionDetail: React.FC = () => {
 
   useEffect(() => {
       const h = searchParams.get('hackathon') || searchParams.get('hackathonId');
+      const t = searchParams.get('team');
       if (h) setHackathonIdParam(h);
-      if (id) {
+      if (t) setTeamIdParam(t);
+
+      if (id && !creating) {
         loadSubmissionDetails(h || undefined);
+      } else if (creating) {
+        // initialize create mode (empty form) — provide a fallback submission object
+        setIsLoading(false);
+        const fallback = {
+          id: 'new',
+          title: '',
+          description: '',
+          repo_url: '',
+          demo_url: '',
+          status: 'draft',
+          team: { id: t || '', name: 'Your Team', members: [], leader_id: user?.id },
+          zip_storage_path: null,
+          updated_at: new Date().toISOString(),
+          hackathon_id: h || undefined,
+        } as SubmissionDetailType;
+        setSubmission(fallback);
+        setFormData({ title: '', description: '', repo_url: '', demo_url: '' });
       }
   }, [id]);
 
@@ -73,13 +97,46 @@ const SubmissionDetail: React.FC = () => {
       setError(null);
       setSuccessMessage(null);
 
-      if (!id) return;
+      if (creating) {
+        // creating a new submission: need team id from query params
+        if (!teamIdParam) {
+          setError('No team specified for submission');
+          return;
+        }
+        // If a zip file is selected, send multipart/form-data
+        let created;
+        if (zipFile) {
+          created = await submissionsService.createSubmissionWithFile({
+            team_id: teamIdParam,
+            title: formData.title,
+            description: formData.description,
+            repo_url: formData.repo_url,
+            demo_url: formData.demo_url,
+          }, zipFile, hackathonIdParam || undefined, (p) => setUploadProgress(p));
+        } else {
+          const data = {
+            team_id: teamIdParam,
+            title: formData.title,
+            description: formData.description,
+            repo_url: formData.repo_url,
+            demo_url: formData.demo_url,
+          };
+          created = await submissionsService.createSubmission(data, hackathonIdParam || undefined);
+        }
+        if (created && created.submission && created.submission.id) {
+          // navigate to the created submission details page
+          navigate(`/dashboard/submissions/${created.submission.id}?hackathon=${hackathonIdParam || ''}`);
+          return;
+        }
+        setSuccessMessage('Draft saved successfully!');
+      } else {
+        if (!id) return;
+        await submissionsService.updateSubmission(id, formData, hackathonIdParam || submission?.hackathon_id || undefined);
+        setSuccessMessage('Draft saved successfully!');
 
-      await submissionsService.updateSubmission(id, formData, hackathonIdParam || submission?.hackathon_id || undefined);
-      setSuccessMessage('Draft saved successfully!');
-      
-      // Reload submission to get updated data
-      await loadSubmissionDetails();
+        // Reload submission to get updated data
+        await loadSubmissionDetails();
+      }
     } catch (err: any) {
       console.error('Failed to save draft:', err);
       setError(err.response?.data?.message || 'Failed to save draft');
@@ -93,29 +150,72 @@ const SubmissionDetail: React.FC = () => {
       setIsSubmitting(true);
       setError(null);
       setSuccessMessage(null);
+      if (creating) {
+        if (!teamIdParam) {
+          setError('No team specified for submission');
+          return;
+        }
+        if (!formData.title.trim()) {
+          setError('Project title is required');
+          return;
+        }
+        if (!formData.repo_url.trim()) {
+          setError('GitHub repository URL is required');
+          return;
+        }
 
-      if (!id) return;
+        // create draft first (use multipart if there's a zip file)
+        let created;
+        if (zipFile) {
+          created = await submissionsService.createSubmissionWithFile({
+            team_id: teamIdParam,
+            title: formData.title,
+            description: formData.description,
+            repo_url: formData.repo_url,
+            demo_url: formData.demo_url,
+          }, zipFile, hackathonIdParam || undefined, (p) => setUploadProgress(p));
+        } else {
+          created = await submissionsService.createSubmission({
+            team_id: teamIdParam,
+            title: formData.title,
+            description: formData.description,
+            repo_url: formData.repo_url,
+            demo_url: formData.demo_url,
+          }, hackathonIdParam || undefined);
+        }
 
-      // Validate required fields
-      if (!formData.title.trim()) {
-        setError('Project title is required');
-        return;
+        if (created && created.submission && created.submission.id) {
+          // finalize
+          await submissionsService.finalizeSubmission(created.submission.id, hackathonIdParam || undefined);
+          navigate(`/dashboard/submissions/${created.submission.id}?hackathon=${hackathonIdParam || ''}`);
+          return;
+        }
+
+        setError('Failed to create submission');
+      } else {
+        if (!id) return;
+
+        // Validate required fields
+        if (!formData.title.trim()) {
+          setError('Project title is required');
+          return;
+        }
+        if (!formData.repo_url.trim()) {
+          setError('GitHub repository URL is required');
+          return;
+        }
+
+        // Save current changes first
+        await submissionsService.updateSubmission(id, formData);
+        
+        // Then finalize the submission
+        await submissionsService.finalizeSubmission(id, hackathonIdParam || submission?.hackathon_id || undefined);
+        
+        setSuccessMessage('Submission finalized successfully!');
+        
+        // Reload to show submitted state
+        await loadSubmissionDetails();
       }
-      if (!formData.repo_url.trim()) {
-        setError('GitHub repository URL is required');
-        return;
-      }
-
-      // Save current changes first
-      await submissionsService.updateSubmission(id, formData);
-      
-      // Then finalize the submission
-      await submissionsService.finalizeSubmission(id, hackathonIdParam || submission?.hackathon_id || undefined);
-      
-      setSuccessMessage('Submission finalized successfully!');
-      
-      // Reload to show submitted state
-      await loadSubmissionDetails();
     } catch (err: any) {
       console.error('Failed to submit:', err);
       setError(err.response?.data?.message || 'Failed to submit project');
@@ -309,7 +409,54 @@ const SubmissionDetail: React.FC = () => {
                               );
                             })()
                           ) : (
-                            <p className="text-gray-400 text-sm">No archive uploaded</p>
+                            <div className="space-y-2">
+                              <p className="text-gray-400 text-sm">No archive uploaded</p>
+                              <div className="flex items-center gap-2">
+                                <input
+                                  id="zipFile"
+                                  type="file"
+                                  accept=".zip,application/zip"
+                                  onChange={(e) => {
+                                    const f = e.target.files?.[0] || null;
+                                    setZipFile(f);
+                                  }}
+                                  className="text-sm"
+                                />
+                                <button
+                                  onClick={async () => {
+                                    // If we already have a created submission, uploading via createSubmissionWithFile will update draft
+                                    try {
+                                      setIsSaving(true);
+                                      setError(null);
+                                      if (!zipFile) {
+                                        setError('No file selected');
+                                        return;
+                                      }
+                                      const resp = await submissionsService.createSubmissionWithFile({
+                                        title: formData.title,
+                                        description: formData.description,
+                                        repo_url: formData.repo_url,
+                                        demo_url: formData.demo_url,
+                                      }, zipFile, hackathonIdParam || undefined, (p) => setUploadProgress(p));
+                                      if (resp && resp.submission && resp.submission.id) {
+                                        navigate(`/dashboard/submissions/${resp.submission.id}?hackathon=${hackathonIdParam || ''}`);
+                                      }
+                                    } catch (err: any) {
+                                      console.error('Upload failed', err);
+                                      setError(err?.message || 'Upload failed');
+                                    } finally {
+                                      setIsSaving(false);
+                                    }
+                                  }}
+                                  className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-bold hover:bg-primary/90"
+                                >
+                                  Upload ZIP
+                                </button>
+                                {uploadProgress !== null && (
+                                  <div className="text-sm text-gray-500">{uploadProgress}%</div>
+                                )}
+                              </div>
+                            </div>
                           )}
                         </div>
                         <div>

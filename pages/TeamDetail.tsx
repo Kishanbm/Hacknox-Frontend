@@ -70,13 +70,64 @@ const TeamDetail: React.FC = () => {
             }
         };
         loadTeam();
+        // expose reload for later actions
+        (window as any).__reloadTeam = loadTeam;
     }, [id]);
+
+    const handleRemoveMember = async (memberId: string) => {
+        if (!team?.id) return;
+        const ok = window.confirm('Remove this member from the team?');
+        if (!ok) return;
+        try {
+            await teamService.removeMember(team.id, memberId);
+            // reload team members
+            const data = await teamService.getTeamById(team.id);
+            const members = (data.members || []).map((m: any) => {
+                const user = m.user || {};
+                const profile = Array.isArray(user.Profiles) ? user.Profiles[0] : (Array.isArray(user.profile) ? user.profile[0] : (user.profile || user.Profiles || {}));
+                const name = profile?.first_name ? `${profile.first_name} ${profile.last_name || ''}`.trim() : user.email || m.user_id || 'Member';
+                const avatar = profile?.avatar_url || name.split(' ').map((s:string)=>s[0]).slice(0,2).join('').toUpperCase();
+                const isLeader = data.leader_id === user.id;
+                return {
+                    id: user.id || m.user_id,
+                    name,
+                    role: isLeader ? 'Leader' : 'Member',
+                    status: 'Offline',
+                    avatar,
+                    title: isLeader ? 'Team Leader' : 'Member'
+                };
+            });
+            setTeam(prev => ({ ...(prev || {}), members }));
+        } catch (err: any) {
+            console.error('Failed to remove member', err);
+            alert(err?.message || 'Failed to remove member');
+        }
+    };
 
     const copyCode = () => {
         if (team?.code) {
             navigator.clipboard.writeText(team.code);
             setCopied(true);
             setTimeout(() => setCopied(false), 2000);
+        }
+    };
+
+    const [isLeaving, setIsLeaving] = useState(false);
+
+    const handleLeaveTeam = async () => {
+        if (!team?.id) return;
+        const ok = window.confirm('Are you sure you want to leave this team?');
+        if (!ok) return;
+        try {
+            setIsLeaving(true);
+            await teamService.leaveTeam(team.id);
+            // navigate back to teams list
+            navigate('/dashboard/teams');
+        } catch (err: any) {
+            console.error('Failed to leave team', err);
+            alert(err?.message || 'Failed to leave team');
+        } finally {
+            setIsLeaving(false);
         }
     };
 
@@ -197,7 +248,7 @@ const TeamDetail: React.FC = () => {
                                         <div className="flex items-center gap-2">
                                             {team.role === 'Leader' && member.role !== 'Leader' && (
                                                 <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
-                                                    <button className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Remove Member">
+                                                    <button onClick={() => handleRemoveMember(member.id)} className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Remove Member">
                                                         <UserMinus size={18} />
                                                     </button>
                                                 </div>
@@ -273,8 +324,8 @@ const TeamDetail: React.FC = () => {
                                      Disband Team
                                  </button>
                              ) : (
-                                 <button className="w-full py-2 bg-white border border-red-200 text-red-600 rounded-xl text-sm font-bold hover:bg-red-600 hover:text-white transition-colors flex items-center justify-center gap-2">
-                                     <LogOut size={16} /> Leave Team
+                                 <button onClick={handleLeaveTeam} disabled={isLeaving} className="w-full py-2 bg-white border border-red-200 text-red-600 rounded-xl text-sm font-bold hover:bg-red-600 hover:text-white transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                                     <LogOut size={16} /> {isLeaving ? 'Leaving...' : 'Leave Team'}
                                  </button>
                              )}
                         </div>

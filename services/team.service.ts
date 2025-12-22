@@ -42,9 +42,11 @@ export const teamService = {
 
   /**
    * Join a team using team code
+   * Backend expects `{ joinCode }` in the request body.
    */
-  joinTeam: async (teamCode: string): Promise<void> => {
-    await apiClient.post(ENDPOINTS.TEAMS.JOIN, { teamCode });
+  joinTeam: async (teamCode: string): Promise<any> => {
+    const response = await apiClient.post(ENDPOINTS.TEAMS.JOIN, { joinCode: teamCode });
+    return response.data;
   },
 
   /**
@@ -75,15 +77,18 @@ export const teamService = {
   /**
    * Invite a member to team
    */
-  inviteMember: async (teamId: string, email: string): Promise<void> => {
-    await apiClient.post(ENDPOINTS.TEAMS.INVITE_MEMBER(teamId), { email });
+  inviteMember: async (teamId: string | null, email: string): Promise<void> => {
+    // Backend route is leader-scoped and will resolve team by leader_id.
+    // We still pass teamId for context, but the endpoint does not include it in the URL.
+    await apiClient.post(ENDPOINTS.TEAMS.INVITE_MEMBER as string, { teamId, email });
   },
 
   /**
    * Remove a member from team (leader only)
    */
   removeMember: async (teamId: string, memberId: string): Promise<void> => {
-    await apiClient.delete(ENDPOINTS.TEAMS.REMOVE_MEMBER(teamId, memberId));
+    // Backend expects DELETE /teams/:teamId/member/remove with body { memberId }
+    await apiClient.delete(ENDPOINTS.TEAMS.REMOVE_MEMBER(teamId), { data: { memberId } });
   },
 
   /**
@@ -105,6 +110,12 @@ export const teamService = {
     action: 'accept' | 'decline'
   ): Promise<void> => {
     await apiClient.post(ENDPOINTS.TEAMS.RESPOND_INVITATION(invitationId), { action });
+  },
+  /**
+   * Accept an invitation by token using the canonical endpoint
+   */
+  acceptInviteWithToken: async (token: string): Promise<void> => {
+    await apiClient.post(ENDPOINTS.TEAMS.ACCEPT_INVITE as string, { token });
   },
 };
 
