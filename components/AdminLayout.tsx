@@ -56,22 +56,22 @@ export const AdminLayout: React.FC<SidebarProps> = ({ children }) => {
         />
       )}
 
-      {/* Sidebar - Premium Light Theme */}
+      {/* Sidebar - Dark Black Theme */}
       {/* Fixed: Removed 'relative' from base classes to prevent it from overriding 'fixed' on mobile. Added 'lg:relative' for desktop positioning context. */}
       <aside className={`
-        fixed inset-y-0 left-0 z-50 w-72 bg-white m-0 lg:m-4 rounded-r-3xl lg:rounded-[2rem] shadow-2xl lg:shadow-gray-200/50 
-        transform transition-transform duration-300 ease-in-out flex flex-col border-r lg:border border-white overflow-hidden 
+        fixed inset-y-0 left-0 z-50 w-72 bg-black m-0 lg:m-4 rounded-r-3xl lg:rounded-[2rem] shadow-2xl lg:shadow-gray-200/50 
+        transform transition-transform duration-300 ease-in-out flex flex-col border-r lg:border border-gray-800 overflow-hidden 
         ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 lg:relative h-[100vh] lg:h-[calc(100vh-2rem)]
       `}>
         
         {/* Background Gradient Blur for premium feel */}
-        <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-b from-[#5425FF]/5 to-transparent pointer-events-none"></div>
+        <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-b from-[#5425FF]/10 to-transparent pointer-events-none"></div>
 
         <div className="p-6 lg:p-8 pb-4 lg:pb-6 relative z-10 flex justify-between items-center">
           <Link to="/" className="flex items-center gap-2 group">
             <div className="flex flex-col">
-              <h1 className="text-3xl font-heading text-gray-900 tracking-tight leading-none group-hover:text-[#5425FF] transition-colors duration-300">
-                HACKON<span className="text-[#5425FF] group-hover:text-gray-900 transition-colors duration-300">X</span>
+              <h1 className="text-3xl font-heading text-white tracking-tight leading-none group-hover:text-[#5425FF] transition-colors duration-300">
+                HACKON<span className="text-[#5425FF] group-hover:text-white transition-colors duration-300">X</span>
               </h1>
               <div className="flex items-center gap-2 mt-1">
                   <div className="h-0.5 w-4 bg-[#24FF00] rounded-full group-hover:w-8 transition-all duration-300"></div>
@@ -80,7 +80,7 @@ export const AdminLayout: React.FC<SidebarProps> = ({ children }) => {
             </div>
           </Link>
           <button 
-            className="lg:hidden p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
+            className="lg:hidden p-2 text-gray-400 hover:bg-gray-800 hover:text-white rounded-lg transition-colors"
             onClick={() => setIsSidebarOpen(false)}
           >
             <X size={24} />
@@ -88,7 +88,7 @@ export const AdminLayout: React.FC<SidebarProps> = ({ children }) => {
         </div>
 
         <div className="px-4 py-2 flex-1 overflow-y-auto custom-scrollbar relative z-10">
-            <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4 px-4 flex items-center gap-2 opacity-80">
+            <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-4 px-4 flex items-center gap-2 opacity-80">
               <div className="w-1.5 h-1.5 rounded-full bg-[#24FF00] shadow-[0_0_6px_#24FF00]"></div> 
               Governance
             </div>
@@ -102,10 +102,10 @@ export const AdminLayout: React.FC<SidebarProps> = ({ children }) => {
                     className={`flex items-center gap-3 px-4 py-3.5 rounded-2xl transition-all duration-300 group font-medium relative overflow-hidden ${
                     isActive
                         ? 'bg-gradient-to-r from-[#5425FF] to-[#3a1bf2] text-white'
-                        : 'bg-transparent text-gray-500 hover:bg-gray-50 hover:text-[#5425FF] hover:pl-5'
+                        : 'bg-transparent text-gray-400 hover:bg-gray-800 hover:text-white hover:pl-5'
                     }`}
                 >
-                    <div className={`transition-all duration-300 relative z-10 ${isActive ? 'text-[#24FF00] drop-shadow-[0_0_8px_rgba(36,255,0,0.6)] scale-110' : 'text-gray-400 group-hover:text-[#5425FF]'}`}>
+                    <div className={`transition-all duration-300 relative z-10 ${isActive ? 'text-[#24FF00] drop-shadow-[0_0_8px_rgba(36,255,0,0.6)] scale-110' : 'text-gray-500 group-hover:text-white'}`}>
                         {item.icon}
                     </div>
                     <span className={`relative z-10 tracking-wide ${isActive ? 'font-bold' : ''}`}>{item.label}</span>
@@ -124,14 +124,14 @@ export const AdminLayout: React.FC<SidebarProps> = ({ children }) => {
         </div>
 
         <div className="p-4 mt-auto relative z-10">
-             <div className="bg-gray-50 rounded-2xl p-3 border border-gray-100 flex items-center gap-3 shadow-sm group hover:border-[#5425FF]/20 transition-colors">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-gray-900 to-gray-700 border-2 border-white shadow-md flex items-center justify-center font-heading text-sm text-white relative">
+             <div className="bg-gray-900 rounded-2xl p-3 border border-gray-800 flex items-center gap-3 shadow-sm group hover:border-[#5425FF]/20 transition-colors">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-gray-700 to-gray-600 border-2 border-gray-700 shadow-md flex items-center justify-center font-heading text-sm text-white relative">
                     AD
-                    <div className="absolute bottom-0 right-0 w-3 h-3 bg-[#24FF00] border-2 border-white rounded-full"></div>
+                    <div className="absolute bottom-0 right-0 w-3 h-3 bg-[#24FF00] border-2 border-gray-900 rounded-full"></div>
                 </div>
                 <div className="flex-1 overflow-hidden">
-                    <div className="text-sm font-bold truncate text-gray-900 group-hover:text-[#5425FF] transition-colors">Admin Director</div>
-                    <div className="text-[10px] text-gray-500 truncate flex items-center gap-1 font-bold">
+                    <div className="text-sm font-bold truncate text-white group-hover:text-[#5425FF] transition-colors">Admin Director</div>
+                    <div className="text-[10px] text-gray-400 truncate flex items-center gap-1 font-bold">
                         Super User
                     </div>
                 </div>
@@ -145,7 +145,7 @@ export const AdminLayout: React.FC<SidebarProps> = ({ children }) => {
                       navigate('/');
                     }
                   }}
-                  className="p-2 text-gray-400 hover:text-red-500 hover:bg-white rounded-xl transition-all shadow-sm hover:shadow"
+                  className="p-2 text-gray-400 hover:text-red-500 hover:bg-gray-800 rounded-xl transition-all shadow-sm hover:shadow"
                 >
                     <LogOut size={18} />
                 </button>

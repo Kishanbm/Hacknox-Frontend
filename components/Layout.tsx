@@ -74,17 +74,17 @@ export const DashboardLayout: React.FC<SidebarProps> = ({ children }) => {
         />
       )}
 
-      {/* Sidebar */}
+      {/* Sidebar - Dark Black Theme */}
       <aside className={`
-        fixed inset-y-0 left-0 z-50 w-72 bg-surface m-0 lg:m-4 rounded-r-3xl lg:rounded-3xl shadow-2xl lg:shadow-sm 
-        transform transition-transform duration-300 ease-in-out flex flex-col border-r lg:border border-gray-100
+        fixed inset-y-0 left-0 z-50 w-72 bg-black m-0 lg:m-4 rounded-r-3xl lg:rounded-3xl shadow-2xl lg:shadow-sm 
+        transform transition-transform duration-300 ease-in-out flex flex-col border-r lg:border border-gray-800
         ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 lg:static h-[100vh] lg:h-[calc(100vh-2rem)]
       `}>
         <div className="p-6 lg:p-8 pb-4 flex justify-between items-center">
           <Link to="/" className="flex items-center gap-2 group">
             <div className="flex flex-col">
-              <h1 className="text-3xl font-heading text-gray-900 tracking-tight leading-none group-hover:text-primary transition-colors duration-300">
-                HACKON<span className="text-primary group-hover:text-gray-900 transition-colors duration-300">X</span>
+              <h1 className="text-3xl font-heading text-white tracking-tight leading-none group-hover:text-primary transition-colors duration-300">
+                HACKON<span className="text-primary group-hover:text-white transition-colors duration-300">X</span>
               </h1>
               <div className="flex items-center gap-2 mt-1">
                   <div className="h-0.5 w-4 bg-secondary rounded-full group-hover:w-8 transition-all duration-300"></div>
@@ -93,7 +93,7 @@ export const DashboardLayout: React.FC<SidebarProps> = ({ children }) => {
             </div>
           </Link>
           <button 
-            className="lg:hidden p-2 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+            className="lg:hidden p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
             onClick={() => setIsSidebarOpen(false)}
           >
             <X size={24} />
@@ -101,8 +101,8 @@ export const DashboardLayout: React.FC<SidebarProps> = ({ children }) => {
         </div>
 
         <div className="px-4 lg:px-6 py-2 flex-1 overflow-y-auto custom-scrollbar">
-            <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 px-3 flex items-center gap-2">
-              <div className="w-1 h-1 rounded-full bg-gray-300"></div> 
+            <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-4 px-3 flex items-center gap-2">
+              <div className="w-1 h-1 rounded-full bg-gray-600"></div> 
               Main Menu
             </div>
             <nav className="space-y-2">
@@ -115,15 +115,15 @@ export const DashboardLayout: React.FC<SidebarProps> = ({ children }) => {
                     className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group font-medium border ${
                     isActive
                         ? 'bg-primary text-white border-primary shadow-lg shadow-primary/30'
-                        : 'bg-transparent border-transparent text-gray-500 hover:bg-gray-50 hover:text-primary'
+                        : 'bg-transparent border-transparent text-gray-400 hover:bg-gray-800 hover:text-white'
                     }`}
                 >
-                    <div className={`${isActive ? 'text-secondary' : 'text-gray-400 group-hover:text-primary transition-colors'}`}>
+                    <div className={`${isActive ? 'text-secondary' : 'text-gray-500 group-hover:text-white transition-colors'}`}>
                         {item.icon}
                     </div>
                     <span>{item.label}</span>
                     {item.label === 'Hackathons' && (
-                         <span className={`ml-auto text-xs font-bold px-2 py-0.5 rounded-md ${isActive ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'}`}>3</span>
+                         <span className={`ml-auto text-xs font-bold px-2 py-0.5 rounded-md ${isActive ? 'bg-white/20 text-white' : 'bg-gray-800 text-gray-400'}`}>3</span>
                     )}
                 </Link>
                 );
@@ -156,7 +156,7 @@ export const DashboardLayout: React.FC<SidebarProps> = ({ children }) => {
                  console.error('Logout failed', e);
                }
              }}
-             className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+             className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 bg-gray-900 border border-gray-700 rounded-xl text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
            >
              Logout
            </button>
