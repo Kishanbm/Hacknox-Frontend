@@ -41,6 +41,14 @@ export const publicService = {
       if (response.data.current_user) hack.current_user = response.data.current_user;
       if (response.data.user_status) hack.userStatus = response.data.user_status;
       if (response.data.user_team_name) hack.userTeamName = response.data.user_team_name;
+      
+      // Extract evaluation_criteria and tech_stack from raw_event_info for convenience
+      const eventInfo = hack.raw_event_info || {};
+      hack.evaluation_criteria = eventInfo.evaluation_criteria || [];
+      hack.tech_stack = eventInfo.tech_stack || [];
+      hack.modes = hack.modes || eventInfo.modes || [];
+      hack.themes = hack.themes || eventInfo.themes || eventInfo.theme || [];
+      
       return hack;
     }
     return response.data;
@@ -54,6 +62,21 @@ export const publicService = {
       ENDPOINTS.PUBLIC.LEADERBOARD(hackathonId)
     );
     return response.data;
+  },
+
+  /**
+   * Get wins (top-3 leaderboard placements) count for a public user
+   */
+  getUserWins: async (userId: string): Promise<{ wins: number; teams?: any[] }> => {
+    const response = await apiClient.get(ENDPOINTS.PUBLIC.USER_WINS(userId));
+    return response.data || { wins: 0, teams: [] };
+  },
+  /**
+   * Get participation info for a public user (canonical count of hackathons participated)
+   */
+  getUserParticipation: async (userId: string): Promise<{ count: number; hackathons?: any[] }> => {
+    const response = await apiClient.get(ENDPOINTS.PUBLIC.USER_PARTICIPATION(userId));
+    return response.data || { count: 0, hackathons: [] };
   },
 };
 

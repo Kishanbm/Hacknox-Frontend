@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { DashboardLayout } from '../components/Layout';
 import submissionsService, { SubmissionDetail as SubmissionDetailType } from '../services/submissions.service';
+import { teamService } from '../services/team.service';
+import { publicService } from '../services/public.service';
 import { useAuth } from '../contexts/AuthContext';
-import { ChevronLeft, Save, Send, Github, Video, ExternalLink, FileText, UploadCloud, Users, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import { ChevronLeft, Save, Send, Github, Video, ExternalLink, FileText, UploadCloud, Users, CheckCircle2, AlertCircle, Loader2, AlertTriangle } from 'lucide-react';
 
 const SubmissionDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -29,11 +31,37 @@ const SubmissionDetail: React.FC = () => {
       repo_url: '',
       demo_url: ''
   });
+  const [deadlinePassed, setDeadlinePassed] = useState(false);
+  const [hackathonInfo, setHackathonInfo] = useState<any>(null);
 
   // Derived states
   const isLeader = submission?.team?.leader_id === user?.id;
   const isDraft = submission?.status === 'draft';
-  const canEdit = isLeader && isDraft;
+  const canEdit = isLeader && isDraft && !deadlinePassed;
+
+  // Fetch hackathon info to check deadline
+  useEffect(() => {
+    const fetchHackathonInfo = async (hackathonId: string) => {
+      try {
+        const info = await publicService.getHackathonById(hackathonId);
+        setHackathonInfo(info);
+        
+        const deadline = info?.submission_deadline || info?.submissionDeadline;
+        if (deadline) {
+          const now = new Date();
+          const deadlineDate = new Date(deadline);
+          setDeadlinePassed(now > deadlineDate);
+        }
+      } catch (err) {
+        console.debug('Could not fetch hackathon info:', err);
+      }
+    };
+
+    const hId = hackathonIdParam || submission?.hackathon_id;
+    if (hId) {
+      fetchHackathonInfo(hId);
+    }
+  }, [hackathonIdParam, submission?.hackathon_id]);
 
   useEffect(() => {
       const h = searchParams.get('hackathon') || searchParams.get('hackathonId');
@@ -60,6 +88,33 @@ const SubmissionDetail: React.FC = () => {
         } as SubmissionDetailType;
         setSubmission(fallback);
         setFormData({ title: '', description: '', repo_url: '', demo_url: '' });
+
+        // If a team id is provided in query params, fetch its details and prefill the project title with the team name
+        (async () => {
+          try {
+            if (t) {
+              const team = await teamService.getTeamById(t);
+              const teamName = (team && (team.name || team.team_name)) ? (team.name || team.team_name) : null;
+              const teamMembers = team?.members || [];
+              const memberCount = teamMembers.length || (team?.member_count ?? 1);
+              if (teamName) {
+                setFormData(prev => ({ ...prev, title: teamName }));
+                setSubmission(prev => prev ? ({ 
+                  ...prev, 
+                  team: { 
+                    ...(prev.team || {}), 
+                    name: teamName,
+                    members: teamMembers,
+                    leader_id: team?.leader_id || prev.team?.leader_id
+                  } 
+                }) : prev);
+              }
+            }
+          } catch (err) {
+            // ignore: fetching team name is best-effort for prefill
+            console.debug('Could not prefill submission title from team:', err);
+          }
+        })();
       }
   }, [id]);
 
@@ -97,11 +152,35 @@ const SubmissionDetail: React.FC = () => {
       setError(null);
       setSuccessMessage(null);
 
+      // Check if deadline has passed
+      if (deadlinePassed) {
+        setError('Submission deadline has passed. You can no longer save or edit submissions.');
+        return;
+      }
+
       if (creating) {
         // creating a new submission: need team id from query params
         if (!teamIdParam) {
           setError('No team specified for submission');
           return;
+        }
+
+        // Client-side safety: verify current user belongs to the team
+        try {
+          const team = await teamService.getTeamById(teamIdParam);
+          const currentUserId = user?.id;
+          const isMember = !!(
+            team && (
+              team.leader_id === currentUserId ||
+              (Array.isArray(team.members) && team.members.some((m: any) => (m.user && (m.user.id === currentUserId)) || m.user_id === currentUserId))
+            )
+          );
+          if (!isMember) {
+            setError('You must belong to the specified team to create a submission.');
+            return;
+          }
+        } catch (e) {
+          console.debug('Could not verify team membership on client:', e);
         }
         // If a zip file is selected, send multipart/form-data
         let created;
@@ -150,21 +229,53 @@ const SubmissionDetail: React.FC = () => {
       setIsSubmitting(true);
       setError(null);
       setSuccessMessage(null);
-      if (creating) {
-        if (!teamIdParam) {
-          setError('No team specified for submission');
-          return;
-        }
-        if (!formData.title.trim()) {
-          setError('Project title is required');
-          return;
-        }
-        if (!formData.repo_url.trim()) {
-          setError('GitHub repository URL is required');
+
+        // Check if deadline has passed
+        if (deadlinePassed) {
+          setError('Submission deadline has passed. You can no longer submit.');
           return;
         }
 
-        // create draft first (use multipart if there's a zip file)
+        if (creating) {
+          if (!teamIdParam) {
+            setError('No team specified for submission');
+            return;
+          }
+
+          // Client-side safety: verify current user belongs to the team
+          try {
+            const team = await teamService.getTeamById(teamIdParam);
+            const currentUserId = user?.id;
+            const isMember = !!(
+              team && (
+                team.leader_id === currentUserId ||
+                (Array.isArray(team.members) && team.members.some((m: any) => (m.user && (m.user.id === currentUserId)) || m.user_id === currentUserId))
+              )
+            );
+            if (!isMember) {
+              setError('You must belong to the specified team to create a submission.');
+              return;
+            }
+          } catch (e) {
+            console.debug('Could not verify team membership on client:', e);
+          }
+
+          if (!formData.title.trim()) {
+            setError('Project title is required');
+            return;
+          }
+          if (!formData.repo_url.trim()) {
+            setError('GitHub repository URL is required');
+            return;
+          }
+
+          // Require a ZIP archive for new submissions
+          if (!zipFile && !submission?.zip_storage_path) {
+            setError('A ZIP archive (.zip) is required to submit this project');
+            return;
+          }
+
+          // create draft first (use multipart if there's a zip file)
         let created;
         if (zipFile) {
           created = await submissionsService.createSubmissionWithFile({
@@ -310,6 +421,17 @@ const SubmissionDetail: React.FC = () => {
           </div>
         )}
 
+        {/* Deadline Warning */}
+        {deadlinePassed && (
+          <div className="mb-6 bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start gap-3">
+            <AlertTriangle className="text-amber-600 shrink-0" size={20} />
+            <div>
+              <h3 className="font-bold text-amber-800">Submission Deadline Passed</h3>
+              <p className="text-sm text-amber-700">The deadline for this hackathon has passed. You can view your submission but cannot make any changes.</p>
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             
             {/* Main Editor / Viewer */}
@@ -388,7 +510,7 @@ const SubmissionDetail: React.FC = () => {
                         {/* Submission Archive (zip) */}
                         <div>
                           <label className="block text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
-                            <FileText size={16} /> Submission Archive
+                            <FileText size={16} /> Submission Archive {creating && <span className="text-red-500">*</span>}
                           </label>
                           {submission.zip_storage_path ? (
                             (() => {
@@ -411,7 +533,7 @@ const SubmissionDetail: React.FC = () => {
                           ) : (
                             <div className="space-y-2">
                               <p className="text-gray-400 text-sm">No archive uploaded</p>
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-3">
                                 <input
                                   id="zipFile"
                                   type="file"
@@ -420,38 +542,25 @@ const SubmissionDetail: React.FC = () => {
                                     const f = e.target.files?.[0] || null;
                                     setZipFile(f);
                                   }}
-                                  className="text-sm"
+                                  className="hidden"
                                 />
                                 <button
-                                  onClick={async () => {
-                                    // If we already have a created submission, uploading via createSubmissionWithFile will update draft
-                                    try {
-                                      setIsSaving(true);
-                                      setError(null);
-                                      if (!zipFile) {
-                                        setError('No file selected');
-                                        return;
-                                      }
-                                      const resp = await submissionsService.createSubmissionWithFile({
-                                        title: formData.title,
-                                        description: formData.description,
-                                        repo_url: formData.repo_url,
-                                        demo_url: formData.demo_url,
-                                      }, zipFile, hackathonIdParam || undefined, (p) => setUploadProgress(p));
-                                      if (resp && resp.submission && resp.submission.id) {
-                                        navigate(`/dashboard/submissions/${resp.submission.id}?hackathon=${hackathonIdParam || ''}`);
-                                      }
-                                    } catch (err: any) {
-                                      console.error('Upload failed', err);
-                                      setError(err?.message || 'Upload failed');
-                                    } finally {
-                                      setIsSaving(false);
-                                    }
+                                  onClick={() => {
+                                    // trigger hidden file input
+                                    const el = document.getElementById('zipFile') as HTMLInputElement | null;
+                                    el?.click();
                                   }}
                                   className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-bold hover:bg-primary/90"
                                 >
-                                  Upload ZIP
+                                  {zipFile ? 'Change ZIP' : 'Upload ZIP'}
                                 </button>
+                                {zipFile ? (
+                                  <div className="text-sm text-gray-700">
+                                    {zipFile.name}
+                                  </div>
+                                ) : (
+                                  <div className="text-sm text-gray-400">No file selected</div>
+                                )}
                                 {uploadProgress !== null && (
                                   <div className="text-sm text-gray-500">{uploadProgress}%</div>
                                 )}
@@ -494,7 +603,7 @@ const SubmissionDetail: React.FC = () => {
                         <div className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">Team</div>
                         <div className="font-bold text-gray-900 text-lg mb-1">{submission.team.name}</div>
                         <div className="flex items-center gap-2 text-sm text-gray-500 font-medium">
-                            <Users size={16} className="text-primary"/> {submission.team.members?.length || 0} members
+                            <Users size={16} className="text-primary"/> {(submission.team.members?.length ?? 0) || 1} member{((submission.team.members?.length ?? 0) || 1) !== 1 ? 's' : ''}
                         </div>
                     </div>
 
@@ -502,15 +611,15 @@ const SubmissionDetail: React.FC = () => {
                         <div className="space-y-3">
                             <button 
                                 onClick={handleSaveDraft}
-                                disabled={isSaving}
+                                disabled={isSaving || deadlinePassed}
                                 className="w-full py-3 bg-gray-900 text-white rounded-xl font-bold hover:bg-gray-800 transition-colors flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 {isSaving ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
                                 {isSaving ? 'Saving...' : 'Save Draft'}
                             </button>
                             <button 
-                                onClick={handleSubmit}
-                                disabled={isSubmitting || !formData.title.trim() || !formData.repo_url.trim()}
+                              onClick={handleSubmit}
+                              disabled={isSubmitting || !formData.title.trim() || !formData.repo_url.trim() || (creating && !zipFile && !submission?.zip_storage_path) || deadlinePassed}
                                 className="w-full py-3 bg-primary text-white rounded-xl font-bold hover:bg-primary/90 transition-colors flex items-center justify-center gap-2 shadow-lg shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 {isSubmitting ? <Loader2 className="animate-spin" size={18} /> : <Send size={18} />}
@@ -529,31 +638,49 @@ const SubmissionDetail: React.FC = () => {
                     ) : (
                         <div className={`${
                           submission.status === 'submitted' ? 'bg-blue-50 border-blue-200' :
-                          submission.status === 'evaluating' ? 'bg-purple-50 border-purple-200' :
-                          'bg-yellow-50 border-yellow-200'
+                          submission.status === 'evaluating' || submission.status === 'under-review' ? 'bg-purple-50 border-purple-200' :
+                          submission.status === 'winner' ? 'bg-yellow-50 border-yellow-200' :
+                          submission.status === 'evaluated' || submission.status === 'accepted' ? 'bg-green-50 border-green-200' :
+                          submission.status === 'rejected' ? 'bg-red-50 border-red-200' :
+                          'bg-gray-50 border-gray-200'
                         } border rounded-xl p-4 text-center`}>
                             <div className={`w-12 h-12 ${
                               submission.status === 'submitted' ? 'bg-blue-100 text-blue-600' :
-                              submission.status === 'evaluating' ? 'bg-purple-100 text-purple-600' :
-                              'bg-yellow-100 text-yellow-600'
+                              submission.status === 'evaluating' || submission.status === 'under-review' ? 'bg-purple-100 text-purple-600' :
+                              submission.status === 'winner' ? 'bg-yellow-100 text-yellow-600' :
+                              submission.status === 'evaluated' || submission.status === 'accepted' ? 'bg-green-100 text-green-600' :
+                              submission.status === 'rejected' ? 'bg-red-100 text-red-600' :
+                              'bg-gray-100 text-gray-600'
                             } rounded-full flex items-center justify-center mx-auto mb-2`}>
                                 <CheckCircle2 size={24} />
                             </div>
                             <h3 className={`font-bold ${
                               submission.status === 'submitted' ? 'text-blue-800' :
-                              submission.status === 'evaluating' ? 'text-purple-800' :
-                              'text-yellow-800'
+                              submission.status === 'evaluating' || submission.status === 'under-review' ? 'text-purple-800' :
+                              submission.status === 'winner' ? 'text-yellow-800' :
+                              submission.status === 'evaluated' || submission.status === 'accepted' ? 'text-green-800' :
+                              submission.status === 'rejected' ? 'text-red-800' :
+                              'text-gray-800'
                             }`}>
                               {submission.status === 'submitted' ? 'Submitted Successfully' :
-                               submission.status === 'evaluating' ? 'Under Evaluation' :
-                               'Winner! 🎉'}
+                               submission.status === 'evaluating' || submission.status === 'under-review' ? 'Under Evaluation' :
+                               submission.status === 'winner' ? 'Winner! 🎉' :
+                               submission.status === 'evaluated' || submission.status === 'accepted' ? 'Evaluation Complete' :
+                               submission.status === 'rejected' ? 'Submission Rejected' :
+                               'Submitted'}
                             </h3>
                             <p className={`text-xs mt-1 ${
                               submission.status === 'submitted' ? 'text-blue-600' :
-                              submission.status === 'evaluating' ? 'text-purple-600' :
-                              'text-yellow-600'
+                              submission.status === 'evaluating' || submission.status === 'under-review' ? 'text-purple-600' :
+                              submission.status === 'winner' ? 'text-yellow-600' :
+                              submission.status === 'evaluated' || submission.status === 'accepted' ? 'text-green-600' :
+                              submission.status === 'rejected' ? 'text-red-600' :
+                              'text-gray-600'
                             }`}>
-                              {submission.status === 'winner' ? 'Congratulations on your achievement!' : 'Edits are locked.'}
+                              {submission.status === 'winner' ? 'Congratulations on your achievement!' : 
+                               submission.status === 'evaluated' || submission.status === 'accepted' ? 'Your project has been evaluated.' :
+                               submission.status === 'rejected' ? 'Your submission was not accepted.' :
+                               'Edits are locked.'}
                             </p>
                         </div>
                     )}

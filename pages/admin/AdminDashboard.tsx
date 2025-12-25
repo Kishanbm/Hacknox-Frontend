@@ -1,56 +1,389 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AdminLayout } from '../../components/AdminLayout';
 import { 
     Activity, Users, Gavel, AlertOctagon, ArrowUpRight, 
     Calendar, TrendingUp, AlertTriangle, Clock, CheckCircle2,
-    X, Save, Send
+    X, Save, Send, ChevronDown, Loader2
 } from 'lucide-react';
 import { 
     BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, 
     FunnelChart, Funnel, LabelList, Cell, CartesianGrid, Legend
 } from 'recharts';
+import { adminService } from '../../services/admin.service';
+import { useToast } from '../../components/ui/ToastProvider';
 
-// --- Mock Data ---
-
-// Funnel Data: Registration -> Results
-const funnelData = [
-    { value: 1200, name: 'Registered Teams', fill: '#6366f1' },
-    { value: 950, name: 'Eligible Teams', fill: '#8b5cf6' },
-    { value: 744, name: 'Submissions', fill: '#ec4899' },
-    { value: 550, name: 'Evaluated', fill: '#10b981' },
-    { value: 12, name: 'Winners', fill: '#fbbf24' },
+// Default empty funnel data structure
+const emptyFunnelData = [
+    { value: 0, name: 'Registered Teams', fill: '#6366f1' },
+    { value: 0, name: 'Verified Teams', fill: '#8b5cf6' },
+    { value: 0, name: 'Submissions', fill: '#ec4899' },
+    { value: 0, name: 'Evaluated', fill: '#10b981' },
+    { value: 0, name: 'Winners', fill: '#fbbf24' },
 ];
 
-// Judge Load Data
-const judgeLoadData = [
-    { name: 'Dr. Smith', assigned: 20, completed: 18 },
-    { name: 'Sarah J.', assigned: 25, completed: 25 },
-    { name: 'Mike R.', assigned: 20, completed: 5 }, // Lagging
-    { name: 'Priya P.', assigned: 15, completed: 12 },
-    { name: 'Alex T.', assigned: 20, completed: 19 },
-];
+// Interface for hackathon
+interface Hackathon {
+    id: string;
+    name: string;
+    status?: string;
+    submission_deadline?: string;
+}
 
-// Risks / Deadline Timeline
-const risks = [
-    { id: 1, type: 'Critical', title: '3 Judges Overdue', detail: 'HackOnX 2025 • AI Track', time: '2h overdue' },
-    { id: 2, type: 'Warning', title: 'Submission Rate Low', detail: 'Global AI Challenge', time: 'Deadline in 4h' },
-    { id: 3, type: 'Flag', title: 'Plagiarism Flag', detail: 'Team "CopyCat" • 98% match', time: 'Detected 1h ago' },
-];
+// Interface for judge load data
+interface JudgeLoadItem {
+    name: string;
+    assigned: number;
+    completed: number;
+}
 
 const AdminDashboard: React.FC = () => {
     const navigate = useNavigate();
+    const { success: toastSuccess, error: toastError } = useToast();
     
     // Modal States
     const [isExtendModalOpen, setExtendModalOpen] = useState(false);
-    const [isPublishModalOpen, setPublishModalOpen] = useState(false);
 
-    // KPI Values
-    const activeHackathons = 3;
-    const upcomingHackathons = 2;
-    const conversionRate = 62; // % Registered to Submitted
-    const evalCompletion = 74; // %
-    const criticalRisks = 3;
+    // Extend deadline states
+    const [selectedExtendHackathon, setSelectedExtendHackathon] = useState<string>('');
+    const [extendHours, setExtendHours] = useState<number>(0);
+    const [extendReason, setExtendReason] = useState<string>('');
+    const [extendLoading, setExtendLoading] = useState(false);
+
+    // Nearest deadline state
+    const [nearestDeadline, setNearestDeadline] = useState<{ hackathonName: string; timeLeft: string; percentage: number } | null>(null);
+
+    // Data States
+    const [hackathons, setHackathons] = useState<Hackathon[]>([]);
+    const [selectedFunnelHackathon, setSelectedFunnelHackathon] = useState<string>('all');
+    const [funnelData, setFunnelData] = useState(emptyFunnelData);
+    const [judgeLoadData, setJudgeLoadData] = useState<JudgeLoadItem[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [funnelLoading, setFunnelLoading] = useState(false);
+
+    // KPI Values (will be computed from data)
+    const [activeHackathons, setActiveHackathons] = useState(0);
+    const [upcomingHackathons, setUpcomingHackathons] = useState(0);
+    const [conversionRate, setConversionRate] = useState(0);
+    const [evalCompletion, setEvalCompletion] = useState(0);
+    const [criticalRisks, setCriticalRisks] = useState(0);
+
+    // Fetch hackathons and initial data
+    useEffect(() => {
+        const fetchInitialData = async () => {
+            try {
+                setLoading(true);
+                
+                // Fetch hackathons
+                const hackResponse = await adminService.getMyHackathons();
+                const hackList = hackResponse?.hackathons || hackResponse || [];
+                setHackathons(hackList);
+                
+                // Count active and upcoming
+                const active = hackList.filter((h: Hackathon) => h.status === 'active' || h.status === 'ongoing').length;
+                const upcoming = hackList.filter((h: Hackathon) => h.status === 'upcoming' || h.status === 'draft').length;
+                setActiveHackathons(active || hackList.length);
+                setUpcomingHackathons(upcoming);
+                // If the user has no hackathons, don't fetch global workload/analytics
+                if (!hackList || hackList.length === 0) {
+                    // Show empty states
+                    setJudgeLoadData([{ name: 'No hackathons', assigned: 0, completed: 0 }]);
+                    setFunnelData(emptyFunnelData);
+                    setConversionRate(0);
+                    setEvalCompletion(0);
+                    setNearestDeadline(null);
+                    setSelectedFunnelHackathon('none');
+                } else {
+                    // Fetch judges for workload data (top 6)
+                    await fetchJudgeWorkload();
+
+                    // Fetch aggregate analytics for KPIs
+                    await fetchAnalyticsData('all');
+
+                    // Calculate nearest deadline
+                    calculateNearestDeadline(hackList);
+                }
+
+                // Fetch reports count for critical issues
+                try {
+                    const reportsCount = await adminService.getReportsCount();
+                    setCriticalRisks(reportsCount?.count || 0);
+                } catch (err) {
+                    console.error('Failed to fetch reports count', err);
+                    setCriticalRisks(0);
+                }
+                
+            } catch (error) {
+                console.error('Error fetching dashboard data:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        
+        fetchInitialData();
+    }, []);
+
+    // Calculate nearest deadline from hackathons
+    const calculateNearestDeadline = (hackList: Hackathon[]) => {
+        try {
+            const now = new Date().getTime();
+            let nearest: { hackathon: Hackathon; timeLeft: number } | null = null;
+            
+            for (const hack of hackList) {
+                const deadline = hack.submission_deadline || (hack as any).submissionDeadline;
+                if (!deadline) continue;
+                
+                const deadlineTime = new Date(deadline).getTime();
+                const timeLeft = deadlineTime - now;
+                
+                // Only consider future deadlines
+                if (timeLeft > 0) {
+                    if (!nearest || timeLeft < nearest.timeLeft) {
+                        nearest = { hackathon: hack, timeLeft };
+                    }
+                }
+            }
+            
+            if (nearest) {
+                const hours = Math.floor(nearest.timeLeft / (1000 * 60 * 60));
+                const minutes = Math.floor((nearest.timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+                const timeLeftStr = `${hours}h ${minutes}m`;
+                
+                // Calculate percentage (assuming 7 days = 100%)
+                const totalTime = 7 * 24 * 60 * 60 * 1000; // 7 days in ms
+                const percentage = Math.min(100, Math.max(0, 100 - (nearest.timeLeft / totalTime * 100)));
+                
+                setNearestDeadline({
+                    hackathonName: nearest.hackathon.name,
+                    timeLeft: timeLeftStr,
+                    percentage: percentage
+                });
+            } else {
+                setNearestDeadline(null);
+            }
+        } catch (error) {
+            console.error('Error calculating nearest deadline:', error);
+        }
+    };
+
+    // Fetch analytics when funnel hackathon changes
+    useEffect(() => {
+        if (!loading && hackathons.length > 0) {
+            if (selectedFunnelHackathon === 'none') {
+                setFunnelData(emptyFunnelData);
+                setConversionRate(0);
+                setEvalCompletion(0);
+            } else {
+                fetchAnalyticsData(selectedFunnelHackathon);
+            }
+        }
+    }, [selectedFunnelHackathon, hackathons]);
+
+    // Fetch analytics data for funnel and KPIs
+    const fetchAnalyticsData = async (hackathonId: string) => {
+        try {
+            setFunnelLoading(true);
+            if (hackathonId === 'none') {
+                setFunnelData(emptyFunnelData);
+                setConversionRate(0);
+                setEvalCompletion(0);
+                return;
+            }
+            
+            // Use specific hackathon or aggregate all
+            let analyticsData: any = null;
+            
+            if (hackathonId === 'all' && hackathons.length > 0) {
+                // Aggregate data from all hackathons
+                const allAnalytics = await Promise.all(
+                    hackathons.map(h => adminService.getAnalyticsForHackathon(h.id).catch(() => null))
+                );
+                
+                // Combine the analytics
+                let totalTeams = 0;
+                let verifiedTeams = 0;
+                let totalSubmissions = 0;
+                let evaluatedCount = 0;
+                let winnersCount = 0;
+                
+                allAnalytics.forEach((data: any) => {
+                    if (!data) return;
+                    
+                    const keyMetrics = data.keyMetrics || {};
+                    totalTeams += keyMetrics.totalTeams || 0;
+                    totalSubmissions += keyMetrics.totalSubmissions || 0;
+                    
+                    // Count from summaries
+                    const teamSummary = data.teamSummary || [];
+                    const submissionSummary = data.submissionSummary || [];
+                    const evalSummary = data.evaluationSummary || [];
+                    
+                    // Verified = teams with verified status
+                    const verified = teamSummary.find((t: any) => t.verification_status === 'verified');
+                    verifiedTeams += verified?.count || 0;
+                    
+                    // Evaluated = evaluations with submitted status
+                    const evaluated = evalSummary.find((e: any) => e.status === 'submitted' || e.status === 'completed');
+                    evaluatedCount += evaluated?.count || 0;
+                    
+                    // Winners = submissions with winner status
+                    const winners = submissionSummary.find((s: any) => s.status === 'winner');
+                    winnersCount += winners?.count || 0;
+                });
+                
+                // Update funnel
+                setFunnelData([
+                    { value: totalTeams, name: 'Registered Teams', fill: '#6366f1' },
+                    { value: verifiedTeams || Math.floor(totalTeams * 0.8), name: 'Verified Teams', fill: '#8b5cf6' },
+                    { value: totalSubmissions, name: 'Submissions', fill: '#ec4899' },
+                    { value: evaluatedCount, name: 'Evaluated', fill: '#10b981' },
+                    { value: winnersCount, name: 'Winners', fill: '#fbbf24' },
+                ]);
+                
+                // Update KPIs
+                setConversionRate(totalTeams > 0 ? Math.round((totalSubmissions / totalTeams) * 100) : 0);
+                setEvalCompletion(totalSubmissions > 0 ? Math.round((evaluatedCount / totalSubmissions) * 100) : 0);
+                
+            } else {
+                // Single hackathon
+                analyticsData = await adminService.getAnalyticsForHackathon(hackathonId);
+
+                // Defensive: if analyticsData is missing or invalid, show empty funnel
+                if (!analyticsData) {
+                    setFunnelData(emptyFunnelData);
+                    setConversionRate(0);
+                    setEvalCompletion(0);
+                    return;
+                }
+
+                const keyMetrics = analyticsData?.keyMetrics || {};
+                const teamSummary = analyticsData?.teamSummary || [];
+                const submissionSummary = analyticsData?.submissionSummary || [];
+                const evalSummary = analyticsData?.evaluationSummary || [];
+
+                const totalTeams = Number(keyMetrics.totalTeams || 0);
+                const totalSubmissions = Number(keyMetrics.totalSubmissions || 0);
+
+                const verified = teamSummary.find((t: any) => t.verification_status === 'verified');
+                const verifiedTeams = Number(verified?.count || Math.floor(totalTeams * 0.8));
+
+                const evaluated = evalSummary.find((e: any) => e.status === 'submitted' || e.status === 'completed');
+                const evaluatedCount = Number(evaluated?.count || 0);
+
+                const winners = submissionSummary.find((s: any) => s.status === 'winner');
+                const winnersCount = Number(winners?.count || 0);
+
+                setFunnelData([
+                    { value: totalTeams, name: 'Registered Teams', fill: '#6366f1' },
+                    { value: verifiedTeams, name: 'Verified Teams', fill: '#8b5cf6' },
+                    { value: totalSubmissions, name: 'Submissions', fill: '#ec4899' },
+                    { value: evaluatedCount, name: 'Evaluated', fill: '#10b981' },
+                    { value: winnersCount, name: 'Winners', fill: '#fbbf24' },
+                ]);
+
+                // Compute conversion and review coverage from the returned summaries (more robust to varying status names)
+                const totalSubmissionCount = (submissionSummary || []).reduce((acc: number, s: any) => acc + (Number(s.count) || 0), 0);
+                const totalEvaluationCount = (evalSummary || []).reduce((acc: number, e: any) => acc + (Number(e.count) || 0), 0);
+
+                setConversionRate(totalTeams > 0 ? Math.round((totalSubmissionCount / totalTeams) * 100) : 0);
+                setEvalCompletion(totalSubmissionCount > 0 ? Math.round((totalEvaluationCount / totalSubmissionCount) * 100) : 0);
+            }
+            
+        } catch (error) {
+            console.error('Error fetching analytics:', error);
+        } finally {
+            setFunnelLoading(false);
+        }
+    };
+
+    // Fetch judge workload data (top 6)
+    const fetchJudgeWorkload = async () => {
+        try {
+            // Fetch all judges with their assignments
+            const judgeResponse = await adminService.getJudges(1, 100);
+            const judgeList = judgeResponse?.judges || judgeResponse?.data || judgeResponse || [];
+            
+            // Calculate workload for each judge
+            const workloadData: JudgeLoadItem[] = [];
+            
+            for (const judge of judgeList.slice(0, 10)) { // Check top 10 judges
+                try {
+                    const judgeDetails = await adminService.getJudgeById?.(judge.id) || judge;
+                    const firstName = judgeDetails.first_name || judge.first_name || '';
+                    const lastName = judgeDetails.last_name || judge.last_name || '';
+                    const displayName = `${firstName} ${lastName.charAt(0)}.`.trim() || judge.email?.split('@')[0] || 'Judge';
+                    
+                    const assigned = judgeDetails.total_assigned || judge.total_assigned || 0;
+                    const completed = judgeDetails.completed_evaluations || judge.completed_evaluations || 0;
+                    
+                    workloadData.push({
+                        name: displayName,
+                        assigned: assigned,
+                        completed: completed
+                    });
+                } catch (e) {
+                    // Skip if we can't get details
+                }
+            }
+            
+            // Sort by assigned (descending) and take top 6
+            const top6 = workloadData
+                .sort((a, b) => b.assigned - a.assigned)
+                .slice(0, 6);
+            
+            setJudgeLoadData(top6.length > 0 ? top6 : [
+                { name: 'No judges', assigned: 0, completed: 0 }
+            ]);
+            
+        } catch (error) {
+            console.error('Error fetching judge workload:', error);
+            setJudgeLoadData([{ name: 'No data', assigned: 0, completed: 0 }]);
+        }
+    };
+
+    // Handle extend deadline submission
+    const handleExtendDeadline = async () => {
+        if (!selectedExtendHackathon || extendHours <= 0) return;
+        
+        try {
+            setExtendLoading(true);
+            
+            // Get the current hackathon details
+            const hackathon = hackathons.find(h => h.id === selectedExtendHackathon);
+            if (!hackathon) throw new Error('Hackathon not found');
+            
+            const currentDeadline = hackathon.submission_deadline || (hackathon as any).submissionDeadline;
+            if (!currentDeadline) throw new Error('No deadline set for this hackathon');
+            
+            // Calculate new deadline
+            const currentDeadlineDate = new Date(currentDeadline);
+            const newDeadlineDate = new Date(currentDeadlineDate.getTime() + (extendHours * 60 * 60 * 1000));
+            
+            // Update hackathon with new deadline
+            await adminService.updateHackathon(selectedExtendHackathon, {
+                submission_deadline: newDeadlineDate.toISOString()
+            });
+            
+            // Refresh hackathons list
+            const res = await adminService.getMyHackathons();
+            const hackList = res?.hackathons || res || [];
+            setHackathons(hackList);
+            calculateNearestDeadline(hackList);
+            
+            // Close modal and reset
+            setExtendModalOpen(false);
+            setSelectedExtendHackathon('');
+            setExtendHours(0);
+            setExtendReason('');
+            
+            toastSuccess && toastSuccess(`Deadline extended successfully by ${extendHours} hour(s)`);
+        } catch (error: any) {
+            console.error('Error extending deadline:', error);
+            toastError && toastError(`Failed to extend deadline: ${error?.message || 'Unknown error'}`);
+        } finally {
+            setExtendLoading(false);
+        }
+    };
 
     return (
         <AdminLayout>
@@ -114,12 +447,15 @@ const AdminDashboard: React.FC = () => {
                     </div>
 
                     {/* 4. Risk & Attention */}
-                    <div className="bg-red-50 p-5 md:p-6 rounded-3xl border border-red-100 shadow-sm flex flex-col justify-between h-36 md:h-40 group hover:bg-red-100 transition-colors cursor-pointer">
+                    <div 
+                        onClick={() => navigate('/admin/reports')}
+                        className="bg-red-50 p-5 md:p-6 rounded-3xl border border-red-100 shadow-sm flex flex-col justify-between h-36 md:h-40 group hover:bg-red-100 transition-colors cursor-pointer"
+                    >
                         <div className="flex justify-between items-start">
                             <div className="p-3 bg-white text-red-600 rounded-xl shadow-sm">
                                 <AlertOctagon size={20} />
                             </div>
-                            <span className="text-[10px] md:text-xs font-bold text-red-600 uppercase tracking-wide animate-pulse">Action Req.</span>
+                            <span className={`text-[10px] md:text-xs font-bold text-red-600 uppercase tracking-wide ${criticalRisks > 0 ? 'animate-pulse' : ''}`}>Action Req.</span>
                         </div>
                         <div>
                             <div className="text-3xl md:text-4xl font-heading text-red-600 mb-1">{criticalRisks}</div>
@@ -141,30 +477,48 @@ const AdminDashboard: React.FC = () => {
                                 <h3 className="font-bold text-gray-900 text-lg">Hackathon Funnel Health</h3>
                                 <p className="text-xs text-gray-500">Aggregate view of active events</p>
                             </div>
+                            <select
+                                value={selectedFunnelHackathon}
+                                onChange={(e) => setSelectedFunnelHackathon(e.target.value)}
+                                className="px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-medium focus:outline-none focus:border-gray-900"
+                            >
+                                <option value="all">All Hackathons</option>
+                                {hackathons.map(h => (
+                                    <option key={h.id} value={h.id}>{h.name}</option>
+                                ))}
+                            </select>
                         </div>
                         <div className="h-64 md:h-72 w-full">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <FunnelChart>
-                                    <Tooltip 
-                                        contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}}
-                                        itemStyle={{fontWeight: 'bold', color: '#111827'}}
-                                        formatter={(value: number) => [value.toLocaleString(), 'Count']}
-                                    />
-                                    <Legend 
-                                        verticalAlign="bottom" 
-                                        height={36} 
-                                        iconType="circle"
-                                        formatter={(value) => <span className="text-xs font-bold text-gray-600 ml-1">{value}</span>}
-                                    />
-                                    <Funnel
-                                        dataKey="value"
-                                        data={funnelData}
-                                        isAnimationActive
-                                    >
-                                        {/* Removed LabelList to prevent overflow */}
-                                    </Funnel>
-                                </FunnelChart>
-                            </ResponsiveContainer>
+                            {funnelLoading ? (
+                                <div className="flex items-center justify-center h-full">
+                                    <Loader2 className="animate-spin text-gray-400" size={24} />
+                                </div>
+                            ) : (
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <FunnelChart>
+                                        <Tooltip 
+                                            contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}}
+                                            itemStyle={{fontWeight: 'bold', color: '#111827'}}
+                                            formatter={(value: number) => [value.toLocaleString(), 'Count']}
+                                        />
+                                        <Legend 
+                                            verticalAlign="bottom" 
+                                            height={36} 
+                                            iconType="circle"
+                                            formatter={(value) => <span className="text-xs font-bold text-gray-600 ml-1">{value}</span>}
+                                        />
+                                        <Funnel
+                                            dataKey="value"
+                                            data={funnelData}
+                                            isAnimationActive
+                                        >
+                                            {funnelData.map((entry, index) => (
+                                                <Cell key={`cell-${index}`} fill={entry.fill} />
+                                            ))}
+                                        </Funnel>
+                                    </FunnelChart>
+                                </ResponsiveContainer>
+                            )}
                         </div>
                     </div>
 
@@ -200,76 +554,65 @@ const AdminDashboard: React.FC = () => {
 
                 </div>
 
-                {/* --- RISK & TIMELINE SECTION --- */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
+                {/* --- GOVERNANCE & DEADLINE SECTION --- */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
                     
-                    {/* Risk Feed */}
-                    <div className="lg:col-span-2 bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden">
-                        <div className="p-6 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
-                            <h3 className="font-bold text-gray-900 flex items-center gap-2">
-                                <AlertTriangle size={18} className="text-red-500"/> Risk Intelligence
-                            </h3>
-                            <button className="text-xs font-bold text-red-600 hover:underline">View All Issues</button>
+                    {/* Quick Actions / Governance - Full Width with Side-by-Side Buttons */}
+                    <div className="bg-gradient-to-br from-[#111827] to-gray-800 rounded-3xl p-6 text-white shadow-lg">
+                        <h3 className="font-heading text-lg mb-4 text-[#24FF00]">Quick Actions</h3>
+                        <div className="grid grid-cols-3 gap-3">
+                            <button 
+                                onClick={() => navigate('/admin/participants')}
+                                className="py-4 bg-white/10 hover:bg-white/20 border border-white/10 rounded-xl text-sm font-bold flex flex-col items-center gap-2 px-3 transition-colors"
+                            >
+                                <Users size={20} />
+                                <span className="text-xs">Users</span>
+                            </button>
+                            <button 
+                                onClick={() => setExtendModalOpen(true)}
+                                className="py-4 bg-white/10 hover:bg-white/20 border border-white/10 rounded-xl text-sm font-bold flex flex-col items-center gap-2 px-3 transition-colors"
+                            >
+                                <Calendar size={20} />
+                                <span className="text-xs">Deadlines</span>
+                            </button>
+                            <button 
+                                onClick={() => navigate('/admin/leaderboard')}
+                                className="py-4 bg-white/10 hover:bg-white/20 border border-white/10 rounded-xl text-sm font-bold flex flex-col items-center gap-2 px-3 transition-colors"
+                            >
+                                <CheckCircle2 size={20} />
+                                <span className="text-xs">Results</span>
+                            </button>
                         </div>
-                        <div className="divide-y divide-gray-100">
-                            {risks.map((risk) => (
-                                <div key={risk.id} className="p-4 flex flex-col sm:flex-row items-start sm:items-center gap-4 hover:bg-gray-50 transition-colors">
-                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
-                                        risk.type === 'Critical' ? 'bg-red-100 text-red-600' : 
-                                        risk.type === 'Warning' ? 'bg-amber-100 text-amber-600' : 'bg-gray-100 text-gray-600'
-                                    }`}>
-                                        {risk.type === 'Critical' ? <AlertOctagon size={20} /> : <Clock size={20} />}
-                                    </div>
-                                    <div className="flex-1">
-                                        <div className="flex justify-between items-start">
-                                            <h4 className="font-bold text-gray-900 text-sm">{risk.title}</h4>
-                                            <span className="text-[10px] font-bold text-red-500 uppercase tracking-wide">{risk.time}</span>
-                                        </div>
-                                        <p className="text-xs text-gray-500">{risk.detail}</p>
-                                    </div>
-                                    <button className="w-full sm:w-auto px-3 py-1.5 border border-gray-200 rounded-lg text-xs font-bold text-gray-600 hover:bg-gray-100 transition-colors">
-                                        Resolve
-                                    </button>
+                    </div>
+
+                    {/* Deadline Timer */}
+                    {nearestDeadline ? (
+                        <div className="bg-white rounded-3xl p-6 border border-gray-200 shadow-sm flex flex-col justify-center">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <div className="text-xs text-gray-400 font-bold uppercase mb-2">Next Deadline</div>
+                                    <div className="text-3xl font-heading text-gray-900 mb-1">{nearestDeadline.timeLeft}</div>
+                                    <div className="text-sm font-bold text-red-500">{nearestDeadline.hackathonName}</div>
                                 </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Quick Actions / Governance */}
-                    <div className="space-y-4">
-                        <div className="bg-gradient-to-br from-[#111827] to-gray-800 rounded-3xl p-6 text-white shadow-lg">
-                            <h3 className="font-heading text-lg mb-4 text-red-400">Governance</h3>
-                            <div className="space-y-2">
-                                <button 
-                                    onClick={() => navigate('/admin/participants')}
-                                    className="w-full py-3 bg-white/10 hover:bg-white/20 border border-white/10 rounded-xl text-sm font-bold flex items-center gap-3 px-4 transition-colors"
-                                >
-                                    <Users size={16} /> User Management
-                                </button>
-                                <button 
-                                    onClick={() => setExtendModalOpen(true)}
-                                    className="w-full py-3 bg-white/10 hover:bg-white/20 border border-white/10 rounded-xl text-sm font-bold flex items-center gap-3 px-4 transition-colors"
-                                >
-                                    <Calendar size={16} /> Extend Deadlines
-                                </button>
-                                <button 
-                                    onClick={() => setPublishModalOpen(true)}
-                                    className="w-full py-3 bg-white/10 hover:bg-white/20 border border-white/10 rounded-xl text-sm font-bold flex items-center gap-3 px-4 transition-colors"
-                                >
-                                    <CheckCircle2 size={16} /> Publish Results
-                                </button>
+                                <div className="w-20 h-20 relative">
+                                    <svg className="w-20 h-20 -rotate-90" viewBox="0 0 36 36">
+                                        <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#E5E7EB" strokeWidth="3"/>
+                                        <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#EF4444" strokeWidth="3" strokeDasharray={`${nearestDeadline.percentage}, 100`} className="animate-pulse"/>
+                                    </svg>
+                                    <div className="absolute inset-0 flex items-center justify-center">
+                                        <Clock size={24} className="text-red-500" />
+                                    </div>
+                                </div>
                             </div>
                         </div>
-
-                        <div className="bg-white rounded-3xl p-6 border border-gray-200 shadow-sm text-center">
-                            <div className="text-3xl font-heading text-gray-900 mb-1">24h 12m</div>
-                            <div className="text-xs text-gray-400 font-bold uppercase mb-4">Time to Next Deadline</div>
-                            <div className="w-full bg-gray-100 h-1.5 rounded-full mb-2">
-                                <div className="bg-red-500 h-1.5 rounded-full animate-pulse" style={{ width: '85%' }}></div>
+                    ) : (
+                        <div className="bg-white rounded-3xl p-6 border border-gray-200 shadow-sm flex items-center justify-center">
+                            <div className="text-center">
+                                <Clock size={32} className="mx-auto mb-2 text-gray-400" />
+                                <p className="text-sm text-gray-500">No upcoming deadlines</p>
                             </div>
-                            <div className="text-xs text-red-500 font-bold">Evaluation Close: HackOnX</div>
                         </div>
-                    </div>
+                    )}
                 </div>
 
                 {/* --- MODALS --- */}
@@ -282,7 +625,12 @@ const AdminDashboard: React.FC = () => {
                                 <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
                                     <Calendar size={24} className="text-[#5425FF]"/> Extend Deadline
                                 </h2>
-                                <button onClick={() => setExtendModalOpen(false)} className="p-2 hover:bg-gray-100 rounded-full text-gray-500">
+                                <button onClick={() => {
+                                    setExtendModalOpen(false);
+                                    setSelectedExtendHackathon('');
+                                    setExtendHours(0);
+                                    setExtendReason('');
+                                }} className="p-2 hover:bg-gray-100 rounded-full text-gray-500">
                                     <X size={20} />
                                 </button>
                             </div>
@@ -290,72 +638,56 @@ const AdminDashboard: React.FC = () => {
                             <div className="space-y-4 mb-6">
                                 <div>
                                     <label className="block text-sm font-bold text-gray-700 mb-2">Select Hackathon</label>
-                                    <select className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-[#5425FF] font-medium">
-                                        <option>HackOnX 2025</option>
-                                        <option>Global AI Challenge</option>
+                                    <select 
+                                        value={selectedExtendHackathon}
+                                        onChange={(e) => setSelectedExtendHackathon(e.target.value)}
+                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-[#5425FF] font-medium"
+                                    >
+                                        <option value="">Choose hackathon...</option>
+                                        {hackathons.map(h => (
+                                            <option key={h.id} value={h.id}>{h.name}</option>
+                                        ))}
                                     </select>
                                 </div>
                                 <div>
                                     <label className="block text-sm font-bold text-gray-700 mb-2">Extend By</label>
-                                    <div className="grid grid-cols-3 gap-2">
-                                        <button className="py-2 border border-gray-200 rounded-lg text-sm font-bold hover:bg-gray-50 hover:border-[#5425FF] hover:text-[#5425FF]">+1 Hour</button>
-                                        <button className="py-2 border border-gray-200 rounded-lg text-sm font-bold hover:bg-gray-50 hover:border-[#5425FF] hover:text-[#5425FF]">+12 Hours</button>
-                                        <button className="py-2 border border-gray-200 rounded-lg text-sm font-bold hover:bg-gray-50 hover:border-[#5425FF] hover:text-[#5425FF]">+24 Hours</button>
+                                    <div className="grid grid-cols-3 gap-2 mb-2">
+                                        <button onClick={() => setExtendHours(1)} className={`py-2 border rounded-lg text-sm font-bold hover:bg-gray-50 transition-colors ${extendHours === 1 ? 'border-[#5425FF] text-[#5425FF] bg-[#5425FF]/5' : 'border-gray-200'}`}>+1 Hour</button>
+                                        <button onClick={() => setExtendHours(12)} className={`py-2 border rounded-lg text-sm font-bold hover:bg-gray-50 transition-colors ${extendHours === 12 ? 'border-[#5425FF] text-[#5425FF] bg-[#5425FF]/5' : 'border-gray-200'}`}>+12 Hours</button>
+                                        <button onClick={() => setExtendHours(24)} className={`py-2 border rounded-lg text-sm font-bold hover:bg-gray-50 transition-colors ${extendHours === 24 ? 'border-[#5425FF] text-[#5425FF] bg-[#5425FF]/5' : 'border-gray-200'}`}>+24 Hours</button>
                                     </div>
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        value={extendHours || ''}
+                                        onChange={(e) => setExtendHours(parseInt(e.target.value) || 0)}
+                                        placeholder="Or enter custom hours"
+                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-[#5425FF] text-sm"
+                                    />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-bold text-gray-700 mb-2">Reason (Optional)</label>
-                                    <textarea className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-[#5425FF] text-sm resize-none" rows={3} placeholder="e.g. Server outage, technical issues..."></textarea>
+                                    <textarea 
+                                        value={extendReason}
+                                        onChange={(e) => setExtendReason(e.target.value)}
+                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-[#5425FF] text-sm resize-none" 
+                                        rows={3} 
+                                        placeholder="e.g. Server outage, technical issues..."
+                                    />
                                 </div>
                             </div>
 
                             <button 
-                                onClick={() => setExtendModalOpen(false)}
-                                className="w-full py-3 bg-[#111827] text-white rounded-xl font-bold hover:bg-black transition-colors flex items-center justify-center gap-2 shadow-lg"
+                                onClick={handleExtendDeadline}
+                                disabled={extendLoading || !selectedExtendHackathon || extendHours <= 0}
+                                className="w-full py-3 bg-[#111827] text-white rounded-xl font-bold hover:bg-black transition-colors flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                <Save size={18} /> Confirm Extension
+                                {extendLoading ? (
+                                    <><Loader2 className="animate-spin" size={18} /> Extending...</>
+                                ) : (
+                                    <><Save size={18} /> Confirm Extension</>
+                                )}
                             </button>
-                        </div>
-                    </div>
-                )}
-
-                {/* Publish Results Modal */}
-                {isPublishModalOpen && (
-                    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                        <div className="bg-white rounded-3xl w-full max-w-md p-8 shadow-2xl animate-in zoom-in-95 duration-200">
-                            <div className="flex justify-between items-center mb-6">
-                                <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                                    <CheckCircle2 size={24} className="text-[#24FF00]"/> Publish Results
-                                </h2>
-                                <button onClick={() => setPublishModalOpen(false)} className="p-2 hover:bg-gray-100 rounded-full text-gray-500">
-                                    <X size={20} />
-                                </button>
-                            </div>
-                            
-                            <p className="text-gray-500 text-sm mb-6">Select a hackathon to finalize scores and release the leaderboard to the public.</p>
-
-                            <div className="space-y-3 mb-8">
-                                <button 
-                                    onClick={() => navigate('/admin/hackathons/h1')}
-                                    className="w-full p-4 border border-gray-200 rounded-xl hover:border-[#5425FF] hover:bg-[#5425FF]/5 transition-all text-left group"
-                                >
-                                    <div className="flex justify-between items-center mb-1">
-                                        <h4 className="font-bold text-gray-900">HackOnX 2025</h4>
-                                        <span className="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded">Ready</span>
-                                    </div>
-                                    <div className="text-xs text-gray-500">Grading 100% Complete • 12 Winners</div>
-                                </button>
-                                <button 
-                                    disabled
-                                    className="w-full p-4 border border-gray-100 rounded-xl bg-gray-50 text-left opacity-60 cursor-not-allowed"
-                                >
-                                    <div className="flex justify-between items-center mb-1">
-                                        <h4 className="font-bold text-gray-900">Global AI Challenge</h4>
-                                        <span className="bg-gray-200 text-gray-500 text-[10px] font-bold px-2 py-0.5 rounded">Pending</span>
-                                    </div>
-                                    <div className="text-xs text-gray-500">Grading 45% Complete</div>
-                                </button>
-                            </div>
                         </div>
                     </div>
                 )}

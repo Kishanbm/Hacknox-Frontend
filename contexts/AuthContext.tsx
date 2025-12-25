@@ -61,16 +61,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
 
       const response = await apiClient.get('/auth/me');
-      const userData = response.data;
+      const raw = response.data;
+      // Support both shapes: { user: {...} } and direct payload {...}
+      const payload = raw?.user || raw;
+      // Profiles may be nested under `Profiles` or `profile` depending on endpoint
+      const profile = payload?.Profiles || payload?.profile || {};
 
       const user: User = {
-        id: userData.id,
-        email: userData.email,
-        role: userData.role,
-        firstName: userData.first_name,
-        lastName: userData.last_name,
-        avatarUrl: userData.avatar_url,
-        isVerified: userData.is_verified,
+        id: payload?.id,
+        email: payload?.email,
+        role: payload?.role,
+        firstName: payload?.first_name || profile?.first_name,
+        lastName: payload?.last_name || profile?.last_name,
+        avatarUrl: payload?.avatar_url || profile?.avatar_url,
+        isVerified: payload?.is_verified,
       };
 
       setUser(user);
@@ -97,14 +101,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       localStorage.setItem('authToken', token);
 
       // Map backend response to User interface
+      const payload = userData || {};
+      const profile = payload?.Profiles || payload?.profile || {};
       const user: User = {
-        id: userData.id,
-        email: userData.email,
-        role: userData.role,
-        firstName: userData.first_name,
-        lastName: userData.last_name,
-        avatarUrl: userData.avatar_url,
-        isVerified: userData.is_verified,
+        id: payload?.id,
+        email: payload?.email,
+        role: payload?.role,
+        firstName: payload?.first_name || profile?.first_name,
+        lastName: payload?.last_name || profile?.last_name,
+        avatarUrl: payload?.avatar_url || profile?.avatar_url,
+        isVerified: payload?.is_verified,
       };
 
       setUser(user);

@@ -53,6 +53,7 @@ export const DashboardLayout: React.FC<SidebarProps> = ({ children }) => {
     { label: 'My Teams', icon: <Users size={20} />, path: '/dashboard/teams' },
     { label: 'Hackathons', icon: <Calendar size={20} />, path: '/dashboard/hackathons' },
     { label: 'Submissions', icon: <Rocket size={20} />, path: '/dashboard/submissions' },
+    { label: 'Leaderboard', icon: <Trophy size={20} />, path: '/dashboard/leaderboard' },
     { label: 'Profile', icon: <UserCircle size={20} />, path: '/dashboard/profile' },
     { label: 'Settings', icon: <Settings size={20} />, path: '/dashboard/settings' },
   ];
@@ -122,9 +123,7 @@ export const DashboardLayout: React.FC<SidebarProps> = ({ children }) => {
                         {item.icon}
                     </div>
                     <span>{item.label}</span>
-                    {item.label === 'Hackathons' && (
-                         <span className={`ml-auto text-xs font-bold px-2 py-0.5 rounded-md ${isActive ? 'bg-white/20 text-white' : 'bg-gray-800 text-gray-400'}`}>3</span>
-                    )}
+                    {/* Remove static badge for Hackathons; counts should be provided dynamically if needed */}
                 </Link>
                 );
             })}
@@ -166,18 +165,18 @@ export const DashboardLayout: React.FC<SidebarProps> = ({ children }) => {
       {/* Main Content */}
       <main className="flex-1 p-4 lg:p-8 overflow-y-auto h-screen scroll-smooth w-full">
         {/* Top Header */}
-        <header className="flex justify-between items-center mb-6 lg:mb-8 bg-surface/80 backdrop-blur-md lg:bg-transparent p-4 lg:p-0 rounded-2xl shadow-sm lg:shadow-none sticky top-0 z-30 lg:static border border-gray-100 lg:border-none">
+        <header className="flex justify-between items-center mb-6 lg:mb-8 bg-gray-900 lg:bg-transparent p-4 lg:p-0 rounded-2xl shadow-sm lg:shadow-none sticky top-0 z-30 lg:static border border-gray-800 lg:border-none">
             <div className="flex items-center gap-4">
                  {/* Mobile/Tablet Toggle */}
                  <button 
                     onClick={() => setIsSidebarOpen(true)}
-                    className="lg:hidden p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
+                    className="lg:hidden p-2 -ml-2 text-gray-300 hover:bg-gray-800 rounded-xl transition-colors"
                  >
                     <Menu size={24} />
                  </button>
 
                  <div className="lg:hidden flex items-center gap-2">
-                     <h1 className="font-heading text-xl text-gray-900">HACKON<span className="text-primary">X</span></h1>
+                     <h1 className="font-heading text-xl text-white">HACKON<span className="text-primary">X</span></h1>
                 </div>
             
                 <div className="hidden lg:block">
@@ -187,28 +186,23 @@ export const DashboardLayout: React.FC<SidebarProps> = ({ children }) => {
             </div>
 
             <div className="flex items-center gap-3 md:gap-4">
-                <div className="hidden xl:flex items-center gap-2 px-4 py-2 bg-white rounded-full border border-gray-200 shadow-sm">
-                   <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                   <span className="text-xs font-bold text-gray-600">System Online</span>
-                </div>
-
                 {/* Notifications */}
                 <div className="relative" ref={notifRef}>
                   <button 
                     onClick={() => navigate('/dashboard/notifications')}
-                    className="relative w-10 h-10 md:w-11 md:h-11 bg-white rounded-full flex items-center justify-center text-gray-500 hover:text-primary shadow-sm border border-gray-100 transition-colors group"
+                    className="relative w-10 h-10 md:w-11 md:h-11 bg-gray-800 lg:bg-white rounded-full flex items-center justify-center text-gray-300 lg:text-gray-500 hover:text-primary shadow-sm border border-gray-700 lg:border-gray-100 transition-colors group"
                   >
                     <Bell size={20} className="group-hover:animate-swing" />
-                    <span className="absolute top-3 right-3 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>
+                    <span className="absolute top-3 right-3 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-gray-800 lg:border-white"></span>
                   </button>
                 </div>
                 
-                <div className="flex items-center gap-3 pl-0 md:pl-4 md:border-l border-gray-200">
+                <div className="flex items-center gap-3 pl-0 md:pl-4 md:border-l border-gray-700 lg:border-gray-200">
                     <div className="text-right hidden sm:block">
-                      <div className="text-sm font-bold text-gray-900">{user?.firstName ? `${user.firstName} ${user.lastName || ''}` : user?.email}</div>
+                      <div className="text-sm font-bold text-white lg:text-gray-900">{user?.firstName ? `${user.firstName} ${user.lastName || ''}` : user?.email}</div>
                       <div className="text-xs text-primary font-bold">{user?.email || ''}</div>
                     </div>
-                    <div className="w-10 h-10 md:w-11 md:h-11 bg-gradient-to-tr from-primary to-purple-400 rounded-full flex items-center justify-center text-white font-heading border-2 border-white shadow-md cursor-pointer hover:ring-2 hover:ring-offset-2 hover:ring-primary transition-all text-sm md:text-base">
+                    <div className="w-10 h-10 md:w-11 md:h-11 bg-gradient-to-tr from-primary to-purple-400 rounded-full flex items-center justify-center text-white font-heading border-2 border-gray-800 lg:border-white shadow-md cursor-pointer hover:ring-2 hover:ring-offset-2 hover:ring-primary transition-all text-sm md:text-base">
                       {user?.firstName ? `${(user.firstName[0]||'').toUpperCase()}${(user.lastName?.[0]||'').toUpperCase()}` : (user?.email?.slice(0,2).toUpperCase()||'ME')}
                     </div>
                 </div>

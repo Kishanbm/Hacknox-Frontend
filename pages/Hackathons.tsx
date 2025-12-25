@@ -7,8 +7,15 @@ import { HackathonEvent } from '../types';
 import { publicService } from '../services/public.service';
 
 const Hackathons: React.FC = () => {
-  const [filter, setFilter] = useState('All');
+  // Default to show Live events first
+  const [filter, setFilter] = useState('Live');
   const [hackathons, setHackathons] = useState<any[]>([]);
+  const [showFiltersPanel, setShowFiltersPanel] = useState(false);
+  const [queryFilters, setQueryFilters] = useState<{ city?: string; mode?: string; theme?: string }>({});
+  const [combinedFilters, setCombinedFilters] = useState(false);
+  const [selectedCities, setSelectedCities] = useState<string[]>([]);
+  const [selectedModes, setSelectedModes] = useState<string[]>([]);
+  const [selectedThemes, setSelectedThemes] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
@@ -18,7 +25,14 @@ const Hackathons: React.FC = () => {
       setIsLoading(true);
       setError(null);
       try {
-        const data = await publicService.getHackathons({ status: filter !== 'All' ? filter : undefined });
+        // Compose backend filter params
+        const params: any = {};
+        if (filter && filter !== 'All') params.status = filter;
+        if (queryFilters.mode) params.mode = queryFilters.mode;
+        if (queryFilters.city) params.city = queryFilters.city;
+        if (queryFilters.theme) params.theme = queryFilters.theme;
+
+        const data = await publicService.getHackathons(params);
         setHackathons(Array.isArray(data) ? data : []);
       } catch (err: any) {
         console.error('Failed to fetch hackathons:', err);
@@ -29,7 +43,7 @@ const Hackathons: React.FC = () => {
     };
 
     fetchHackathons();
-  }, [filter]);
+  }, [filter, queryFilters]);
 
   // Helper function to determine status based on dates
   const getHackathonStatus = (startDate?: string | null, endDate?: string | null, regDeadline?: string | null) => {
@@ -88,13 +102,76 @@ const Hackathons: React.FC = () => {
                         className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all shadow-sm md:shadow-none"
                     />
                 </div>
-                <button className="w-full sm:w-auto px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-600 hover:text-primary hover:border-primary transition-colors flex items-center justify-center gap-2 font-bold shadow-sm md:shadow-none">
-                    <Filter size={20} /> Filter
+                <button onClick={() => setShowFiltersPanel(v => !v)} className="w-full sm:w-auto px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-600 hover:text-primary hover:border-primary transition-colors flex items-center justify-center gap-2 font-bold shadow-sm md:shadow-none">
+                  <Filter size={20} /> Filter
                 </button>
             </div>
         </div>
 
-        {/* Filters - Scrollable on mobile */}
+            {/* Right-side Filters Panel */}
+            {showFiltersPanel && (
+              <div className="mb-4 p-4 bg-white rounded-2xl border border-gray-200 shadow-sm">
+                <h4 className="font-bold mb-2">Filters</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {/* City select - options derived from loaded hackathons */}
+                  <select multiple={combinedFilters} value={selectedCities} onChange={(e) => {
+                      const opts = Array.from(e.target.selectedOptions).map(o => o.value);
+                      setSelectedCities(opts);
+                    }} className="p-2 border rounded">
+                    <option value="">-- City --</option>
+                    {Array.from(new Set(hackathons.flatMap(h => (Array.isArray(h.cities) ? h.cities : (h.location ? [h.location] : []))).map((c:any) => String(c).trim()).filter(Boolean))).map((c: string) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+
+                  {/* Mode select */}
+                  <select multiple={combinedFilters} value={selectedModes} onChange={(e) => {
+                      const opts = Array.from(e.target.selectedOptions).map(o => o.value);
+                      setSelectedModes(opts);
+                    }} className="p-2 border rounded">
+                    <option value="">-- Mode --</option>
+                    {Array.from(new Set(hackathons.flatMap(h => (Array.isArray(h.modes) ? h.modes : (h.mode ? [h.mode] : []))).map((m:any) => String(m).trim()).filter(Boolean))).map((m: string) => (
+                      <option key={m} value={m}>{m}</option>
+                    ))}
+                  </select>
+
+                  {/* Theme select */}
+                  <select multiple={combinedFilters} value={selectedThemes} onChange={(e) => {
+                      const opts = Array.from(e.target.selectedOptions).map(o => o.value);
+                      setSelectedThemes(opts);
+                    }} className="p-2 border rounded">
+                    <option value="">-- Theme --</option>
+                    {Array.from(new Set(hackathons.flatMap(h => (Array.isArray(h.themes) ? h.themes : (Array.isArray(h.theme) ? h.theme : (h.theme ? [h.theme] : [])))).map((t:any) => String(t).trim()).filter(Boolean))).map((t: string) => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex items-center gap-3 mt-3">
+                  <label className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" checked={combinedFilters} onChange={e => setCombinedFilters(e.target.checked)} />
+                    <span>Combined filters (multi-select)</span>
+                  </label>
+                </div>
+                <div className="mt-3 flex gap-2">
+                  <button onClick={() => {
+                      setShowFiltersPanel(false);
+                      setFilter('All');
+                      setSelectedCities([]); setSelectedModes([]); setSelectedThemes([]); setQueryFilters({});
+                    }} className="px-3 py-2 bg-white border rounded">Reset</button>
+                  <button onClick={() => {
+                      // Apply selected options: join multiple selections with commas for backend
+                      const params: any = {};
+                      if (selectedCities.length > 0) params.city = selectedCities.join(',');
+                      if (selectedModes.length > 0) params.mode = selectedModes.join(',');
+                      if (selectedThemes.length > 0) params.theme = selectedThemes.join(',');
+                      setQueryFilters(params);
+                      setShowFiltersPanel(false);
+                    }} className="px-3 py-2 bg-primary text-white rounded">Apply</button>
+                </div>
+              </div>
+            )}
+
+            {/* Filters - Scrollable on mobile */}
         <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 md:mx-0 md:px-0 scrollbar-hide">
             {['All', 'Live', 'Upcoming', 'Registration Open', 'Past'].map(status => (
                 <button 
@@ -122,7 +199,19 @@ const Hackathons: React.FC = () => {
             ) : filteredEvents.length === 0 ? (
               <div className="col-span-full py-20 text-center text-gray-500">No hackathons found for this filter.</div>
             ) : filteredEvents.map(event => {
-              const status = getHackathonStatus(event.start_date, event.end_date, event.registration_deadline);
+              const computedStatus = getHackathonStatus(event.start_date, event.end_date, event.registration_deadline);
+              const dbStatus = event.status ? String(event.status).toLowerCase() : null;
+              const status = (function(){
+                if (dbStatus) {
+                  if (['live','active'].includes(dbStatus)) return 'Live';
+                  if (['paused'].includes(dbStatus)) return 'Paused';
+                  if (['upcoming','pending'].includes(dbStatus)) return 'Upcoming';
+                  if (['registration open','registration_open','registration-open'].includes(dbStatus)) return 'Registration Open';
+                  if (['past','ended','completed'].includes(dbStatus)) return 'Past';
+                  return String(dbStatus).charAt(0).toUpperCase() + String(dbStatus).slice(1);
+                }
+                return computedStatus;
+              })();
               const bannerGradient = event.banner_gradient || getBannerGradient(status);
               const theme = Array.isArray(event.theme) ? event.theme : (event.theme ? [event.theme] : []);
               const organizerLogo = event.organizer_logo ? event.organizer_logo : (event.organizer_name ? event.organizer_name.substring(0, 2).toUpperCase() : '');

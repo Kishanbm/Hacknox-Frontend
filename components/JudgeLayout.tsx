@@ -21,6 +21,7 @@ interface SidebarProps {
 export const JudgeLayout: React.FC<SidebarProps> = ({ children }) => {
   const location = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const navigate = useNavigate();
   const auth = useAuth();
 
@@ -97,7 +98,7 @@ export const JudgeLayout: React.FC<SidebarProps> = ({ children }) => {
                     </div>
                     <span>{item.label}</span>
                     {item.label === 'Assignments' && (
-                         <span className={`ml-auto text-xs font-bold px-2 py-0.5 rounded-md ${isActive ? 'bg-white/20 text-white' : 'bg-gray-800 text-gray-400'}`}>12</span>
+                         <span className={`ml-auto text-xs font-bold px-2 py-0.5 rounded-md ${isActive ? 'bg-white/20 text-white' : 'bg-gray-800 text-gray-400'}`}></span>
                     )}
                 </Link>
                 );
@@ -107,11 +108,15 @@ export const JudgeLayout: React.FC<SidebarProps> = ({ children }) => {
 
         <div className="p-6 mt-auto">
              <div className="bg-gray-900 rounded-2xl p-4 border border-gray-800 flex items-center gap-3 shadow-sm">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-[#5425FF] to-purple-400 border-2 border-gray-700 shadow-md flex items-center justify-center font-heading text-sm text-white">
-                    JD
+                <div className="w-10 h-10 rounded-full overflow-hidden bg-gradient-to-tr from-[#5425FF] to-purple-400 border-2 border-gray-700 shadow-md flex items-center justify-center font-heading text-sm text-white">
+                    {auth.user?.avatarUrl ? (
+                      <img src={auth.user.avatarUrl} alt={`${auth.user.firstName || ''} ${auth.user.lastName || ''}`} className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-white font-bold">{((auth.user?.firstName?.[0] || '') + (auth.user?.lastName?.[0] || '')).toUpperCase() || 'JD'}</span>
+                    )}
                 </div>
                 <div className="flex-1 overflow-hidden">
-                    <div className="text-sm font-bold truncate text-white">Judge Davis</div>
+                    <div className="text-sm font-bold truncate text-white">{auth.user ? `${auth.user.firstName || ''} ${auth.user.lastName || ''}`.trim() : 'Judge'}</div>
                     <div className="text-[10px] text-green-500 font-bold truncate flex items-center gap-1">
                         <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div> Online
                     </div>
@@ -163,9 +168,12 @@ export const JudgeLayout: React.FC<SidebarProps> = ({ children }) => {
                    <span className="text-xs font-bold text-gray-600">Secure Access</span>
                 </div>
 
-                <button className="relative w-10 h-10 md:w-11 md:h-11 bg-white rounded-full flex items-center justify-center text-gray-500 hover:text-[#5425FF] shadow-sm border border-gray-100 transition-colors group">
-                    <Bell size={20} className="group-hover:animate-swing" />
-                    <span className="absolute top-3 right-3 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>
+                <button 
+                  onClick={() => navigate('/judge/notifications')}
+                  className="relative w-10 h-10 md:w-11 md:h-11 bg-white rounded-full flex items-center justify-center text-gray-500 hover:text-[#5425FF] shadow-sm border border-gray-100 transition-colors group"
+                >
+                  <Bell size={20} className="group-hover:animate-swing" />
+                  <span className="absolute top-3 right-3 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>
                 </button>
             </div>
         </header>

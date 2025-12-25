@@ -65,8 +65,22 @@ export const judgeService = {
   getEvents: async () => {
     const response = await axios.get(ENDPOINTS.JUDGE.EVENTS);
     return response.data;
-  }
-,
+  },
+
+  getInvitations: async () => {
+    const response = await axios.get(ENDPOINTS.JUDGE.INVITATIONS);
+    return response.data;
+  },
+
+  acceptInvitation: async (invitationId: string) => {
+    const response = await axios.post(`${ENDPOINTS.JUDGE.INVITATIONS}/${invitationId}/accept`);
+    return response.data;
+  },
+
+  rejectInvitation: async (invitationId: string) => {
+    const response = await axios.post(`${ENDPOINTS.JUDGE.INVITATIONS}/${invitationId}/reject`);
+    return response.data;
+  },
 
   getSubmissionForEvaluation: async (teamId: string) => {
     const response = await axios.get(`${ENDPOINTS.JUDGE.SUBMISSION_DETAIL(teamId)}`);
@@ -95,6 +109,20 @@ export const judgeService = {
 
   updateSubmittedEvaluation: async (teamId: string, payload: any) => {
     const response = await axios.patch(`${ENDPOINTS.JUDGE.UPDATE_EVALUATION(teamId)}`, payload);
+    return response.data;
+  },
+
+  reportSubmission: async (teamId: string, payload: { 
+    subject: string; 
+    message: string; 
+    hackathon_id?: string;
+    team_name?: string;
+    submission_title?: string;
+  }) => {
+    const response = await axios.post('/judge/report', {
+      team_id: teamId,
+      ...payload
+    });
     return response.data;
   }
 };

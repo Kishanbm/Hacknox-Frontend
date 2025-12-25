@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { JudgeLayout } from '../../components/JudgeLayout';
 import { ENDPOINTS } from '../../config/endpoints';
@@ -10,49 +10,94 @@ import {
     BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, 
     AreaChart, Area, CartesianGrid, ReferenceLine, Cell
 } from 'recharts';
-
-// --- Mock Data ---
-
-// Graph 1: Evaluation Progress Timeline
-const progressData = [
-  { day: 'Mon', completed: 2 },
-  { day: 'Tue', completed: 4 },
-  { day: 'Wed', completed: 3 },
-  { day: 'Thu', completed: 6 },
-  { day: 'Fri', completed: 8 }, // Today
-];
-
-// Graph 2: Score Distribution (Bias Check)
-const scoreDistributionData = [
-    { range: '0-10', count: 0 },
-    { range: '11-20', count: 2 },
-    { range: '21-30', count: 5 },
-    { range: '31-35', count: 8 },
-    { range: '36-40', count: 3 },
-];
-
-const pendingEvaluations = [
-    { id: 's1', project: 'NeuroNet', hackathon: 'HackOnX 2025', timeLeft: '4h 30m', status: 'Urgent' },
-    { id: 's4', project: 'HealthAI', hackathon: 'Global AI Challenge', timeLeft: '12h 15m', status: 'Pending' },
-    { id: 's2', project: 'EcoTrack', hackathon: 'Sustainable Future', timeLeft: '2 Days', status: 'Pending' },
-];
+import apiClient from '../../lib/axios';
 
 const JudgeDashboard: React.FC = () => {
-  const navigate = useNavigate();
+    const navigate = useNavigate();
+    const [assignedTotal, setAssignedTotal] = useState<number>(0);
+    const [completedTotal, setCompletedTotal] = useState<number>(0);
+    const [pendingUrgent, setPendingUrgent] = useState<number>(0);
+    const [nextDeadlineTime, setNextDeadlineTime] = useState<string>("--");
+    const [nextDeadlineEvent, setNextDeadlineEvent] = useState<string>("No upcoming deadline");
+    const [progressData, setProgressData] = useState<any[]>([]);
+    const [pendingEvaluations, setPendingEvaluations] = useState<any[]>([]);
+    const [scoreDistributionData, setScoreDistributionData] = useState<any[]>([]);
+    const [flaggedReports, setFlaggedReports] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
 
-  // KPI Values
-  const assignedTotal = 18;
-  const completedTotal = 11;
-  const pendingUrgent = 7;
-  const nextDeadlineTime = "36 hours";
-  const nextDeadlineEvent = "HackOnX Finals";
-  const progressPercent = Math.round((completedTotal / assignedTotal) * 100);
+    const progressPercent = Math.round((completedTotal / Math.max(1, assignedTotal)) * 100);
 
-  // 🔗 API INTEGRATION POINT
-  useEffect(() => {
-      // LINK: Fetch Judge Dashboard Stats & Charts
-      // fetch(ENDPOINTS.JUDGE.DASHBOARD)
-  }, []);
+    // Fetch judge dashboard from backend and replace dummy data
+    useEffect(() => {
+        const load = async () => {
+            setIsLoading(true);
+            try {
+                // Fetch dashboard summary
+                const resp = await apiClient.get(ENDPOINTS.JUDGE.DASHBOARD);
+                const d = resp.data?.dashboard || resp.data || {};
+                
+                // Set assignment counts from backend
+                setAssignedTotal(d.totalAssigned ?? d.assignedTeamsCount ?? 0);
+                setCompletedTotal(d.completedCount ?? d.evaluationProgress?.completed ?? 0);
+                setPendingUrgent(d.pendingCount ?? d.evaluationProgress?.pending ?? 0);
+                
+                // Set score distribution data (for bias check graph)
+                if (Array.isArray(d.scoreDistribution)) {
+                    setScoreDistributionData(d.scoreDistribution);
+                }
+                
+                // If backend provides timeline for progress chart
+                if (Array.isArray(d.evaluationProgress?.timeline)) {
+                    setProgressData(d.evaluationProgress.timeline.map((it: any) => ({ 
+                        day: it.day || it.date || '', 
+                        completed: it.completed || 0 
+                    })));
+                }
+                
+                // Fetch pending assignments from assignments endpoint
+                const assignResp = await apiClient.get(ENDPOINTS.JUDGE.ASSIGNMENTS, {
+                    params: { page: 1, limit: 10 },
+                    headers: { 'x-hackathon-id': false } // Get all hackathons
+                });
+                
+                const teams = assignResp.data?.teams || [];
+                // Filter for pending evaluations only
+                const pending = teams.filter((t: any) => {
+                    const status = t.evaluationStatus || 'pending';
+                    return status !== 'submitted' && t.isReadyForEvaluation;
+                }).map((t: any) => ({
+                    id: t.teamId,
+                    project: t.teamName || 'Untitled',
+                    hackathon: t.hackathonName || 'Unknown Event',
+                    timeLeft: t.submittedAt ? 'Open' : 'Pending',
+                    status: t.evaluationStatus === 'draft' ? 'Draft' : 'Pending'
+                }));
+                
+                setPendingEvaluations(pending.slice(0, 3)); // Show top 3
+                
+                // Fetch reports/flags that judge has submitted
+                try {
+                    const reportsResp = await apiClient.get('/api/judge/my-reports');
+                    const reports = reportsResp.data?.reports || [];
+                    setFlaggedReports(reports.filter((r: any) => r.status === 'open').slice(0, 2));
+                } catch (reportErr) {
+                    console.warn('Could not fetch reports:', reportErr);
+                }
+                
+                // Calculate next deadline from assignments
+                if (teams.length > 0) {
+                    // This is placeholder - ideally backend should provide deadline info
+                    setNextDeadlineTime('Check assignments');
+                    setNextDeadlineEvent('Multiple events');
+                }
+            } catch (err) {
+                console.error('Failed to load judge dashboard', err);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        load();
+    }, []);
 
   return (
     <JudgeLayout>
@@ -244,19 +289,25 @@ const JudgeDashboard: React.FC = () => {
                                 <h4 className="font-bold text-red-900">Flags Raised</h4>
                             </div>
                             <span className="bg-white text-red-600 text-xs font-bold px-2 py-1 rounded border border-red-100">
-                                2 Open
+                                {flaggedReports.length} Open
                             </span>
                         </div>
-                        <div className="space-y-3">
-                            <div className="bg-white p-3 rounded-xl border border-red-100 shadow-sm">
-                                <div className="text-xs font-bold text-gray-900">Plagiarism Report</div>
-                                <div className="text-[10px] text-gray-500">Project: CryptoSafe • ID: #8821</div>
+                        {flaggedReports.length > 0 ? (
+                            <div className="space-y-3">
+                                {flaggedReports.map((report: any) => (
+                                    <div key={report.id} className="bg-white p-3 rounded-xl border border-red-100 shadow-sm">
+                                        <div className="text-xs font-bold text-gray-900">{report.subject}</div>
+                                        <div className="text-[10px] text-gray-500">
+                                            Project: {report.submissionTitle || report.teamName || 'Unknown'} • ID: #{report.submissionId?.slice(0, 8) || 'N/A'}
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
-                            <div className="bg-white p-3 rounded-xl border border-red-100 shadow-sm">
-                                <div className="text-xs font-bold text-gray-900">Incomplete Submission</div>
-                                <div className="text-[10px] text-gray-500">Project: SolarAI • ID: #9942</div>
+                        ) : (
+                            <div className="text-xs text-gray-500 text-center py-4">
+                                No open flags
                             </div>
-                        </div>
+                        )}
                     </div>
                 </div>
             </div>

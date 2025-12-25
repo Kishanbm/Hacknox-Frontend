@@ -38,11 +38,14 @@ class ApiClient {
 
         // Add selected hackathon ID if it exists (for judge/admin/participant routes)
         // Allow callers to opt-out by passing `headers: { 'x-hackathon-id': false }` in the request config.
+        // IMPORTANT: If the caller already provided an explicit `x-hackathon-id` value, do not overwrite it.
         if (config.headers && (config.headers as any)['x-hackathon-id'] === false) {
-          // explicit opt-out: do not add header
+          // explicit opt-out: remove the header entirely so it is NOT sent to backend
+          try { delete (config.headers as any)['x-hackathon-id']; } catch (e) { /* ignore */ }
         } else {
           const selectedHackathonId = localStorage.getItem('selectedHackathonId');
-          if (selectedHackathonId && config.headers) {
+          // Only set header from localStorage when no explicit value was already provided
+          if (selectedHackathonId && config.headers && (config.headers as any)['x-hackathon-id'] === undefined) {
             (config.headers as any)['x-hackathon-id'] = selectedHackathonId;
           }
         }

@@ -25,7 +25,9 @@ const AdminSubmissionDetail: React.FC = () => {
         setError('No submission ID provided');
         return;
       }
-      const res = await adminService.getSubmissionDetail(id);
+      // try with stored selected hackathon first so backend middleware gets context
+      const stored = localStorage.getItem('selectedHackathonId') || undefined;
+      const res = await adminService.getSubmissionDetail(id, stored);
       setSubmission(res.submission);
       // derive hackathon id from response if available
       const hId = res.submission?.hackathon_id || res.submission?.hackathon?.id || res.submission?.hackathonId || null;
@@ -88,7 +90,8 @@ const AdminSubmissionDetail: React.FC = () => {
       );
       setMessage('Status updated');
       if (res.submission) {
-        setSubmission(res.submission);
+        // Merge returned fields into existing submission to avoid dropping nested data (e.g. reviews)
+        setSubmission((prev: any) => ({ ...prev, ...(res.submission || {}) }));
       } else {
         setSubmission((prev: any) => ({ 
           ...prev, 
@@ -264,19 +267,37 @@ const AdminSubmissionDetail: React.FC = () => {
           </h2>
           <div className="space-y-3">
             {(submission?.reviews || []).map((r: any, idx: number) => (
-              <div key={idx} className="p-4 border border-gray-200 rounded-2xl">
-                <p className="font-figtree font-semibold text-gray-900">{r.judgeName || 'Judge'}</p>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs text-gray-700 font-figtree mt-2">
-                  {['score_innovation', 'score_feasibility', 'score_execution', 'score_presentation'].map((k) => (
-                    <div key={k} className="bg-gray-50 rounded-xl p-2">
-                      <p className="text-gray-500">{k.replace('score_', '')}</p>
-                      <p className="font-semibold">{r[k] ?? '—'}</p>
+                <div key={idx} className="p-4 border border-gray-100 rounded-2xl bg-white shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white font-semibold">
+                        {(r.judgeName || 'J').split(' ').map((s: string)=>s[0]).slice(0,2).join('')}
+                      </div>
+                      <div>
+                        <p className="font-figtree font-semibold text-gray-900">{r.judgeName || 'Judge'}</p>
+                        <p className="text-xs text-gray-400">{r.status ? r.status.replace('-', ' ') : ''}</p>
+                      </div>
                     </div>
-                  ))}
+                    <div className="text-sm text-gray-500">{r.submitted_at ? new Date(r.submitted_at).toLocaleString() : ''}</div>
+                  </div>
+
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-gray-700 font-figtree mt-4">
+                    {[
+                      { key: 'score_innovation', label: 'Innovation' },
+                      { key: 'score_feasibility', label: 'Feasibility' },
+                      { key: 'score_execution', label: 'Execution' },
+                      { key: 'score_presentation', label: 'Presentation' }
+                    ].map((s) => (
+                      <div key={s.key} className="bg-gray-50 rounded-lg p-3 flex flex-col items-start gap-1">
+                        <p className="text-xs text-gray-400">{s.label}</p>
+                        <div className="text-xl font-bold text-gray-900">{r[s.key] ?? '—'}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {r.comments && <p className="text-sm text-gray-600 font-figtree mt-4 whitespace-pre-wrap">{r.comments}</p>}
                 </div>
-                {r.comments && <p className="text-sm text-gray-600 font-figtree mt-3 whitespace-pre-wrap">{r.comments}</p>}
-              </div>
-            ))}
+              ))}
             {(submission?.reviews || []).length === 0 && (
               <p className="text-sm text-gray-400 font-figtree">No reviews yet.</p>
             )}

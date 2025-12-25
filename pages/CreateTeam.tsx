@@ -11,6 +11,7 @@ const CreateTeam: React.FC = () => {
     const [hackathons, setHackathons] = useState<any[]>([]);
     const [selectedHackathonId, setSelectedHackathonId] = useState<string>('');
     const [teamName, setTeamName] = useState<string>('');
+    const [teamBio, setTeamBio] = useState<string>('');
     const [errorMessage, setErrorMessage] = useState<string>('');
     
     useEffect(() => {
@@ -49,6 +50,7 @@ const CreateTeam: React.FC = () => {
             await teamService.createTeam({
                 name: teamName,
                 hackathonId: selectedHackathonId,
+                description: teamBio,
             });
             
             setStatus('success');
@@ -141,6 +143,8 @@ const CreateTeam: React.FC = () => {
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-2">Team Bio / Pitch</label>
                             <textarea 
+                                value={teamBio}
+                                onChange={(e) => setTeamBio(e.target.value)}
                                 placeholder="What are you building? Who do you need?" 
                                 className="w-full h-32 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-primary transition-colors font-medium text-gray-900 resize-none"
                             ></textarea>

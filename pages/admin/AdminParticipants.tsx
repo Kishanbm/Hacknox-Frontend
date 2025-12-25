@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AdminLayout } from '../../components/AdminLayout';
-import { Search, ShieldAlert, CheckCircle2, MoreHorizontal, UserX, AlertCircle, Lock, Unlock, RefreshCw } from 'lucide-react';
+import { Search, ShieldAlert, CheckCircle2, MoreHorizontal, UserX, AlertCircle, Lock, Unlock, RefreshCw, Download, X } from 'lucide-react';
 import { adminService } from '../../services/admin.service';
 
 type TeamRow = {
@@ -32,6 +32,58 @@ const AdminParticipants: React.FC = () => {
     );
 
     const totalPages = Math.max(1, Math.ceil(totalCount / limit));
+
+    // Export CSV state
+    const [showExportModal, setShowExportModal] = useState(false);
+    const [exportHackathonId, setExportHackathonId] = useState<string>('');
+    const [isExporting, setIsExporting] = useState(false);
+    const [selectedTeamIds, setSelectedTeamIds] = useState<string[]>([]);
+    const [bulkModalOpen, setBulkModalOpen] = useState(false);
+    const [bulkProcessing, setBulkProcessing] = useState(false);
+
+    const handleExportCSV = async () => {
+        setIsExporting(true);
+        try {
+            // Fetch teams for the selected hackathon or all
+            let teamsToExport: any[] = [];
+            if (exportHackathonId) {
+                const res = await adminService.getTeams(1, 1000, {}, '', exportHackathonId);
+                teamsToExport = res.teams || [];
+            } else {
+                // Fetch from all hackathons
+                const calls = hackathons.map(h => adminService.getTeams(1, 1000, {}, '', h.id).catch(() => ({ teams: [] })));
+                const results = await Promise.all(calls);
+                teamsToExport = results.flatMap((r: any) => r.teams || []);
+            }
+            
+            const headers = ['Team ID', 'Team Name', 'Leader Name', 'Member Count', 'Status', 'Created Date'];
+            const rows = teamsToExport.map((t: any) => [
+                t.id,
+                t.name || '',
+                t.leaderName || '',
+                t.memberCount || 0,
+                t.verificationStatus || '',
+                t.dateCreated ? new Date(t.dateCreated).toLocaleDateString() : ''
+            ]);
+            
+            const csvContent = "data:text/csv;charset=utf-8," 
+                + headers.join(",") + "\n" 
+                + rows.map(e => e.map(v => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `participants_export_${new Date().toISOString().split('T')[0]}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            setShowExportModal(false);
+        } catch (e) {
+            console.error('Export failed:', e);
+        } finally {
+            setIsExporting(false);
+        }
+    };
 
     const load = async () => {
         try {
@@ -150,7 +202,7 @@ const AdminParticipants: React.FC = () => {
                         <h1 className="text-3xl font-heading text-gray-900">Participant Governance</h1>
                         <p className="text-gray-500">Monitor team integrity, verify eligibility, and enforce rules.</p>
                     </div>
-                    <div>
+                    <div className="flex gap-3">
                         <select
                             value={selectedHackathonId || ''}
                             onChange={(e) => {
@@ -169,22 +221,40 @@ const AdminParticipants: React.FC = () => {
                                 </option>
                             ))}
                         </select>
+                        <button
+                            onClick={() => setShowExportModal(true)}
+                            className="px-4 py-2.5 bg-white border border-gray-200 rounded-xl font-bold text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                        >
+                            <Download size={18} /> Export CSV
+                        </button>
+                        <button
+                            onClick={() => setBulkModalOpen(true)}
+                            disabled={selectedTeamIds.length === 0}
+                            className={`px-4 py-2.5 bg-white border border-gray-200 rounded-xl font-bold text-gray-700 hover:bg-gray-50 flex items-center gap-2 ${selectedTeamIds.length===0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        >
+                            Verify Selected ({selectedTeamIds.length})
+                        </button>
                     </div>
                 </div>
 
-                {/* Top stat cards */}
+                {/* Top stat cards (match Assignments card style) */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                    {[
-                        { label: 'Total Teams', value: stats.total, color: 'text-gray-900', bg: 'bg-gray-50', border: 'border-gray-200' },
-                        { label: 'Verified', value: stats.verified, color: 'text-green-600', bg: 'bg-green-50', border: 'border-green-200' },
-                        { label: 'Rejected', value: stats.rejected, color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-200' },
-                        { label: 'Pending', value: stats.pending, color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-200' },
-                    ].map((c) => (
-                        <div key={c.label} className={`${c.bg} rounded-2xl p-4 shadow-sm border ${c.border}`}>
-                            <p className="text-sm text-gray-600 font-medium mb-1">{c.label}</p>
-                            <p className={`text-2xl font-bold ${c.color}`}>{c.value}</p>
-                        </div>
-                    ))}
+                    <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
+                        <div className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">Total Teams</div>
+                        <div className="text-2xl font-heading text-gray-900">{stats.total}</div>
+                    </div>
+                    <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
+                        <div className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">Verified</div>
+                        <div className="text-2xl font-heading text-green-600">{stats.verified}</div>
+                    </div>
+                    <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
+                        <div className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">Rejected</div>
+                        <div className="text-2xl font-heading text-red-600">{stats.rejected}</div>
+                    </div>
+                    <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
+                        <div className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">Pending</div>
+                        <div className="text-2xl font-heading text-amber-500">{stats.pending}</div>
+                    </div>
                 </div>
 
                 {error && (
@@ -255,6 +325,17 @@ const AdminParticipants: React.FC = () => {
                             <table className="w-full text-left">
                                 <thead className="bg-gray-50 border-b border-gray-100">
                                     <tr>
+                                        <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider w-12">
+                                            <input
+                                                type="checkbox"
+                                                checked={teams.length>0 && selectedTeamIds.length === teams.length}
+                                                onChange={(e) => {
+                                                    if (e.target.checked) setSelectedTeamIds(teams.map(t => t.id));
+                                                    else setSelectedTeamIds([]);
+                                                }}
+                                                onClick={(e) => e.stopPropagation()}
+                                            />
+                                        </th>
                                         <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Team Entity</th>
                                         <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Leader</th>
                                         <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Composition</th>
@@ -274,6 +355,17 @@ const AdminParticipants: React.FC = () => {
                                                 onClick={() => navigate(`/admin/teams/${team.id}`)}
                                                 className="hover:bg-gray-50/50 transition-colors cursor-pointer"
                                             >
+                                                <td className="px-6 py-4">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={selectedTeamIds.includes(team.id)}
+                                                        onChange={(e) => {
+                                                            e.stopPropagation();
+                                                            setSelectedTeamIds((prev) => prev.includes(team.id) ? prev.filter(id => id !== team.id) : [...prev, team.id]);
+                                                        }}
+                                                        onClick={(e) => e.stopPropagation()}
+                                                    />
+                                                </td>
                                                 <td className="px-6 py-4">
                                                     <div className="font-bold text-gray-900">{team.name}</div>
                                                     <div className="text-xs text-gray-500">ID: {team.id}</div>
@@ -333,6 +425,127 @@ const AdminParticipants: React.FC = () => {
                     )}
                 </div>
             </div>
+
+                {/* Export CSV Modal */}
+                {showExportModal && (
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                        <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full overflow-hidden">
+                            <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+                                <h3 className="font-heading text-xl text-gray-900 flex items-center gap-2">
+                                    <Download size={20} /> Export Participants
+                                </h3>
+                                <button onClick={() => setShowExportModal(false)} className="text-gray-400 hover:text-gray-900">
+                                    <X size={24} />
+                                </button>
+                            </div>
+                            <div className="p-6 space-y-4">
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-2">Select Hackathon</label>
+                                    <select
+                                        value={exportHackathonId}
+                                        onChange={(e) => setExportHackathonId(e.target.value)}
+                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-gray-900"
+                                    >
+                                        <option value="">All Hackathons</option>
+                                        {hackathons.map((h: any) => (
+                                            <option key={h.id} value={h.id}>{h.name || h.title || h.id}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <button
+                                    onClick={handleExportCSV}
+                                    disabled={isExporting}
+                                    className="w-full px-4 py-3 bg-gray-900 text-white rounded-xl font-bold hover:bg-gray-800 disabled:opacity-50 flex items-center justify-center gap-2"
+                                >
+                                    {isExporting ? (
+                                        <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" /> Exporting...</>
+                                    ) : (
+                                        <><Download size={18} /> Download CSV</>
+                                    )}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Bulk Verify Modal */}
+                {bulkModalOpen && (
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                        <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full overflow-hidden">
+                            <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+                                <h3 className="font-heading text-xl text-gray-900">Verify / Reject Selected Teams</h3>
+                                <button onClick={() => setBulkModalOpen(false)} className="text-gray-400 hover:text-gray-900">Close</button>
+                            </div>
+                            <div className="p-6">
+                                <p className="text-sm text-gray-600 mb-4">Review the selected teams. Uncheck any team you do not want to include.</p>
+
+                                <div className="max-h-72 overflow-auto border rounded p-3">
+                                    {teams.filter(t => selectedTeamIds.includes(t.id)).map(t => (
+                                        <div key={t.id} className="flex items-center justify-between py-2">
+                                            <div className="flex items-center gap-3">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedTeamIds.includes(t.id)}
+                                                    onChange={() => setSelectedTeamIds((prev) => prev.includes(t.id) ? prev.filter(id=>id!==t.id) : [...prev, t.id])}
+                                                />
+                                                <div>
+                                                    <div className="font-medium">{t.name}</div>
+                                                    <div className="text-xs text-gray-500">ID: {t.id}</div>
+                                                </div>
+                                            </div>
+                                            <div className="text-sm text-gray-500">Status: {t.verificationStatus || 'unknown'}</div>
+                                        </div>
+                                    ))}
+                                    {selectedTeamIds.length === 0 && <div className="text-gray-500 text-sm">No teams selected.</div>}
+                                </div>
+
+                                <div className="mt-6 flex gap-3 justify-end">
+                                    <button
+                                        onClick={async () => {
+                                            setBulkProcessing(true);
+                                            try {
+                                                const toProcess = teams.filter(t => selectedTeamIds.includes(t.id)).map(t=>t.id);
+                                                await Promise.allSettled(toProcess.map(id => adminService.verifyTeam(id, 'approve', selectedHackathonId)));
+                                                setBulkModalOpen(false);
+                                                setSelectedTeamIds([]);
+                                                await load();
+                                            } catch (e) {
+                                                console.error('Bulk verify failed', e);
+                                            } finally {
+                                                setBulkProcessing(false);
+                                            }
+                                        }}
+                                        disabled={bulkProcessing || selectedTeamIds.length===0}
+                                        className="px-4 py-2 rounded-xl bg-green-600 text-white font-bold disabled:opacity-50"
+                                    >
+                                        {bulkProcessing ? 'Processing...' : 'Verify Selected'}
+                                    </button>
+
+                                    <button
+                                        onClick={async () => {
+                                            setBulkProcessing(true);
+                                            try {
+                                                const toProcess = teams.filter(t => selectedTeamIds.includes(t.id)).map(t=>t.id);
+                                                await Promise.allSettled(toProcess.map(id => adminService.verifyTeam(id, 'reject', selectedHackathonId)));
+                                                setBulkModalOpen(false);
+                                                setSelectedTeamIds([]);
+                                                await load();
+                                            } catch (e) {
+                                                console.error('Bulk reject failed', e);
+                                            } finally {
+                                                setBulkProcessing(false);
+                                            }
+                                        }}
+                                        disabled={bulkProcessing || selectedTeamIds.length===0}
+                                        className="px-4 py-2 rounded-xl bg-red-600 text-white font-bold disabled:opacity-50"
+                                    >
+                                        {bulkProcessing ? 'Processing...' : 'Reject Selected'}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
         </AdminLayout>
     );
 };

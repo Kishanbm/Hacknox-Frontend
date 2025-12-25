@@ -1,6 +1,7 @@
 import React from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
+import { ToastProvider } from './components/ui/ToastProvider';
 import { ProtectedRoute, PublicRoute } from './components/ProtectedRoute';
 import LandingPage from './pages/LandingPage';
 import Login from './pages/Login';
@@ -23,6 +24,7 @@ import Settings from './pages/Settings';
 import OrganizerProfile from './pages/OrganizerProfile';
 import CreateTeam from './pages/CreateTeam';
 import JoinTeam from './pages/JoinTeam';
+import Leaderboard from './pages/Leaderboard';
 import JudgeDashboard from './pages/judge/JudgeDashboard';
 import JudgeAssignments from './pages/judge/JudgeAssignments';
 import JudgeEvaluation from './pages/judge/JudgeEvaluation';
@@ -42,11 +44,13 @@ import AdminSubmissions from './pages/admin/AdminSubmissions';
 import AdminSubmissionDetail from './pages/admin/AdminSubmissionDetail';
 import AdminAudit from './pages/admin/AdminAudit';
 import AdminAnnouncements from './pages/admin/AdminAnnouncements';
+import AdminReports from './pages/admin/AdminReports';
 
 const App: React.FC = () => {
   return (
     <AuthProvider>
-      <HashRouter>
+      <ToastProvider>
+        <HashRouter>
         <Routes>
           {/* Public Routes */}
           <Route path="/" element={
@@ -145,11 +149,21 @@ const App: React.FC = () => {
               <Settings />
             </ProtectedRoute>
           } />
+          <Route path="/dashboard/leaderboard" element={
+            <ProtectedRoute allowedRoles={['participant']}>
+              <Leaderboard />
+            </ProtectedRoute>
+          } />
 
           {/* Judge Routes - Protected */}
           <Route path="/judge/dashboard" element={
             <ProtectedRoute allowedRoles={['judge']}>
               <JudgeDashboard />
+            </ProtectedRoute>
+          } />
+          <Route path="/judge/notifications" element={
+            <ProtectedRoute allowedRoles={['judge']}>
+              <NotificationsPage />
             </ProtectedRoute>
           } />
           <Route path="/judge/hackathons" element={
@@ -250,12 +264,18 @@ const App: React.FC = () => {
               <AdminAnnouncements />
             </ProtectedRoute>
           } />
+          <Route path="/admin/reports" element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <AdminReports />
+            </ProtectedRoute>
+          } />
           <Route path="/admin/*" element={<Navigate to="/admin/dashboard" replace />} />
 
           {/* Redirect unknown routes to landing */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-      </HashRouter>
+        </HashRouter>
+      </ToastProvider>
     </AuthProvider>
   );
 };

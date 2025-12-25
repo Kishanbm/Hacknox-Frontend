@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { AdminLayout } from '../../components/AdminLayout';
-import { Mail, Plus, UserPlus, MoreVertical, ShieldOff, KeyRound, Trash2, UserCheck, X, Calendar, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Mail, Plus, UserPlus, MoreVertical, ShieldOff, KeyRound, Trash2, UserCheck, X, Calendar, AlertCircle, CheckCircle2, Download } from 'lucide-react';
 import { adminService } from '../../services/admin.service';
 
 const AdminJudges: React.FC = () => {
@@ -24,6 +24,14 @@ const AdminJudges: React.FC = () => {
     const [isAssignModalOpen, setAssignModalOpen] = useState(false);
     const [selectedJudgeId, setSelectedJudgeId] = useState<string | null>(null);
     const [activeActionId, setActiveActionId] = useState<string | null>(null);
+    const [selectedJudgeIds, setSelectedJudgeIds] = useState<string[]>([]);
+    const [bulkModalOpen, setBulkModalOpen] = useState(false);
+    const [bulkProcessing, setBulkProcessing] = useState(false);
+
+    // Export CSV state
+    const [showExportModal, setShowExportModal] = useState(false);
+    const [exportHackathonId, setExportHackathonId] = useState<string>('');
+    const [isExporting, setIsExporting] = useState(false);
 
     // Create judge form state
     const [firstName, setFirstName] = useState('');
@@ -40,6 +48,18 @@ const AdminJudges: React.FC = () => {
         init();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedHackathonId]);
+
+    // Close action menu when clicking outside
+    useEffect(() => {
+        const handler = (e: any) => {
+            const target = e.target as HTMLElement;
+            if (!target.closest('.action-menu') && !target.closest('.more-button')) {
+                setActiveActionId(null);
+            }
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, []);
 
     const loadHackathons = async () => {
         try {
@@ -98,7 +118,8 @@ const AdminJudges: React.FC = () => {
             const list = Array.isArray(judgesList) ? judgesList : [];
             setTotalJudges(list.length);
             setActiveJudges(list.filter((j: any) => j.is_active === true || j.email_verified === true || j.isActive === true).length);
-            setInvitedJudges(list.filter((j: any) => !(j.email_verified || j.emailVerified)).length);
+            // Invited = those who have not completed acceptance (no email_verified and no accepted invitation)
+            setInvitedJudges(list.filter((j: any) => !(j.email_verified || j.emailVerified) && !(j.hasAcceptedInvitation === true || j.hasAcceptedInvitation === 'true')).length);
             // Respect backend shape differences: some responses include `assignmentLoad`, `assignments` or `teamsAssigned`.
             setAssignedJudges(list.filter((j: any) => {
                 if (typeof j.assignmentLoad === 'number') return j.assignmentLoad > 0;
@@ -194,6 +215,57 @@ const AdminJudges: React.FC = () => {
         }
     };
 
+    const handleExportCSV = async () => {
+        setIsExporting(true);
+        try {
+            let judgesToExport: any[] = [];
+            if (exportHackathonId) {
+                const res = await adminService.getJudges(1, 1000, exportHackathonId);
+                judgesToExport = res?.judges || res?.data || res || [];
+            } else {
+                // Fetch from all hackathons
+                const calls = hackathons.map(h => adminService.getJudges(1, 1000, h.id).catch(() => []));
+                const results = await Promise.all(calls);
+                const merged = results.flatMap(r => (r?.judges || r || []));
+                // dedupe
+                const map = new Map<string, any>();
+                merged.forEach((j: any) => {
+                    const key = j.id || j.email;
+                    if (!map.has(key)) map.set(key, j);
+                });
+                judgesToExport = Array.from(map.values());
+            }
+            
+            const headers = ['Judge ID', 'First Name', 'Last Name', 'Email', 'Status', 'Active', 'Organization'];
+            const rows = judgesToExport.map((j: any) => [
+                j.id || '',
+                j.first_name || j.firstName || '',
+                j.last_name || j.lastName || '',
+                j.email || '',
+                j.email_verified || j.emailVerified ? 'Active' : 'Invited',
+                j.is_active !== false ? 'Yes' : 'No',
+                j.organization || ''
+            ]);
+            
+            const csvContent = "data:text/csv;charset=utf-8," 
+                + headers.join(",") + "\n" 
+                + rows.map(e => e.map(v => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `judges_export_${new Date().toISOString().split('T')[0]}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            setShowExportModal(false);
+        } catch (e) {
+            console.error('Export failed:', e);
+        } finally {
+            setIsExporting(false);
+        }
+    };
+
     const getJudgeName = (judge: any) => {
         const firstName = judge.first_name || judge.firstName || '';
         const lastName = judge.last_name || judge.lastName || '';
@@ -202,8 +274,15 @@ const AdminJudges: React.FC = () => {
 
     const getJudgeStatus = (judge: any) => {
         if (judge.is_active === false || judge.isActive === false) return 'Deactivated';
-        if (judge.email_verified || judge.emailVerified) return 'Active';
-        // Make the reason for this state explicit in the UI
+        const accepted = judge.hasAcceptedInvitation === true || judge.hasAcceptedInvitation === 'true';
+        const verified = judge.email_verified || judge.emailVerified;
+        // If user is active and has accepted, show both
+        if ((judge.is_active === true || judge.isActive === true) && accepted) return 'Accepted & Active';
+        // If user is active (but maybe accepted via email verification) show Active
+        if (judge.is_active === true || judge.isActive === true || verified) return 'Active';
+        // If judge has accepted the invitation but not yet active
+        if (accepted) return 'Accepted (awaiting activation)';
+        // Default: invited
         return 'Invited (awaiting activation)';
     };
 
@@ -231,8 +310,8 @@ const AdminJudges: React.FC = () => {
                         <h1 className="text-3xl font-heading text-gray-900">Judge Identity & Access</h1>
                         <p className="text-gray-500">Onboard evaluators, manage access, and monitor availability.</p>
                     </div>
-                    <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-3 py-2">
+                    <div className="grid grid-cols-2 gap-3 items-center">
+                        <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-3 py-2 w-full">
                             <Calendar size={18} className="text-gray-500" />
                             <select
                                 value={selectedHackathonId || ''}
@@ -241,14 +320,13 @@ const AdminJudges: React.FC = () => {
                                         setSelectedHackathonId(v);
                                         if (v) {
                                             localStorage.setItem('selectedHackathonId', v);
-                                            // also set legacy key used by other frontends
                                             try { localStorage.setItem('nextor_active_hackathon_id', v); } catch (err) {}
                                         } else {
                                             localStorage.removeItem('selectedHackathonId');
                                             try { localStorage.removeItem('nextor_active_hackathon_id'); } catch (err) {}
                                         }
                                     }}
-                                className="bg-transparent border-none focus:outline-none text-gray-900 font-medium cursor-pointer text-base"
+                                className="bg-transparent border-none focus:outline-none text-gray-900 font-medium cursor-pointer text-base w-full"
                             >
                                 <option value="">All Hackathons</option>
                                 {hackathons.map((h: any) => (
@@ -258,39 +336,46 @@ const AdminJudges: React.FC = () => {
                                 ))}
                             </select>
                         </div>
+                        <button
+                            onClick={() => setShowExportModal(true)}
+                            className="px-4 py-2.5 h-10 text-sm bg-white border border-gray-200 rounded-xl font-bold text-gray-700 hover:bg-gray-50 flex items-center gap-2 w-full"
+                        >
+                            <Download size={16} /> Export CSV
+                        </button>
                         <button 
                             onClick={() => setInviteModalOpen(true)}
-                            className="px-5 py-3 bg-[#5425FF] text-white rounded-xl font-bold hover:bg-[#4015D1] transition-colors flex items-center gap-3 shadow-lg shadow-[#5425FF]/20 group"
+                            className="px-4 py-2.5 h-10 text-sm bg-[#5425FF] text-white rounded-xl font-bold hover:bg-[#4015D1] transition-colors flex items-center gap-2 shadow-lg shadow-[#5425FF]/20 group w-full"
                         >
-                            <UserPlus size={20} className="text-[#24FF00] group-hover:text-white transition-colors" /> Create Judge
+                            <UserPlus size={16} className="text-[#24FF00] group-hover:text-white transition-colors" /> Create Judge
+                        </button>
+                        <button
+                            onClick={() => setBulkModalOpen(true)}
+                            disabled={selectedJudgeIds.length === 0}
+                            className={`px-4 py-2.5 h-10 text-sm bg-white border border-gray-200 rounded-xl font-bold text-gray-700 hover:bg-gray-50 flex items-center gap-2 w-full ${selectedJudgeIds.length===0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        >
+                            Actions ({selectedJudgeIds.length})
                         </button>
                     </div>
                 </div>
 
-                {/* Stats Cards */}
+                {/* Stats Cards (match Assignments card style) */}
                 <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
-                    {[
-                        { label: 'Total Judges', value: totalJudges ?? '—', valueClass: 'text-gray-900' },
-                        { label: 'Active', value: activeJudges ?? '—', valueClass: 'text-green-700' },
-                        { label: 'Invited', value: invitedJudges ?? '—', valueClass: 'text-amber-700' },
-                        { label: 'Assigned', value: assignedJudges ?? '—', valueClass: 'text-gray-900' }
-                    ].map((c, i) => (
-                        <div key={i} className="relative bg-white rounded-2xl border border-gray-100 p-4 overflow-hidden">
-                            {/* subtle grid background */}
-                            <div className="absolute inset-0 pointer-events-none -z-10 rounded-2xl" style={{
-                                backgroundImage: 'linear-gradient(rgba(0,0,0,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.03) 1px, transparent 1px)',
-                                backgroundSize: '28px 28px',
-                                opacity: 0.06
-                            }} />
-                            <div className="absolute inset-0 pointer-events-none -z-20 rounded-2xl" style={{
-                                boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.6), inset 0 -8px 24px rgba(0,0,0,0.03)'
-                            }} />
-                            <div className="relative">
-                                <div className="text-sm text-gray-500">{c.label}</div>
-                                <div className={`text-2xl font-bold ${c.valueClass}`}>{c.value}</div>
-                            </div>
-                        </div>
-                    ))}
+                    <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
+                        <div className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">Total Judges</div>
+                        <div className="text-2xl font-heading text-gray-900">{totalJudges ?? '—'}</div>
+                    </div>
+                    <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
+                        <div className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">Active</div>
+                        <div className="text-2xl font-heading text-green-600">{activeJudges ?? '—'}</div>
+                    </div>
+                    <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
+                        <div className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">Invited</div>
+                        <div className="text-2xl font-heading text-amber-600">{invitedJudges ?? '—'}</div>
+                    </div>
+                    <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
+                        <div className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">Assigned</div>
+                        <div className="text-2xl font-heading text-gray-900">{assignedJudges ?? '—'}</div>
+                    </div>
                 </div>
 
                 <div className="bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden">
@@ -308,6 +393,16 @@ const AdminJudges: React.FC = () => {
                             <table className="w-full text-left">
                                 <thead className="bg-gray-50 border-b border-gray-100">
                                     <tr>
+                                        <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider w-12">
+                                            <input
+                                                type="checkbox"
+                                                checked={judges.length>0 && selectedJudgeIds.length === judges.length}
+                                                onChange={(e) => {
+                                                    if (e.target.checked) setSelectedJudgeIds(judges.map(j => j.id));
+                                                    else setSelectedJudgeIds([]);
+                                                }}
+                                            />
+                                        </th>
                                         <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Identity</th>
                                         <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Access Status</th>
                                         <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Affiliation</th>
@@ -325,6 +420,17 @@ const AdminJudges: React.FC = () => {
                                         return (
                                             <tr key={judge.id} className="hover:bg-gray-50/50 transition-colors group">
                                                 <td className="px-6 py-4">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={selectedJudgeIds.includes(judge.id)}
+                                                        onChange={(e) => {
+                                                            e.stopPropagation();
+                                                            setSelectedJudgeIds(prev => prev.includes(judge.id) ? prev.filter(id => id !== judge.id) : [...prev, judge.id]);
+                                                        }}
+                                                        onClick={(e) => e.stopPropagation()}
+                                                    />
+                                                </td>
+                                                <td className="px-6 py-4">
                                                     <div className="flex items-center gap-3">
                                                         <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center font-bold text-gray-600 text-lg border-2 border-white shadow-sm">
                                                             {judgeName.charAt(0).toUpperCase()}
@@ -337,10 +443,12 @@ const AdminJudges: React.FC = () => {
                                                 </td>
                                                 <td className="px-6 py-4">
                                                     <span className={`px-2.5 py-1 rounded-full text-xs font-bold uppercase border flex items-center gap-1.5 w-fit ${
+                                                        status === 'Accepted & Active' ? 'bg-[#24FF00]/10 text-green-700 border-[#24FF00]/20' :
                                                         status === 'Active' ? 'bg-[#24FF00]/10 text-green-700 border-[#24FF00]/20' : 
                                                         status === 'Deactivated' ? 'bg-red-50 text-red-600 border-red-200' : 'bg-amber-50 text-amber-600 border-amber-200'
                                                     }`}>
                                                         <div className={`w-1.5 h-1.5 rounded-full ${
+                                                            status === 'Accepted & Active' ? 'bg-[#24FF00] shadow-[0_0_5px_#24FF00] animate-pulse' :
                                                             status === 'Active' ? 'bg-[#24FF00] shadow-[0_0_5px_#24FF00] animate-pulse' : 
                                                             status === 'Deactivated' ? 'bg-red-500' : 'bg-amber-500'
                                                         }`}></div>
@@ -370,59 +478,59 @@ const AdminJudges: React.FC = () => {
                                                             )
                                                         )}
                                                     </div>
-                                                    {status === 'Active' && (
+                                                    {(status === 'Accepted & Active' || status === 'Active') && (
                                                         <button 
                                                             onClick={() => openAssignModal(judge.id)}
-                                                            className="text-xs font-bold text-[#5425FF] hover:underline flex items-center gap-1"
+                                                            className="text-sm font-bold text-[#5425FF] hover:underline flex items-center gap-2"
                                                         >
-                                                            <Plus size={12} /> Quick Assign
+                                                            <Plus size={14} /> Quick Assign
                                                         </button>
                                                     )}
                                                 </td>
                                                 <td className="px-6 py-4 text-right relative">
                                                     <button 
                                                         onClick={() => setActiveActionId(activeActionId === judge.id ? null : judge.id)}
-                                                        className="p-2 text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+                                                        className="more-button p-2 text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
                                                     >
                                                         <MoreVertical size={18} />
                                                     </button>
                                                     
                                                     {/* Action Menu */}
                                                     {activeActionId === judge.id && (
-                                                        <div className="absolute right-12 top-2 w-48 bg-white rounded-xl shadow-xl border border-gray-100 z-10 py-1 animate-in fade-in zoom-in-95 duration-200">
+                                                        <div className="action-menu absolute right-12 top-2 w-40 sm:w-44 md:w-48 bg-white rounded-xl shadow-xl border border-gray-100 z-10 py-1 animate-in fade-in zoom-in-95 duration-200 text-sm">
                                                             <button 
                                                                 onClick={() => handleAction(judge.id, 'reset')}
-                                                                className="w-full text-left px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                                                                className="w-full text-left px-3 py-2 font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2"
                                                             >
-                                                                <KeyRound size={16} /> Reset Password
+                                                                <KeyRound size={14} /> Reset Password
                                                             </button>
                                                             {status === 'Active' ? (
                                                                 <button 
                                                                     onClick={() => handleAction(judge.id, 'deactivate')}
-                                                                    className="w-full text-left px-4 py-2.5 text-sm font-medium text-amber-600 hover:bg-amber-50 flex items-center gap-2"
+                                                                    className="w-full text-left px-3 py-2 font-medium text-amber-600 hover:bg-amber-50 flex items-center gap-2"
                                                                 >
-                                                                    <ShieldOff size={16} /> Deactivate
+                                                                    <ShieldOff size={14} /> Deactivate
                                                                 </button>
                                                             ) : (
                                                                 <button 
                                                                     onClick={() => handleAction(judge.id, 'activate')}
-                                                                    className="w-full text-left px-4 py-2.5 text-sm font-medium text-green-600 hover:bg-green-50 flex items-center gap-2"
+                                                                    className="w-full text-left px-3 py-2 font-medium text-green-600 hover:bg-green-50 flex items-center gap-2"
                                                                 >
-                                                                    <UserCheck size={16} /> Reactivate
+                                                                    <UserCheck size={14} /> Reactivate
                                                                 </button>
                                                             )}
                                                             <div className="h-px bg-gray-100 my-1"></div>
                                                             <button 
                                                                 onClick={() => handleAction(judge.id, 'delete-soft')}
-                                                                className="w-full text-left px-4 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 flex items-center gap-2"
+                                                                className="w-full text-left px-3 py-2 font-medium text-red-600 hover:bg-red-50 flex items-center gap-2"
                                                             >
-                                                                <Trash2 size={16} /> Remove (Soft)
+                                                                <Trash2 size={14} /> Remove (Soft)
                                                             </button>
                                                             <button 
                                                                 onClick={() => handleAction(judge.id, 'delete-hard')}
-                                                                className="w-full text-left px-4 py-2.5 text-sm font-medium text-white bg-red-600 hover:bg-red-700 flex items-center gap-2 rounded-b-xl"
+                                                                className="w-full text-left px-3 py-2 font-medium text-white bg-red-600 hover:bg-red-700 flex items-center gap-2 rounded-b-xl"
                                                             >
-                                                                <Trash2 size={16} /> Delete Permanently
+                                                                <Trash2 size={14} /> Delete Permanently
                                                             </button>
                                                         </div>
                                                     )}
@@ -435,6 +543,111 @@ const AdminJudges: React.FC = () => {
                         </div>
                     )}
                 </div>
+
+                {/* Bulk Actions Modal */}
+                {bulkModalOpen && (
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                        <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full overflow-hidden">
+                            <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+                                <h3 className="font-heading text-xl text-gray-900">Bulk Actions for Selected Judges</h3>
+                                <button onClick={() => setBulkModalOpen(false)} className="text-gray-400 hover:text-gray-900">Close</button>
+                            </div>
+                            <div className="p-6">
+                                <p className="text-sm text-gray-600 mb-4">Selected judges: {selectedJudgeIds.length}. Uncheck anyone you don't want to include below.</p>
+                                <div className="max-h-64 overflow-auto border rounded p-3">
+                                    {judges.filter(j => selectedJudgeIds.includes(j.id)).map(j => (
+                                        <div key={j.id} className="flex items-center justify-between py-2">
+                                            <div className="flex items-center gap-3">
+                                                <input type="checkbox" checked={selectedJudgeIds.includes(j.id)} onChange={() => setSelectedJudgeIds(prev => prev.includes(j.id) ? prev.filter(id => id !== j.id) : [...prev, j.id])} />
+                                                <div>
+                                                    <div className="font-medium">{getJudgeName(j)}</div>
+                                                    <div className="text-xs text-gray-500">{j.email}</div>
+                                                </div>
+                                            </div>
+                                            <div className="text-sm text-gray-500">{getJudgeStatus(j)}</div>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                <div className="mt-6 grid grid-cols-1 sm:grid-cols-4 gap-3">
+                                    <button
+                                        onClick={async () => {
+                                            setBulkProcessing(true);
+                                            try {
+                                                await Promise.allSettled(selectedJudgeIds.map(id => adminService.updateJudge(id, { resetPassword: true })));
+                                                await loadJudges();
+                                                setSelectedJudgeIds([]);
+                                                setBulkModalOpen(false);
+                                            } catch (e) {
+                                                console.error('Bulk reset failed', e);
+                                            } finally { setBulkProcessing(false); }
+                                        }}
+                                        disabled={bulkProcessing || selectedJudgeIds.length===0}
+                                        className="px-4 py-2 rounded-xl bg-gray-100 text-gray-800 font-bold disabled:opacity-50"
+                                    >
+                                        {bulkProcessing ? 'Processing...' : 'Reset Password (Selected)'}
+                                    </button>
+
+                                    <button
+                                        onClick={async () => {
+                                            setBulkProcessing(true);
+                                            try {
+                                                await Promise.allSettled(selectedJudgeIds.map(id => adminService.updateJudge(id, { is_active: false })));
+                                                await loadJudges();
+                                                setSelectedJudgeIds([]);
+                                                setBulkModalOpen(false);
+                                            } catch (e) {
+                                                console.error('Bulk deactivate failed', e);
+                                            } finally { setBulkProcessing(false); }
+                                        }}
+                                        disabled={bulkProcessing || selectedJudgeIds.length===0}
+                                        className="px-4 py-2 rounded-xl bg-amber-600 text-white font-bold disabled:opacity-50"
+                                    >
+                                        {bulkProcessing ? 'Processing...' : 'Deactivate Selected'}
+                                    </button>
+
+                                    <button
+                                        onClick={async () => {
+                                            if (!confirm('Remove selected judges (soft delete)? This will disable their accounts.')) return;
+                                            setBulkProcessing(true);
+                                            try {
+                                                await Promise.allSettled(selectedJudgeIds.map(id => adminService.deleteJudge(id, 'soft')));
+                                                await loadJudges();
+                                                setSelectedJudgeIds([]);
+                                                setBulkModalOpen(false);
+                                            } catch (e) {
+                                                console.error('Bulk remove failed', e);
+                                            } finally { setBulkProcessing(false); }
+                                        }}
+                                        disabled={bulkProcessing || selectedJudgeIds.length===0}
+                                        className="px-4 py-2 rounded-xl bg-red-100 text-red-700 font-bold disabled:opacity-50"
+                                    >
+                                        {bulkProcessing ? 'Processing...' : 'Remove (Soft) Selected'}
+                                    </button>
+
+                                    <button
+                                        onClick={async () => {
+                                            if (!confirm('Permanently delete selected judges? This cannot be undone.')) return;
+                                            setBulkProcessing(true);
+                                            try {
+                                                await Promise.allSettled(selectedJudgeIds.map(id => adminService.deleteJudge(id, 'hard')));
+                                                await loadJudges();
+                                                setSelectedJudgeIds([]);
+                                                setBulkModalOpen(false);
+                                            } catch (e) {
+                                                console.error('Bulk delete failed', e);
+                                            } finally { setBulkProcessing(false); }
+                                        }}
+                                        disabled={bulkProcessing || selectedJudgeIds.length===0}
+                                        className="px-4 py-2 rounded-xl bg-red-600 text-white font-bold disabled:opacity-50"
+                                    >
+                                        {bulkProcessing ? 'Processing...' : 'Delete Permanently (Selected)'}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* Invite Modal */}
                 {isInviteModalOpen && (
@@ -543,6 +756,48 @@ const AdminJudges: React.FC = () => {
                                         </button>
                                     ))
                                 )}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Export CSV Modal */}
+                {showExportModal && (
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                        <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full overflow-hidden">
+                            <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+                                <h3 className="font-heading text-xl text-gray-900 flex items-center gap-2">
+                                    <Download size={20} /> Export Judges
+                                </h3>
+                                <button onClick={() => setShowExportModal(false)} className="text-gray-400 hover:text-gray-900">
+                                    <X size={24} />
+                                </button>
+                            </div>
+                            <div className="p-6 space-y-4">
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-2">Select Hackathon</label>
+                                    <select
+                                        value={exportHackathonId}
+                                        onChange={(e) => setExportHackathonId(e.target.value)}
+                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-gray-900"
+                                    >
+                                        <option value="">All Hackathons</option>
+                                        {hackathons.map((h: any) => (
+                                            <option key={h.id} value={h.id}>{h.name || h.title || h.id}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <button
+                                    onClick={handleExportCSV}
+                                    disabled={isExporting}
+                                    className="w-full px-4 py-3 bg-gray-900 text-white rounded-xl font-bold hover:bg-gray-800 disabled:opacity-50 flex items-center justify-center gap-2"
+                                >
+                                    {isExporting ? (
+                                        <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" /> Exporting...</>
+                                    ) : (
+                                        <><Download size={18} /> Download CSV</>
+                                    )}
+                                </button>
                             </div>
                         </div>
                     </div>

@@ -36,6 +36,8 @@ export const ENDPOINTS = {
     HACKATHONS: '/public/hackathons',
     HACKATHON_DETAIL: (id: string) => `/public/hackathons/${id}`,
     LEADERBOARD: (hackathonId: string) => `/public/hackathons/${hackathonId}/leaderboard`,
+    USER_WINS: (userId: string) => `/public/users/${userId}/wins`,
+    USER_PARTICIPATION: (userId: string) => `/public/users/${userId}/participation`,
   },
 
   // Team Management Endpoints
@@ -72,6 +74,8 @@ export const ENDPOINTS = {
   JUDGE: {
     DASHBOARD: '/judge/dashboard',
     EVENTS: '/judge/events', // List of hackathons judge is assigned to
+    INVITATIONS: '/judge/invitations', // Pending invitations for judge
+    NOTIFICATIONS: '/judge/notifications',
     ASSIGNMENTS: '/judge/assignments', // Teams assigned for evaluation
     SUBMISSION_DETAIL: (teamId: string) => `/judge/submission/${teamId}`,
     SAVE_DRAFT: (teamId: string) => `/judge/evaluation/${teamId}/draft`,

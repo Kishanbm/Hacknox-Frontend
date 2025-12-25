@@ -3,7 +3,7 @@ import { AdminLayout } from '../../components/AdminLayout';
 import { 
     GitMerge, UploadCloud, Zap, Users, CheckCircle2, 
     MoreHorizontal, RefreshCw, AlertCircle, FileText, ArrowRight, X, Search, FileUp, AlertTriangle,
-    ChevronDown, MousePointerClick, ListChecks, Repeat, Scale
+    ChevronDown, MousePointerClick, ListChecks, Repeat, Scale, Download
 } from 'lucide-react';
 
 import { adminService } from '../../services/admin.service';
@@ -33,6 +33,60 @@ const AdminAssignments: React.FC = () => {
     const [selectedTeams, setSelectedTeams] = useState<string[]>([]);
     const [reassignData, setReassignData] = useState({ teamId: '', oldJudgeId: '', newJudgeId: '' });
     const [csvFile, setCsvFile] = useState<File | null>(null);
+
+    // Export CSV state
+    const [showExportModal, setShowExportModal] = useState(false);
+    const [exportHackathonId, setExportHackathonId] = useState<string>('');
+    const [isExporting, setIsExporting] = useState(false);
+
+    // Search filters for dropdowns
+    const [judgeSearch, setJudgeSearch] = useState('');
+    const [teamSearch, setTeamSearch] = useState('');
+    const [bulkTeamSearch, setBulkTeamSearch] = useState('');
+    const [reassignTeamSearch, setReassignTeamSearch] = useState('');
+    const [reassignFromJudgeSearch, setReassignFromJudgeSearch] = useState('');
+    const [reassignToJudgeSearch, setReassignToJudgeSearch] = useState('');
+
+    // Filtered lists for search
+    // Show only active judges who have accepted their invitation (backend provides `hasAcceptedInvitation`)
+    const filteredJudges = judges.filter(j => {
+        const name = (j.name || j.email || j.id || '').toLowerCase();
+        const matchesSearch = name.includes(judgeSearch.toLowerCase());
+        const isActiveJudge = (j.is_active !== false && j.isActive !== false) || j.isActive === undefined;
+        const hasAccepted = j.hasAcceptedInvitation === true || j.hasAcceptedInvitation === 'true';
+        return matchesSearch && isActiveJudge && hasAccepted;
+    });
+    const filteredTeams = teams.filter(t => {
+        const name = (t.name || t.id || '').toLowerCase();
+        const matchesSearch = name.includes(teamSearch.toLowerCase());
+        const isVerified = ((t.verificationStatus || '') as string).toLowerCase() === 'verified' || ((t.verificationStatus || '') as string).toLowerCase() === 'approved';
+        return matchesSearch && isVerified;
+    });
+    const filteredBulkTeams = teams.filter(t => {
+        const name = (t.name || t.id || '').toLowerCase();
+        return name.includes(bulkTeamSearch.toLowerCase());
+    });
+    const filteredReassignTeams = teams.filter(t => {
+        const name = (t.name || t.id || '').toLowerCase();
+        return name.includes(reassignTeamSearch.toLowerCase());
+    });
+    const filteredFromJudges = judges.filter(j => {
+        const name = (j.name || j.email || j.id || '').toLowerCase();
+        const matchesSearch = name.includes(reassignFromJudgeSearch.toLowerCase());
+        const isActiveJudge = (j.is_active !== false && j.isActive !== false) || j.isActive === undefined;
+        const hasAccepted = j.hasAcceptedInvitation === true || j.hasAcceptedInvitation === 'true';
+        return matchesSearch && isActiveJudge && hasAccepted;
+    });
+    const filteredToJudges = judges.filter(j => {
+        const name = (j.name || j.email || j.id || '').toLowerCase();
+        const matchesSearch = name.includes(reassignToJudgeSearch.toLowerCase());
+        const isActiveJudge = (j.is_active !== false && j.isActive !== false) || j.isActive === undefined;
+        const hasAccepted = j.hasAcceptedInvitation === true || j.hasAcceptedInvitation === 'true';
+        return matchesSearch && isActiveJudge && hasAccepted;
+    });
+
+    // File input ref for clickable upload area
+    const fileInputRef = React.useRef<HTMLInputElement>(null);
 
     // Computed KPIs from actual data
     const totalAssigned = assignments.reduce((acc, curr) => acc + (curr.teams?.length || 0), 0);
@@ -75,15 +129,28 @@ const AdminAssignments: React.FC = () => {
     useEffect(() => {
         if (selectedHackathonId) {
             localStorage.setItem('selectedHackathonId', selectedHackathonId);
-            // Load assignments only when a specific hackathon is selected
+            // Load assignments and judges/teams for the selected hackathon
             load();
             loadJudgesAndTeams();
         } else {
             localStorage.removeItem('selectedHackathonId');
-            // Clear data when no hackathon selected to avoid showing unrelated platform-wide data
-            setAssignments([]);
-            setJudges([]);
+            // For "All" context we still want to show global judges (verified & accepted)
+            // so fetch the platform-level judges for this admin (no hackathon header)
+            setAssignments([]); // assignment matrix is per-hackathon; keep empty
             setTeams([]);
+            (async () => {
+                try {
+                    setLoadingData(true);
+                    const judgesRes = await adminService.getJudges(1, 100); // global for admin
+                    const judgesList = judgesRes?.judges || judgesRes?.data || (Array.isArray(judgesRes) ? judgesRes : []);
+                    setJudges(judgesList);
+                } catch (e) {
+                    console.error('Failed to load global judges:', e);
+                    setJudges([]);
+                } finally {
+                    setLoadingData(false);
+                }
+            })();
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedHackathonId]);
@@ -264,24 +331,127 @@ const AdminAssignments: React.FC = () => {
             // Parse CSV and extract assignments
             const text = await csvFile.text();
             const lines = text.split('\n').filter(l => l.trim());
-            // lines expected: header + rows with judgeId,teamId
-            const assignments = lines.slice(1).map(line => {
-                const [judgeId, teamId] = line.split(',').map(s => s.trim());
-                return { judgeId, teamId };
-            });
-            // send batch to backend as array of {judgeId, teamId}
-            if (assignments.length > 0) {
-                await adminService.assignTeamsToJudges(assignments, selectedHackathonId);
+            // lines expected: header + rows with judgeEmail/judgeName,teamName
+            const assignmentsToCreate: Array<{ judgeId: string; teamId: string }> = [];
+            
+            for (let i = 1; i < lines.length; i++) {
+                const line = lines[i];
+                const [judgeIdentifier, teamName] = line.split(',').map(s => s.trim().replace(/"/g, ''));
+                
+                if (!judgeIdentifier || !teamName) continue;
+                
+                // Find judge by email or name
+                const judge = judges.find(j => 
+                    (j.email && j.email.toLowerCase() === judgeIdentifier.toLowerCase()) ||
+                    (j.name && j.name.toLowerCase() === judgeIdentifier.toLowerCase()) ||
+                    ((j.first_name && j.last_name) && `${j.first_name} ${j.last_name}`.toLowerCase() === judgeIdentifier.toLowerCase())
+                );
+                
+                // Find team by name
+                const team = teams.find(t => 
+                    t.name && t.name.toLowerCase() === teamName.toLowerCase()
+                );
+                
+                if (judge && team) {
+                    assignmentsToCreate.push({ judgeId: judge.id, teamId: team.id });
+                } else {
+                    console.warn(`Could not find match for: ${judgeIdentifier} -> ${teamName}`);
+                }
             }
-            setUploadStatus('success');
-            setMessage('CSV import successful');
-            await load();
+            
+            // send batch to backend as array of {judgeId, teamId}
+            if (assignmentsToCreate.length > 0) {
+                await adminService.assignTeamsToJudges(assignmentsToCreate, selectedHackathonId);
+                setUploadStatus('success');
+                setMessage(`CSV import successful: ${assignmentsToCreate.length} assignments created`);
+                await load();
+            } else {
+                throw new Error('No valid assignments found in CSV');
+            }
             setCsvFile(null);
         } catch (e: any) {
             setError(e?.message || 'Failed to import CSV');
             setUploadStatus('idle');
         } finally {
             setWorking(false);
+        }
+    };
+
+    // Download CSV template with sample data
+    const handleDownloadTemplate = () => {
+        const headers = ['judgeEmail', 'teamName'];
+        const sampleRows = [
+            ['judge1@example.com', 'Team Alpha'],
+            ['judge1@example.com', 'Team Beta'],
+            ['judge2@example.com', 'Team Gamma'],
+        ];
+        
+        // If we have actual judges/teams, use their email/names as examples
+        if (judges.length > 0 && teams.length > 0) {
+            const judge1Email = judges[0]?.email || judges[0]?.name || 'judge1@example.com';
+            const judge2Email = (judges.length > 1 ? judges[1]?.email : null) || judges[1]?.name || 'judge2@example.com';
+            
+            sampleRows[0] = [judge1Email, teams[0]?.name || 'Team Alpha'];
+            if (teams.length > 1) {
+                sampleRows[1] = [judge1Email, teams[1]?.name || 'Team Beta'];
+            }
+            if (judges.length > 1 && teams.length > 2) {
+                sampleRows[2] = [judge2Email, teams[2]?.name || 'Team Gamma'];
+            }
+        }
+        
+        const csvContent = "data:text/csv;charset=utf-8," 
+            + headers.join(",") + "\n" 
+            + sampleRows.map(row => row.map(v => `"${v}"`).join(",")).join("\n");
+        
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `assignments_template.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
+    const handleExportAssignmentsCSV = async () => {
+        setIsExporting(true);
+        try {
+            let matrixToExport: any[] = [];
+            const hackIdToUse = exportHackathonId || selectedHackathonId;
+            if (hackIdToUse) {
+                const res = await adminService.getJudgeAssignments(hackIdToUse);
+                matrixToExport = res?.assignmentMatrix || res?.matrix || res?.data || res || [];
+            } else {
+                // Export current matrix shown (if hackathon selected)
+                matrixToExport = assignments;
+            }
+            
+            const headers = ['Judge ID', 'Judge Name', 'Status', 'Load', 'Max Load', 'Assigned Teams'];
+            const rows = matrixToExport.map((row: any) => [
+                row.id || '',
+                row.judge || '',
+                row.status || '',
+                row.load || 0,
+                row.maxLoad || '',
+                (row.teams || []).map((t: any) => typeof t === 'string' ? t : t.name || t.id).join('; ')
+            ]);
+            
+            const csvContent = "data:text/csv;charset=utf-8," 
+                + headers.join(",") + "\n" 
+                + rows.map(e => e.map(v => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `assignments_export_${new Date().toISOString().split('T')[0]}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            setShowExportModal(false);
+        } catch (e) {
+            console.error('Export failed:', e);
+        } finally {
+            setIsExporting(false);
         }
     };
 
@@ -328,6 +498,12 @@ const AdminAssignments: React.FC = () => {
                             <option key={h.id} value={h.id}>{h.name || h.title || h.id}</option>
                         ))}
                     </select>
+                    <button
+                        onClick={() => setShowExportModal(true)}
+                        className="px-4 py-2.5 bg-white border border-gray-200 rounded-xl font-bold text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                    >
+                        <Download size={18} /> Export CSV
+                    </button>
                 </div>
 
                 {/* --- KPI Cards --- */}
@@ -415,29 +591,53 @@ const AdminAssignments: React.FC = () => {
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-bold text-gray-700 mb-2">Select Judge</label>
-                                    <select
-                                        value={manualSelection.judge}
-                                        onChange={(e) => setManualSelection({ ...manualSelection, judge: e.target.value })}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:border-[#5425FF]"
-                                    >
-                                        <option value="">Choose a judge...</option>
-                                        {judges.map((j) => (
-                                            <option key={j.id} value={j.id}>{j.name || j.email || j.id}</option>
-                                        ))}
-                                    </select>
+                                    <div className="relative">
+                                        <div className="flex items-center border border-gray-300 rounded-xl overflow-hidden focus-within:border-[#5425FF]">
+                                            <Search size={16} className="ml-3 text-gray-400" />
+                                            <input
+                                                type="text"
+                                                placeholder="Search judges..."
+                                                value={judgeSearch}
+                                                onChange={(e) => setJudgeSearch(e.target.value)}
+                                                className="w-full px-2 py-2 focus:outline-none text-sm"
+                                            />
+                                        </div>
+                                        <select
+                                            value={manualSelection.judge}
+                                            onChange={(e) => setManualSelection({ ...manualSelection, judge: e.target.value })}
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:border-[#5425FF] mt-2"
+                                        >
+                                            <option value="">Choose a judge...</option>
+                                            {filteredJudges.map((j) => (
+                                                <option key={j.id} value={j.id}>{j.name || j.email || j.id}</option>
+                                            ))}
+                                        </select>
+                                    </div>
                                 </div>
                                 <div>
                                     <label className="block text-sm font-bold text-gray-700 mb-2">Select Team</label>
-                                    <select
-                                        value={manualSelection.team}
-                                        onChange={(e) => setManualSelection({ ...manualSelection, team: e.target.value })}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:border-[#5425FF]"
-                                    >
-                                        <option value="">Choose a team...</option>
-                                        {teams.map((t) => (
-                                            <option key={t.id} value={t.id}>{t.name || t.id}</option>
-                                        ))}
-                                    </select>
+                                    <div className="relative">
+                                        <div className="flex items-center border border-gray-300 rounded-xl overflow-hidden focus-within:border-[#5425FF]">
+                                            <Search size={16} className="ml-3 text-gray-400" />
+                                            <input
+                                                type="text"
+                                                placeholder="Search teams..."
+                                                value={teamSearch}
+                                                onChange={(e) => setTeamSearch(e.target.value)}
+                                                className="w-full px-2 py-2 focus:outline-none text-sm"
+                                            />
+                                        </div>
+                                        <select
+                                            value={manualSelection.team}
+                                            onChange={(e) => setManualSelection({ ...manualSelection, team: e.target.value })}
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:border-[#5425FF] mt-2"
+                                        >
+                                            <option value="">Choose a team...</option>
+                                            {filteredTeams.map((t) => (
+                                                <option key={t.id} value={t.id}>{t.name || t.id}</option>
+                                            ))}
+                                        </select>
+                                    </div>
                                 </div>
                             </div>
                             <button
@@ -453,24 +653,42 @@ const AdminAssignments: React.FC = () => {
                     {/* CSV Import Form */}
                     {activeTab === 'csv' && (
                         <div className="space-y-4">
-                            <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center">
+                            <div 
+                                onClick={() => fileInputRef.current?.click()}
+                                className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50/30 transition-all"
+                            >
                                 <FileUp size={48} className="mx-auto text-blue-500 mb-4" />
-                                <p className="text-sm text-gray-600 mb-4">Upload a CSV file with columns: judgeId, teamId</p>
+                                <p className="text-sm text-gray-600 mb-2">Click anywhere to upload CSV</p>
+                                <p className="text-xs text-gray-400 mb-4">Required columns: judgeEmail, teamName</p>
                                 <input
+                                    ref={fileInputRef}
                                     type="file"
                                     accept=".csv"
                                     onChange={(e) => setCsvFile(e.target.files?.[0] || null)}
-                                    className="block mx-auto"
+                                    className="hidden"
                                 />
-                                {csvFile && <p className="text-sm text-green-600 mt-2">File: {csvFile.name}</p>}
+                                {csvFile && (
+                                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-green-100 text-green-700 rounded-lg">
+                                        <CheckCircle2 size={16} />
+                                        <span className="text-sm font-medium">{csvFile.name}</span>
+                                    </div>
+                                )}
                             </div>
-                            <button
-                                onClick={handleImportCSV}
-                                disabled={!csvFile || working}
-                                className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-xl font-bold hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                            >
-                                {working ? 'Importing...' : 'Import Assignments'}
-                            </button>
+                            <div className="flex items-center gap-3">
+                                <button
+                                    onClick={handleImportCSV}
+                                    disabled={!csvFile || working}
+                                    className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-xl font-bold hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                >
+                                    {working ? 'Importing...' : 'Import Assignments'}
+                                </button>
+                                <button
+                                    onClick={handleDownloadTemplate}
+                                    className="px-6 py-2.5 bg-white border border-gray-300 text-gray-700 rounded-xl font-bold hover:bg-gray-50 flex items-center gap-2 transition-colors"
+                                >
+                                    <Download size={16} /> Download Template
+                                </button>
+                            </div>
                         </div>
                     )}
 
@@ -479,21 +697,43 @@ const AdminAssignments: React.FC = () => {
                         <div className="space-y-4">
                             <div>
                                 <label className="block text-sm font-bold text-gray-700 mb-2">Select Judge</label>
-                                <select
-                                    value={manualSelection.judge}
-                                    onChange={(e) => setManualSelection({ ...manualSelection, judge: e.target.value })}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:border-[#5425FF]"
-                                >
-                                    <option value="">Choose a judge...</option>
-                                    {judges.map((j) => (
-                                        <option key={j.id} value={j.id}>{j.name || j.email || j.id}</option>
-                                    ))}
-                                </select>
+                                <div className="relative">
+                                    <div className="flex items-center border border-gray-300 rounded-xl overflow-hidden focus-within:border-[#5425FF]">
+                                        <Search size={16} className="ml-3 text-gray-400" />
+                                        <input
+                                            type="text"
+                                            placeholder="Search judges..."
+                                            value={judgeSearch}
+                                            onChange={(e) => setJudgeSearch(e.target.value)}
+                                            className="w-full px-2 py-2 focus:outline-none text-sm"
+                                        />
+                                    </div>
+                                    <select
+                                        value={manualSelection.judge}
+                                        onChange={(e) => setManualSelection({ ...manualSelection, judge: e.target.value })}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:border-[#5425FF] mt-2"
+                                    >
+                                        <option value="">Choose a judge...</option>
+                                        {filteredJudges.map((j) => (
+                                            <option key={j.id} value={j.id}>{j.name || j.email || j.id}</option>
+                                        ))}
+                                    </select>
+                                </div>
                             </div>
                             <div>
                                 <label className="block text-sm font-bold text-gray-700 mb-2">Select Teams (multiple)</label>
-                                <div className="border border-gray-300 rounded-xl p-4 max-h-64 overflow-y-auto space-y-2">
-                                    {teams.map((t) => (
+                                <div className="flex items-center border border-gray-300 rounded-t-xl overflow-hidden focus-within:border-[#5425FF]">
+                                    <Search size={16} className="ml-3 text-gray-400" />
+                                    <input
+                                        type="text"
+                                        placeholder="Search teams..."
+                                        value={bulkTeamSearch}
+                                        onChange={(e) => setBulkTeamSearch(e.target.value)}
+                                        className="w-full px-2 py-2 focus:outline-none text-sm"
+                                    />
+                                </div>
+                                <div className="border border-t-0 border-gray-300 rounded-b-xl p-4 max-h-64 overflow-y-auto space-y-2">
+                                    {filteredBulkTeams.map((t) => (
                                         <label key={t.id} className="flex items-center gap-2 p-2 hover:bg-purple-50 rounded-lg cursor-pointer">
                                             <input
                                                 type="checkbox"
@@ -510,6 +750,9 @@ const AdminAssignments: React.FC = () => {
                                             <span className="text-sm font-medium text-gray-700">{t.name || t.id}</span>
                                         </label>
                                     ))}
+                                    {filteredBulkTeams.length === 0 && (
+                                        <p className="text-sm text-gray-400 text-center py-4">No teams found</p>
+                                    )}
                                 </div>
                                 {selectedTeams.length > 0 && (
                                     <p className="text-sm text-purple-600 mt-2">{selectedTeams.length} team(s) selected</p>
@@ -531,39 +774,69 @@ const AdminAssignments: React.FC = () => {
                             <div className="grid grid-cols-3 gap-4">
                                 <div>
                                     <label className="block text-sm font-bold text-gray-700 mb-2">Team</label>
+                                    <div className="flex items-center border border-gray-300 rounded-xl overflow-hidden focus-within:border-[#5425FF]">
+                                        <Search size={16} className="ml-3 text-gray-400" />
+                                        <input
+                                            type="text"
+                                            placeholder="Search..."
+                                            value={reassignTeamSearch}
+                                            onChange={(e) => setReassignTeamSearch(e.target.value)}
+                                            className="w-full px-2 py-2 focus:outline-none text-sm"
+                                        />
+                                    </div>
                                     <select
                                         value={reassignData.teamId}
                                         onChange={(e) => setReassignData({ ...reassignData, teamId: e.target.value })}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:border-[#5425FF]"
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:border-[#5425FF] mt-2"
                                     >
                                         <option value="">Select team...</option>
-                                        {teams.map((t) => (
+                                        {filteredReassignTeams.map((t) => (
                                             <option key={t.id} value={t.id}>{t.name || t.id}</option>
                                         ))}
                                     </select>
                                 </div>
                                 <div>
                                     <label className="block text-sm font-bold text-gray-700 mb-2">From Judge</label>
+                                    <div className="flex items-center border border-gray-300 rounded-xl overflow-hidden focus-within:border-[#5425FF]">
+                                        <Search size={16} className="ml-3 text-gray-400" />
+                                        <input
+                                            type="text"
+                                            placeholder="Search..."
+                                            value={reassignFromJudgeSearch}
+                                            onChange={(e) => setReassignFromJudgeSearch(e.target.value)}
+                                            className="w-full px-2 py-2 focus:outline-none text-sm"
+                                        />
+                                    </div>
                                     <select
                                         value={reassignData.oldJudgeId}
                                         onChange={(e) => setReassignData({ ...reassignData, oldJudgeId: e.target.value })}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:border-[#5425FF]"
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:border-[#5425FF] mt-2"
                                     >
                                         <option value="">Select judge...</option>
-                                        {judges.map((j) => (
+                                        {filteredFromJudges.map((j) => (
                                             <option key={j.id} value={j.id}>{j.name || j.email || j.id}</option>
                                         ))}
                                     </select>
                                 </div>
                                 <div>
                                     <label className="block text-sm font-bold text-gray-700 mb-2">To Judge</label>
+                                    <div className="flex items-center border border-gray-300 rounded-xl overflow-hidden focus-within:border-[#5425FF]">
+                                        <Search size={16} className="ml-3 text-gray-400" />
+                                        <input
+                                            type="text"
+                                            placeholder="Search..."
+                                            value={reassignToJudgeSearch}
+                                            onChange={(e) => setReassignToJudgeSearch(e.target.value)}
+                                            className="w-full px-2 py-2 focus:outline-none text-sm"
+                                        />
+                                    </div>
                                     <select
                                         value={reassignData.newJudgeId}
                                         onChange={(e) => setReassignData({ ...reassignData, newJudgeId: e.target.value })}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:border-[#5425FF]"
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:border-[#5425FF] mt-2"
                                     >
                                         <option value="">Select judge...</option>
-                                        {judges.map((j) => (
+                                        {filteredToJudges.map((j) => (
                                             <option key={j.id} value={j.id}>{j.name || j.email || j.id}</option>
                                         ))}
                                     </select>
@@ -793,6 +1066,48 @@ const AdminAssignments: React.FC = () => {
                                         <Zap size={16} /> Auto-Fix Conflicts
                                     </button>
                                 )}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Export CSV Modal */}
+                {showExportModal && (
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                        <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full overflow-hidden">
+                            <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+                                <h3 className="font-heading text-xl text-gray-900 flex items-center gap-2">
+                                    <Download size={20} /> Export Assignment Matrix
+                                </h3>
+                                <button onClick={() => setShowExportModal(false)} className="text-gray-400 hover:text-gray-900">
+                                    <X size={24} />
+                                </button>
+                            </div>
+                            <div className="p-6 space-y-4">
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-2">Select Hackathon</label>
+                                    <select
+                                        value={exportHackathonId}
+                                        onChange={(e) => setExportHackathonId(e.target.value)}
+                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-gray-900"
+                                    >
+                                        <option value="">Current Selection ({selectedHackathonId ? hackathons.find(h => h.id === selectedHackathonId)?.name || 'Selected' : 'All'})</option>
+                                        {hackathons.map((h: any) => (
+                                            <option key={h.id} value={h.id}>{h.name || h.title || h.id}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <button
+                                    onClick={handleExportAssignmentsCSV}
+                                    disabled={isExporting}
+                                    className="w-full px-4 py-3 bg-gray-900 text-white rounded-xl font-bold hover:bg-gray-800 disabled:opacity-50 flex items-center justify-center gap-2"
+                                >
+                                    {isExporting ? (
+                                        <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" /> Exporting...</>
+                                    ) : (
+                                        <><Download size={18} /> Download CSV</>
+                                    )}
+                                </button>
                             </div>
                         </div>
                     </div>

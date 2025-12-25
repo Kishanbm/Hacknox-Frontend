@@ -37,6 +37,23 @@ export interface MeResponse {
     github_url?: string;
     linkedin_url?: string;
     phone?: string;
+    badges?: any[]; // array of badge objects
+    skills?: string[];
+    tech_stack?: string[];
+    experiences?: any[]; // structured objects { company, role, start_date, end_date, description }
+    projects?: any[];
+    education?: any[];
+    achievements?: string[];
+    portfolio_url?: string;
+    website_url?: string;
+    timezone?: string;
+    location?: string;
+    availability?: string;
+    languages?: string[];
+    social_links?: any[];
+    resume_url?: string;
+    profile_completed_at?: string;
+    is_profile_complete?: boolean;
   };
 }
 
@@ -54,6 +71,20 @@ export interface UserProfile {
   github_url?: string;
   linkedin_url?: string;
   portfolio_url?: string;
+  badges?: any[];
+  skills?: string[];
+  tech_stack?: string[];
+  experiences?: any[];
+  projects?: any[];
+  education?: any[];
+  achievements?: string[];
+  website_url?: string;
+  timezone?: string;
+  location?: string;
+  availability?: string;
+  languages?: string[];
+  social_links?: any[];
+  resume_url?: string;
 }
 
 // Team Types

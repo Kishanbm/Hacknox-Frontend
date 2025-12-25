@@ -13,9 +13,7 @@ export const teamService = {
    */
   getMyTeams: async (): Promise<Team[]> => {
     // Opt-out of automatic x-hackathon-id header for this endpoint so backend returns all teams
-    const response = await apiClient.get<any>(ENDPOINTS.TEAMS.MY_TEAMS, {
-      headers: { 'x-hackathon-id': false },
-    });
+    const response = await apiClient.get<any>(ENDPOINTS.TEAMS.MY_TEAMS);
     // Backend returns { teams: [...] }
     return response.data?.teams ?? response.data ?? [];
   },
@@ -35,8 +33,15 @@ export const teamService = {
   createTeam: async (teamData: {
     name: string;
     hackathonId: string;
+    description?: string;
   }): Promise<Team> => {
     const response = await apiClient.post<Team>(ENDPOINTS.TEAMS.CREATE, teamData);
+    return response.data;
+  },
+
+  /** Update team details (leader only) - PATCH /teams/update */
+  updateTeamDetails: async (updates: { name?: string; description?: string }): Promise<any> => {
+    const response = await apiClient.patch<any>('/teams/update', updates);
     return response.data;
   },
 
@@ -45,7 +50,16 @@ export const teamService = {
    * Backend expects `{ joinCode }` in the request body.
    */
   joinTeam: async (teamCode: string): Promise<any> => {
-    const response = await apiClient.post(ENDPOINTS.TEAMS.JOIN, { joinCode: teamCode });
+    // Prefer explicit hackathonId in the body to ensure backend receives it
+    // even if localStorage or automatic header injection is missing.
+    const hackathonId = typeof window !== 'undefined' ? localStorage.getItem('selectedHackathonId') : null;
+    const payload: any = { joinCode: teamCode };
+    if (hackathonId) payload.hackathonId = hackathonId;
+    // Ensure backend receives hackathon id header explicitly — some flows may not
+    // have the axios interceptor add it (e.g., SSR or timing issues). Pass it in
+    // the request headers directly when available.
+    const config = hackathonId ? { headers: { 'x-hackathon-id': hackathonId } } : undefined;
+    const response = await apiClient.post(ENDPOINTS.TEAMS.JOIN, payload, config);
     return response.data;
   },
 
@@ -95,9 +109,7 @@ export const teamService = {
    * Get team invitations
    */
   getInvitations: async (): Promise<TeamInvitation[]> => {
-    const response = await apiClient.get<any>(ENDPOINTS.TEAMS.INVITATIONS, {
-      headers: { 'x-hackathon-id': false },
-    });
+    const response = await apiClient.get<any>(ENDPOINTS.TEAMS.INVITATIONS);
     // Backend returns { invitations: [...] }
     return response.data?.invitations ?? response.data ?? [];
   },

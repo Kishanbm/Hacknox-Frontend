@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Send } from 'lucide-react';
 import { teamService } from '../services/team.service';
+import { useToast } from './ui/ToastProvider';
 
 interface InviteModalProps {
   open: boolean;
@@ -18,6 +19,7 @@ const InviteModal: React.FC<InviteModalProps> = ({ open, onClose, teamId, teamNa
   if (!open) return null;
 
   const handleSend = async () => {
+    const { success, error: toastError } = useToast();
     if (!teamId) return;
     if (!email || !email.includes('@')) {
       setError('Enter a valid email');
@@ -28,11 +30,12 @@ const InviteModal: React.FC<InviteModalProps> = ({ open, onClose, teamId, teamNa
       setError(null);
       try { if (hackathonId) localStorage.setItem('selectedHackathonId', hackathonId); } catch(e) {}
       await teamService.inviteMember(teamId, email);
-      alert(`Invitation sent to ${email}`);
+      success(`Invitation sent to ${email}`);
       setEmail('');
       onClose();
     } catch (err: any) {
       console.error('Invite failed', err);
+      toastError(err?.message || 'Failed to send invite');
       setError(err?.message || 'Failed to send invite');
     } finally {
       setIsSending(false);

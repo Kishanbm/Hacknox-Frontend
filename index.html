@@ -48,7 +48,55 @@
       ::-webkit-scrollbar-thumb:hover {
         background: #94a3b8; 
       }
+      /* Floating decoration animations used across auth pages */
+      @keyframes float-slow {
+        0% { transform: translateY(0) rotate(0deg); }
+        50% { transform: translateY(-12px) rotate(3deg); }
+        100% { transform: translateY(0) rotate(0deg); }
+      }
+      @keyframes float-medium {
+        0% { transform: translateY(0) rotate(0deg); }
+        50% { transform: translateY(-18px) rotate(-3deg); }
+        100% { transform: translateY(0) rotate(0deg); }
+      }
+      @keyframes float-fast {
+        0% { transform: translateY(0) rotate(0deg); }
+        50% { transform: translateY(-8px) rotate(2deg); }
+        100% { transform: translateY(0) rotate(0deg); }
+      }
+
+      .animate-float-slow { animation: float-slow 10s ease-in-out infinite; }
+      .animate-float-medium { animation: float-medium 8s ease-in-out infinite; }
+      .animate-float-fast { animation: float-fast 6s ease-in-out infinite; }
     </style>
+    <script>
+      // Convert path-style links to hash-based routes for HashRouter.
+      // If the URL is served as /reset-password or /verify-email (from email links),
+      // rewrite to /#/<path>?query so the client router picks it up.
+      (function() {
+        try {
+          var path = window.location.pathname || '/';
+          // Only rewrite when there's no hash present and path is not root
+          if (path && path !== '/' && !window.location.hash) {
+            // Map common auth paths used in email templates to the app's hash routes
+            var mapped = null;
+            if (path.indexOf('/auth/reset-password') === 0 || path.indexOf('/reset-password') === 0) {
+              mapped = '/reset-password';
+            } else if (path.indexOf('/auth/verify-email') === 0 || path.indexOf('/verify-email') === 0) {
+              mapped = '/verify-email';
+            } else if (path.indexOf('/join-team') === 0) {
+              mapped = '/join-team';
+            }
+
+            var targetPath = mapped ? mapped : path; // fall back to original path
+            var newUrl = window.location.origin + '/#' + targetPath + window.location.search + window.location.hash;
+            window.history.replaceState(null, '', newUrl);
+          }
+        } catch (e) {
+          console.warn('Path-to-hash redirect failed', e);
+        }
+      })();
+    </script>
   <script type="importmap">
 {
   "imports": {

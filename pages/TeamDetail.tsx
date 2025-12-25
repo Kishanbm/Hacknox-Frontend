@@ -4,9 +4,10 @@ import { DashboardLayout } from '../components/Layout';
 import { 
     Users, Trophy, Calendar, ChevronLeft, Settings, MessageCircle, 
     Github, Copy, CheckCircle2, MoreVertical, Crown, Shield, UserMinus,
-    LogOut, Rocket
+    LogOut, Rocket, Edit3
 } from 'lucide-react';
 import { teamService } from '../services/team.service';
+import { useToast } from '../components/ui/ToastProvider';
 
 const TeamDetail: React.FC = () => {
     const { id } = useParams();
@@ -15,6 +16,9 @@ const TeamDetail: React.FC = () => {
     const [team, setTeam] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [hackathonCompleted, setHackathonCompleted] = useState(false);
+
+    const { error: toastError, success: toastSuccess } = useToast();
 
     useEffect(() => {
         const loadTeam = async () => {
@@ -33,28 +37,50 @@ const TeamDetail: React.FC = () => {
                     // supabase may return Profiles or profile depending on select alias
                     const profile = Array.isArray(user.Profiles) ? user.Profiles[0] : (Array.isArray(user.profile) ? user.profile[0] : (user.profile || user.Profiles || {}));
                     const name = profile?.first_name ? `${profile.first_name} ${profile.last_name || ''}`.trim() : user.email || m.user_id || 'Member';
-                    const avatar = profile?.avatar_url || name.split(' ').map((s:string)=>s[0]).slice(0,2).join('').toUpperCase();
+                    const avatarUrl = profile?.avatar_url || null;
+                    const initials = name.split(' ').map((s:string)=>s[0]).slice(0,2).join('').toUpperCase();
                     const isLeader = data.leader_id === user.id;
                     return {
                         id: user.id || m.user_id,
                         name,
                         role: isLeader ? 'Leader' : 'Member',
                         status: 'Offline',
-                        avatar,
+                        avatarUrl,
+                        initials,
                         title: isLeader ? 'Team Leader' : 'Member'
                     };
                 });
 
                 const userRole = members.find((m: any) => m.id === localUser?.id)?.role || 'Member';
+                
+                // Check if hackathon is completed (results published or phase completed)
+                const isCompleted = data.hackathon_phase === 'completed' || 
+                                   data.leaderboard_published === true ||
+                                   data.hackathon_status === 'completed' ||
+                                   data.hackathon_status === 'past';
+                setHackathonCompleted(isCompleted);
+
+                // Calculate days left
+                let daysLeft = 0;
+                let hackathonStatus = 'Live';
+                if (data.submission_deadline) {
+                    const deadline = new Date(data.submission_deadline);
+                    const now = new Date();
+                    const diff = deadline.getTime() - now.getTime();
+                    daysLeft = Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+                    if (diff < 0) hackathonStatus = 'Ended';
+                }
+                if (isCompleted) hackathonStatus = 'Completed';
 
                 setTeam({
                     id: data.id,
                     name: data.name,
                     code: data.join_code || '',
+                    verificationStatus: data.verification_status ?? 'pending',
                     hackathon: {
                         name: data.hackathon_title || 'Hackathon',
-                        status: 'Live',
-                        daysLeft: 2,
+                        status: hackathonStatus,
+                        daysLeft: daysLeft,
                         id: data.hackathon_id || ''
                     },
                     description: data.description || 'No description',
@@ -62,9 +88,13 @@ const TeamDetail: React.FC = () => {
                     members,
                     checklist: []
                 });
+                setEditName(data.name || '');
+                setEditDescription(data.description || '');
             } catch (err: any) {
                 console.error('Failed to load team', err);
-                setError(err?.message || 'Failed to load team');
+                const msg = err?.message || 'Failed to load team';
+                toastError(msg);
+                setError(msg);
             } finally {
                 setIsLoading(false);
             }
@@ -86,21 +116,23 @@ const TeamDetail: React.FC = () => {
                 const user = m.user || {};
                 const profile = Array.isArray(user.Profiles) ? user.Profiles[0] : (Array.isArray(user.profile) ? user.profile[0] : (user.profile || user.Profiles || {}));
                 const name = profile?.first_name ? `${profile.first_name} ${profile.last_name || ''}`.trim() : user.email || m.user_id || 'Member';
-                const avatar = profile?.avatar_url || name.split(' ').map((s:string)=>s[0]).slice(0,2).join('').toUpperCase();
+                const avatarUrl = profile?.avatar_url || null;
+                const initials = name.split(' ').map((s:string)=>s[0]).slice(0,2).join('').toUpperCase();
                 const isLeader = data.leader_id === user.id;
                 return {
                     id: user.id || m.user_id,
                     name,
                     role: isLeader ? 'Leader' : 'Member',
                     status: 'Offline',
-                    avatar,
+                    avatarUrl,
+                    initials,
                     title: isLeader ? 'Team Leader' : 'Member'
                 };
             });
             setTeam(prev => ({ ...(prev || {}), members }));
         } catch (err: any) {
             console.error('Failed to remove member', err);
-            alert(err?.message || 'Failed to remove member');
+            toastError(err?.message || 'Failed to remove member');
         }
     };
 
@@ -113,6 +145,11 @@ const TeamDetail: React.FC = () => {
     };
 
     const [isLeaving, setIsLeaving] = useState(false);
+    const [isDisbanding, setIsDisbanding] = useState(false);
+    const [isEditing, setIsEditing] = useState(false);
+    const [editName, setEditName] = useState('');
+    const [editDescription, setEditDescription] = useState('');
+    const [isSavingEdit, setIsSavingEdit] = useState(false);
 
     const handleLeaveTeam = async () => {
         if (!team?.id) return;
@@ -125,9 +162,70 @@ const TeamDetail: React.FC = () => {
             navigate('/dashboard/teams');
         } catch (err: any) {
             console.error('Failed to leave team', err);
-            alert(err?.message || 'Failed to leave team');
+            toastError(err?.message || 'Failed to leave team');
         } finally {
             setIsLeaving(false);
+        }
+    };
+
+    const handleDisbandTeam = async () => {
+        if (!team?.id) return;
+        const ok = window.confirm('Disbanding will delete the team and remove all members. Continue?');
+        if (!ok) return;
+        try {
+            setIsDisbanding(true);
+            await teamService.deleteTeam(team.id);
+            navigate('/dashboard/teams');
+        } catch (err: any) {
+            console.error('Failed to disband team', err);
+            toastError(err?.message || 'Failed to disband team');
+        } finally {
+            setIsDisbanding(false);
+        }
+    };
+
+    const handleStartEdit = () => {
+        setIsEditing(true);
+    };
+
+    const handleCancelEdit = () => {
+        setIsEditing(false);
+        // reset edits to current team
+        setEditName(team?.name || '');
+        setEditDescription(team?.description || '');
+    };
+
+    const handleSaveEdit = async () => {
+        if (!team?.id) return;
+            try {
+            setIsSavingEdit(true);
+            const resp = await teamService.updateTeamDetails({ name: editName, description: editDescription });
+            const refreshed = resp?.team ? resp.team : await teamService.getTeamById(team.id);
+            // update local team
+            const members = (refreshed.members || []).map((m: any) => {
+                const user = m.user || {};
+                const profile = Array.isArray(user.Profiles) ? user.Profiles[0] : (Array.isArray(user.profile) ? user.profile[0] : (user.profile || user.Profiles || {}));
+                const name = profile?.first_name ? `${profile.first_name} ${profile.last_name || ''}`.trim() : user.email || m.user_id || 'Member';
+                const avatarUrl = profile?.avatar_url || null;
+                const initials = name.split(' ').map((s:string)=>s[0]).slice(0,2).join('').toUpperCase();
+                const isLeader = refreshed.leader_id === user.id;
+                return {
+                    id: user.id || m.user_id,
+                    name,
+                    role: isLeader ? 'Leader' : 'Member',
+                    status: 'Offline',
+                    avatarUrl,
+                    initials,
+                    title: isLeader ? 'Team Leader' : 'Member'
+                };
+            });
+            setTeam(prev => ({ ...(prev || {}), name: refreshed.name, description: refreshed.description || 'No description', members }));
+            setIsEditing(false);
+        } catch (err: any) {
+            console.error('Failed to save team edits', err);
+            toastError(err?.message || 'Failed to save changes');
+        } finally {
+            setIsSavingEdit(false);
         }
     };
 
@@ -173,12 +271,37 @@ const TeamDetail: React.FC = () => {
                     <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                         <div>
                             <div className="flex items-center gap-3 mb-2">
-                                <h1 className="text-4xl font-heading text-gray-900">{team.name}</h1>
-                                <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide border border-green-200">
-                                    Verified
-                                </span>
+                                {isEditing ? (
+                                    <div className="flex items-start gap-3 w-full">
+                                        <input value={editName} onChange={e => setEditName(e.target.value)} className="text-3xl md:text-4xl font-heading text-gray-900 border border-gray-200 rounded-lg px-3 py-2 w-full" />
+                                    </div>
+                                ) : (
+                                    <>
+                                        <h1 className="text-4xl font-heading text-gray-900">{team.name}</h1>
+                                        <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide border ${team.verificationStatus === 'verified' ? 'bg-green-100 text-green-700 border-green-200' : team.verificationStatus === 'rejected' ? 'bg-red-100 text-red-700 border-red-200' : 'bg-yellow-100 text-yellow-700 border-yellow-200'}`}>
+                                            {team.verificationStatus === 'verified' ? 'Verified' : team.verificationStatus === 'rejected' ? 'Rejected' : 'Pending'}
+                                        </span>
+                                    </>
+                                )}
+                                {team.role === 'Leader' && !isEditing && !hackathonCompleted && (
+                                    <button onClick={handleStartEdit} aria-label="Edit team" className="ml-2 px-3 py-2 bg-gray-50 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200 flex items-center justify-center">
+                                        <Edit3 size={16} />
+                                    </button>
+                                )}
+                                {isEditing && (
+                                    <div className="ml-4 flex items-center gap-2">
+                                        <button onClick={handleSaveEdit} disabled={isSavingEdit} className="px-3 py-2 bg-primary text-white rounded-xl font-bold hover:bg-primary/90 transition-colors">
+                                            {isSavingEdit ? 'Saving...' : 'Save'}
+                                        </button>
+                                        <button onClick={handleCancelEdit} className="px-3 py-2 bg-white text-gray-700 rounded-xl font-bold border border-gray-200">Cancel</button>
+                                    </div>
+                                )}
                             </div>
-                            <p className="text-gray-500 max-w-xl">{team.description}</p>
+                            {isEditing ? (
+                                <textarea value={editDescription} onChange={e => setEditDescription(e.target.value)} className="mt-2 text-gray-700 max-w-xl w-full border border-gray-200 rounded-lg p-3" rows={3} />
+                            ) : (
+                                <p className="text-gray-500 max-w-xl">{team.description}</p>
+                            )}
                             
                             <div className="flex items-center gap-6 mt-6">
                                 <div className="flex items-center gap-2 text-sm font-bold text-gray-700">
@@ -193,22 +316,9 @@ const TeamDetail: React.FC = () => {
                         </div>
 
                         <div className="flex flex-col gap-3 w-full md:w-auto">
-                            <Link to={`/dashboard/submissions/s1`} className="px-6 py-3 bg-primary text-white rounded-xl font-bold hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2">
+                            <Link to={`/dashboard/submissions?hackathon=${team.hackathon.id}&team=${team.id}`} className="px-6 py-3 bg-primary text-white rounded-xl font-bold hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2">
                                 <Rocket size={18} /> Work on Project
                             </Link>
-                            <div className="flex gap-2">
-                                <button className="flex-1 px-4 py-2.5 bg-gray-50 text-gray-700 rounded-xl font-bold hover:bg-gray-100 transition-colors flex items-center justify-center gap-2 text-sm border border-gray-200">
-                                    <MessageCircle size={16} /> Chat
-                                </button>
-                                <button className="flex-1 px-4 py-2.5 bg-gray-50 text-gray-700 rounded-xl font-bold hover:bg-gray-100 transition-colors flex items-center justify-center gap-2 text-sm border border-gray-200">
-                                    <Github size={16} /> Repo
-                                </button>
-                                {team.role === 'Leader' && (
-                                    <button className="px-3 py-2.5 bg-gray-50 text-gray-700 rounded-xl font-bold hover:bg-gray-100 transition-colors border border-gray-200">
-                                        <Settings size={18} />
-                                    </button>
-                                )}
-                            </div>
                         </div>
                     </div>
                 </div>
@@ -229,8 +339,12 @@ const TeamDetail: React.FC = () => {
                                     <div key={member.id} className="p-4 flex items-center justify-between hover:bg-gray-50 transition-colors group">
                                         <div className="flex items-center gap-4">
                                             <div className="relative">
-                                                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center text-sm font-bold text-gray-600 border-2 border-white shadow-sm">
-                                                    {member.avatar}
+                                                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center text-sm font-bold text-gray-600 border-2 border-white shadow-sm overflow-hidden">
+                                                    {member.avatarUrl ? (
+                                                        <img src={member.avatarUrl} alt={member.name} className="w-full h-full object-cover" />
+                                                    ) : (
+                                                        <span className="inline-block">{member.initials}</span>
+                                                    )}
                                                 </div>
                                                 <div className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-white ${
                                                     member.status === 'Online' ? 'bg-green-500' : 'bg-gray-300'
@@ -246,7 +360,7 @@ const TeamDetail: React.FC = () => {
                                         </div>
                                         
                                         <div className="flex items-center gap-2">
-                                            {team.role === 'Leader' && member.role !== 'Leader' && (
+                                            {team.role === 'Leader' && member.role !== 'Leader' && !hackathonCompleted && (
                                                 <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
                                                     <button onClick={() => handleRemoveMember(member.id)} className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Remove Member">
                                                         <UserMinus size={18} />
@@ -260,7 +374,7 @@ const TeamDetail: React.FC = () => {
                                     </div>
                                 ))}
                             </div>
-                            {team.members.length < 4 && team.role === 'Leader' && (
+                            {team.members.length < 4 && team.role === 'Leader' && !hackathonCompleted && (
                                 <div className="p-4 bg-gray-50 text-center border-t border-gray-100">
                                     <p className="text-sm text-gray-500 mb-3">Looking for more talent?</p>
                                     <button 
@@ -270,6 +384,11 @@ const TeamDetail: React.FC = () => {
                                         {copied ? <CheckCircle2 size={16} className="text-green-500"/> : <Copy size={16}/>}
                                         {copied ? 'Code Copied' : `Copy Invite Code: ${team.code}`}
                                     </button>
+                                </div>
+                            )}
+                            {hackathonCompleted && (
+                                <div className="p-4 bg-amber-50 text-center border-t border-amber-100">
+                                    <p className="text-sm text-amber-700 font-medium">This hackathon has ended. Team editing is disabled.</p>
                                 </div>
                             )}
                         </div>
@@ -320,8 +439,8 @@ const TeamDetail: React.FC = () => {
                         <div className="bg-red-50 rounded-3xl p-6 border border-red-100">
                              <h4 className="font-bold text-red-700 mb-2">Danger Zone</h4>
                              {team.role === 'Leader' ? (
-                                 <button className="w-full py-2 bg-white border border-red-200 text-red-600 rounded-xl text-sm font-bold hover:bg-red-600 hover:text-white transition-colors">
-                                     Disband Team
+                                 <button onClick={handleDisbandTeam} disabled={isDisbanding} className="w-full py-2 bg-white border border-red-200 text-red-600 rounded-xl text-sm font-bold hover:bg-red-600 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                                    {isDisbanding ? 'Disbanding...' : 'Disband Team'}
                                  </button>
                              ) : (
                                  <button onClick={handleLeaveTeam} disabled={isLeaving} className="w-full py-2 bg-white border border-red-200 text-red-600 rounded-xl text-sm font-bold hover:bg-red-600 hover:text-white transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">

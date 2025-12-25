@@ -37,14 +37,23 @@ const EditProfile: React.FC = () => {
     const [githubUrl, setGithubUrl] = useState('');
     const [linkedinUrl, setLinkedinUrl] = useState('');
     const [phone, setPhone] = useState('');
+    const [location, setLocation] = useState('');
     
     // Image Preview States
     const [bannerPreview, setBannerPreview] = useState<string | null>(null);
+    const [bannerUrl, setBannerUrl] = useState<string>('');
     const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
     const [avatarUrl, setAvatarUrl] = useState<string>('');
 
     // Experience (not used in backend but kept for UI)
     const [experience, setExperience] = useState<Experience[]>([]);
+    const [skills, setSkills] = useState<string[]>([]);
+    const [skillInput, setSkillInput] = useState('');
+    const [projects, setProjects] = useState<Array<{ id: number; title: string; description: string; repo?: string; demo?: string }>>([]);
+    const [educationList, setEducationList] = useState<Array<{ id: number; institution: string; degree: string; period: string }>>([]);
+    const [resumeFileName, setResumeFileName] = useState<string | null>(null);
+    const [resumeUrl, setResumeUrl] = useState<string>('');
+    const resumeInputRef = useRef<HTMLInputElement>(null);
 
     // File Input Refs
     const bannerInputRef = useRef<HTMLInputElement>(null);
@@ -65,8 +74,31 @@ const EditProfile: React.FC = () => {
                 setGithubUrl(data.Profiles?.github_url || '');
                 setLinkedinUrl(data.Profiles?.linkedin_url || '');
                 setPhone(data.Profiles?.phone || '');
+                setLocation(data.Profiles?.location || '');
                 setAvatarUrl(data.Profiles?.avatar_url || '');
                 setAvatarPreview(data.Profiles?.avatar_url || null);
+                setBannerPreview(data.Profiles?.banner_url || null);
+                setBannerUrl(data.Profiles?.banner_url || '');
+                // populate skills & experiences if available
+                setSkills(Array.isArray(data.Profiles?.skills) ? data.Profiles!.skills : []);
+                const ex = Array.isArray(data.Profiles?.experiences) ? data.Profiles!.experiences : [];
+                // Map experiences from backend shape to local Experience[] shape if possible
+                setExperience(ex.map((e: any, idx: number) => ({
+                    id: e.id || Date.now() + idx,
+                    role: e.role || e.position || '',
+                    company: e.company || '',
+                    period: e.start_date && e.end_date ? `${e.start_date} - ${e.end_date}` : (e.period || ''),
+                    description: e.description || ''
+                })));
+                // projects
+                const pr = Array.isArray(data.Profiles?.projects) ? data.Profiles!.projects : [];
+                setProjects(pr.map((p: any, idx: number) => ({ id: p.id || Date.now() + idx, title: p.title || '', description: p.description || '', repo: p.repo_url || p.repo, demo: p.demo_url || p.demo })));
+                // education
+                const ed = Array.isArray(data.Profiles?.education) ? data.Profiles!.education : [];
+                setEducationList(ed.map((e: any, idx: number) => ({ id: e.id || Date.now() + idx, institution: e.institution || '', degree: e.degree || '', period: (e.start_year ? `${e.start_year}` : '') + (e.end_year ? ` - ${e.end_year}` : '') })));
+                // resume
+                setResumeUrl(data.Profiles?.resume_url || '');
+                setResumeFileName(data.Profiles?.resume_url ? data.Profiles!.resume_url.split('/').pop() : null);
             } catch (err: any) {
                 console.error('Failed to fetch profile:', err);
                 setError(err.message || 'Failed to load profile');
@@ -83,7 +115,24 @@ const EditProfile: React.FC = () => {
         if (file) {
             const objectUrl = URL.createObjectURL(file);
             if (type === 'banner') {
-                setBannerPreview(objectUrl);
+                // Upload banner to backend and store returned URL
+                (async () => {
+                    try {
+                        setIsLoading(true);
+                        const form = new FormData();
+                        form.append('banner', file);
+                        const resp = await apiClient.upload<{ message: string; url: string }>('uploads/banner', form);
+                        const url = resp.data.url;
+                        setBannerPreview(url);
+                        setBannerUrl(url);
+                    } catch (err) {
+                        console.error('Banner upload failed', err);
+                        // fallback to preview local object URL
+                        setBannerPreview(objectUrl);
+                    } finally {
+                        setIsLoading(false);
+                    }
+                })();
             } else {
                 // Upload avatar to backend and store returned URL
                 (async () => {
@@ -105,6 +154,28 @@ const EditProfile: React.FC = () => {
             }
         }
     };
+
+    const handleResumeUpload = (e?: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e?.target?.files?.[0];
+        if (!file) return;
+        (async () => {
+            try {
+                setIsLoading(true);
+                const form = new FormData();
+                form.append('resume', file);
+                const resp = await apiClient.upload<{ message: string; url: string }>('uploads/resume', form);
+                const url = resp.data.url;
+                setResumeUrl(url);
+                setResumeFileName(file.name);
+            } catch (err) {
+                console.error('Resume upload failed', err);
+            } finally {
+                setIsLoading(false);
+            }
+        })();
+    };
+
+    const triggerResumeUpload = () => resumeInputRef.current?.click();
 
     const triggerBannerUpload = () => bannerInputRef.current?.click();
     const triggerAvatarUpload = (e: React.MouseEvent) => {
@@ -148,7 +219,26 @@ const EditProfile: React.FC = () => {
             if (githubUrl) profileData.github_url = githubUrl;
             if (linkedinUrl) profileData.linkedin_url = linkedinUrl;
             if (phone) profileData.phone = phone;
+            if (location) profileData.location = location;
             if (avatarUrl) profileData.avatar_url = avatarUrl;
+            if (bannerUrl) profileData.banner_url = bannerUrl;
+            if (skills && skills.length > 0) profileData.skills = skills;
+            if (experience && experience.length > 0) {
+                // Map local experience shape to backend-friendly objects
+                profileData.experiences = experience.map(exp => ({
+                    role: exp.role,
+                    company: exp.company,
+                    period: exp.period,
+                    description: exp.description
+                }));
+            }
+            if (projects && projects.length > 0) {
+                profileData.projects = projects.map(p => ({ title: p.title, description: p.description, repo_url: p.repo, demo_url: p.demo }));
+            }
+            if (educationList && educationList.length > 0) {
+                profileData.education = educationList.map(e => ({ institution: e.institution, degree: e.degree, period: e.period }));
+            }
+            if (resumeUrl) profileData.resume_url = resumeUrl;
             
             const resp = await authService.updateProfile(profileData);
             setSuccessMessage('Profile updated successfully!');
@@ -310,6 +400,23 @@ const EditProfile: React.FC = () => {
                                 </div>
                             </div>
 
+                            {/* Resume Upload CTA */}
+                            <div className="lg:col-span-1 bg-white rounded-3xl p-6 md:p-8 border border-gray-200 shadow-sm flex flex-col gap-5 h-full">
+                                <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                                    <FileText size={18} className="text-[#5425FF]" /> Resume
+                                </h3>
+                                <p className="text-sm text-gray-500">Upload your resume (PDF/DOCX). This will be publicly visible on your profile if provided.</p>
+                                <input ref={resumeInputRef} type="file" className="hidden" accept=".pdf,.doc,.docx" onChange={handleResumeUpload} />
+                                <div className="flex items-center gap-3">
+                                    <button onClick={triggerResumeUpload} className="px-4 py-2 bg-white border rounded">Upload Resume</button>
+                                    {resumeFileName ? (
+                                        <a href={resumeUrl} target="_blank" rel="noreferrer" className="text-sm text-gray-700 underline">{resumeFileName}</a>
+                                    ) : (
+                                        <span className="text-sm text-gray-400">No resume uploaded</span>
+                                    )}
+                                </div>
+                            </div>
+
                             {/* Card 2: Identity Info */}
                             <div className="lg:col-span-1 bg-white rounded-3xl p-6 md:p-8 border border-gray-200 shadow-sm flex flex-col gap-5 h-full">
                                 <h3 className="font-bold text-gray-900 flex items-center gap-2">
@@ -345,6 +452,16 @@ const EditProfile: React.FC = () => {
                                         placeholder="+91 1234567890"
                                     />
                                 </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Location</label>
+                                    <input
+                                        type="text"
+                                        value={location}
+                                        onChange={(e) => setLocation(e.target.value)}
+                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-[#5425FF] font-medium text-gray-900"
+                                        placeholder="City, Country (e.g. Bengaluru, India)"
+                                    />
+                                </div>
                             </div>
 
                             {/* Card 3: Bio & Skills */}
@@ -368,14 +485,63 @@ const EditProfile: React.FC = () => {
                                         <Layers size={18} className="text-[#5425FF]" /> Skills
                                     </h3>
                                     <div className="mb-4">
-                                        <input type="text" placeholder="Add skills (e.g. React, Python) and press Enter" className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-[#5425FF] font-medium text-gray-900" />
+                                        <input
+                                            type="text"
+                                            placeholder="Add skills (e.g. React, Python) and press Enter"
+                                            value={skillInput}
+                                            onChange={(e) => setSkillInput(e.target.value)}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter' && skillInput.trim()) {
+                                                    e.preventDefault();
+                                                    if (!skills.includes(skillInput.trim())) {
+                                                        setSkills([skillInput.trim(), ...skills]);
+                                                    }
+                                                    setSkillInput('');
+                                                }
+                                            }}
+                                            className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-[#5425FF] font-medium text-gray-900"
+                                        />
                                     </div>
                                     <div className="flex flex-wrap gap-2">
-                                        {['React', 'TypeScript', 'Node.js', 'Python', 'TensorFlow', 'Solidity'].map(skill => (
-                                            <span key={skill} className="px-3 py-1.5 bg-white border border-gray-200 text-gray-700 rounded-lg text-sm font-bold flex items-center gap-2 group hover:border-[#5425FF] transition-colors cursor-default">
+                                        {skills.map(skill => (
+                                            <span key={skill} className="px-3 py-1.5 bg-white border border-gray-200 text-gray-700 rounded-lg text-sm font-bold flex items-center gap-2 group hover:border-[#5425FF] transition-colors">
                                                 {skill}
-                                                <button className="text-gray-400 hover:text-red-500 group-hover:text-gray-500">×</button>
+                                                <button onClick={() => setSkills(skills.filter(s => s !== skill))} className="text-gray-400 hover:text-red-500 ml-2">×</button>
                                             </span>
+                                        ))}
+                                    </div>
+                                </div>
+                                {/* Projects */}
+                                <div className="bg-white rounded-3xl p-6 md:p-8 border border-gray-200 shadow-sm mt-6">
+                                    <h3 className="font-bold text-gray-900 flex items-center gap-2 mb-4">Projects</h3>
+                                    <div className="space-y-3">
+                                        <button onClick={() => setProjects([{ id: Date.now(), title: '', description: '' }, ...projects])} className="px-4 py-2 bg-white border rounded-lg">+ Add Project</button>
+                                        {projects.map(p => (
+                                            <div key={p.id} className="p-3 border rounded-lg bg-gray-50">
+                                                <input value={p.title} onChange={(e) => setProjects(projects.map(x => x.id===p.id?{...x,title:e.target.value}:x))} placeholder="Project title" className="w-full mb-2 p-2" />
+                                                <textarea value={p.description} onChange={(e) => setProjects(projects.map(x => x.id===p.id?{...x,description:e.target.value}:x))} placeholder="Short description" className="w-full mb-2 p-2" />
+                                                <div className="flex gap-2">
+                                                    <input value={p.repo||''} onChange={(e)=>setProjects(projects.map(x=>x.id===p.id?{...x,repo:e.target.value}:x))} placeholder="Repo URL" className="p-2 flex-1" />
+                                                    <button onClick={() => setProjects(projects.filter(x => x.id !== p.id))} className="px-3 bg-red-50 text-red-600 rounded">Remove</button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                                {/* Education */}
+                                <div className="bg-white rounded-3xl p-6 md:p-8 border border-gray-200 shadow-sm mt-6">
+                                    <h3 className="font-bold text-gray-900 flex items-center gap-2 mb-4">Education</h3>
+                                    <div className="space-y-3">
+                                        <button onClick={() => setEducationList([{ id: Date.now(), institution: '', degree: '', period: '' }, ...educationList])} className="px-4 py-2 bg-white border rounded-lg">+ Add Education</button>
+                                        {educationList.map(e => (
+                                            <div key={e.id} className="p-3 border rounded-lg bg-gray-50">
+                                                <input value={e.institution} onChange={(evt)=>setEducationList(educationList.map(x=>x.id===e.id?{...x,institution:evt.target.value}:x))} placeholder="Institution" className="w-full mb-2 p-2" />
+                                                <input value={e.degree} onChange={(evt)=>setEducationList(educationList.map(x=>x.id===e.id?{...x,degree:evt.target.value}:x))} placeholder="Degree" className="w-full mb-2 p-2" />
+                                                <input value={e.period} onChange={(evt)=>setEducationList(educationList.map(x=>x.id===e.id?{...x,period:evt.target.value}:x))} placeholder="Period (e.g. 2019 - 2023)" className="w-full mb-2 p-2" />
+                                                <div className="flex justify-end">
+                                                    <button onClick={() => setEducationList(educationList.filter(x => x.id !== e.id))} className="px-3 bg-red-50 text-red-600 rounded">Remove</button>
+                                                </div>
+                                            </div>
                                         ))}
                                     </div>
                                 </div>

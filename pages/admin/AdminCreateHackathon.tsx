@@ -2,8 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AdminLayout } from '../../components/AdminLayout';
 import apiClient from '../../lib/axios';
-import { ChevronLeft, Save, Plus, Trash2, Gavel, Layers, Code, Calendar } from 'lucide-react';
+import { ChevronLeft, Save, Plus, Trash2, Gavel, Layers, Code, Calendar, FileText, Trophy, ClipboardList } from 'lucide-react';
 import { adminService } from '../../services/admin.service';
+import { useToast } from '../../components/ui/ToastProvider';
 
 const AdminCreateHackathon: React.FC = () => {
     const navigate = useNavigate();
@@ -12,6 +13,9 @@ const AdminCreateHackathon: React.FC = () => {
     
     // Form States
     const [name, setName] = useState('');
+    const [description, setDescription] = useState('');
+    const [task, setTask] = useState('');
+    const [prizes, setPrizes] = useState('');
     const [submissionDeadline, setSubmissionDeadline] = useState('');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
@@ -20,12 +24,17 @@ const AdminCreateHackathon: React.FC = () => {
     const [criteria, setCriteria] = useState([{ name: 'Innovation', weight: 25 }]);
     const [techStack, setTechStack] = useState(['React', 'Node.js', 'Python']);
     const [newTech, setNewTech] = useState('');
+    const [citiesInput, setCitiesInput] = useState('');
+    const [modesInput, setModesInput] = useState('');
+    const [themesInput, setThemesInput] = useState('');
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
     const [bannerFile, setBannerFile] = useState<File | null>(null);
     const [bannerUrl, setBannerUrl] = useState<string>('');
     const [uploadingBanner, setUploadingBanner] = useState(false);
     const bannerInputRef = useRef<HTMLInputElement | null>(null);
+
+    const { warn: toastWarn, success: toastSuccess, error: toastError } = useToast();
 
     useEffect(() => {
         if (isEditMode) {
@@ -36,6 +45,7 @@ const AdminCreateHackathon: React.FC = () => {
                     const data = await adminService.getHackathon(id!);
                     // expected fields: name, submission_deadline, max_team_size, event_info_json
                     setName(data.name || '');
+                    setDescription(data.description || '');
                     setSubmissionDeadline(data.submission_deadline || '');
                     setMaxTeamSize(data.max_team_size || 4);
 
@@ -43,12 +53,18 @@ const AdminCreateHackathon: React.FC = () => {
                     setJudgesPerSubmission(info.judges_per_submission || 3);
                     setCriteria(info.evaluation_criteria || [{ name: 'Innovation', weight: 25 }]);
                     setTechStack(info.tech_stack || ['React', 'Node.js', 'Python']);
+                    setTask(info.task || '');
+                    setPrizes(info.prizes || '');
                     setBannerUrl(data.banner || '');
                     setStartDate(info.start_date || '');
                     setEndDate(info.end_date || '');
+                    // if top-level arrays exist, populate inputs
+                    setCitiesInput(Array.isArray(data.cities) ? data.cities.join(', ') : (info.cities ? (Array.isArray(info.cities) ? info.cities.join(', ') : String(info.cities)) : ''));
+                    setModesInput(Array.isArray(data.modes) ? data.modes.join(', ') : (info.mode ? String(info.mode) : ''));
+                    setThemesInput(Array.isArray(data.themes) ? data.themes.join(', ') : (info.theme ? (Array.isArray(info.theme) ? info.theme.join(', ') : String(info.theme)) : ''));
                 } catch (err) {
                     console.error('[AdminCreateHackathon] Failed to load hackathon for edit', err);
-                    alert('Failed to load hackathon details for editing.');
+                    toastError('Failed to load hackathon details for editing.');
                 } finally {
                     setLoading(false);
                 }
@@ -80,16 +96,18 @@ const AdminCreateHackathon: React.FC = () => {
 
     const handleSave = async () => {
         if (!name || !submissionDeadline) {
-            alert('Please fill in Hackathon Name and Submission Deadline');
-            return;
-        }
+                toastWarn('Please fill in Hackathon Name and Submission Deadline');
+                return;
+            }
 
         const eventInfo = {
             judges_per_submission: judgesPerSubmission,
             evaluation_criteria: criteria,
             tech_stack: techStack,
             start_date: startDate || null,
-            end_date: endDate || null
+            end_date: endDate || null,
+            task: task || null,
+            prizes: prizes || null
         };
 
         try {
@@ -97,26 +115,34 @@ const AdminCreateHackathon: React.FC = () => {
             if (isEditMode) {
                 await adminService.updateHackathon(id!, {
                     name,
+                    description: description || null,
                     submission_deadline: submissionDeadline,
                     max_team_size: maxTeamSize,
-                    event_info_json: eventInfo,
-                    banner: bannerUrl || undefined
+                        event_info_json: eventInfo,
+                        banner: bannerUrl || undefined,
+                        cities: citiesInput ? citiesInput.split(',').map(s => s.trim()).filter(Boolean) : undefined,
+                        modes: modesInput ? modesInput.split(',').map(s => s.trim()).filter(Boolean) : undefined,
+                        themes: themesInput ? themesInput.split(',').map(s => s.trim()).filter(Boolean) : undefined
                 });
-                alert('Hackathon updated successfully!');
+                toastSuccess('Hackathon updated successfully!');
             } else {
                 await adminService.createHackathon({
                     name,
+                    description: description || null,
                     submission_deadline: submissionDeadline,
                     max_team_size: maxTeamSize,
-                    event_info_json: eventInfo,
-                    banner: bannerUrl || undefined
+                        event_info_json: eventInfo,
+                        banner: bannerUrl || undefined,
+                        cities: citiesInput ? citiesInput.split(',').map(s => s.trim()).filter(Boolean) : undefined,
+                        modes: modesInput ? modesInput.split(',').map(s => s.trim()).filter(Boolean) : undefined,
+                        themes: themesInput ? themesInput.split(',').map(s => s.trim()).filter(Boolean) : undefined
                 });
-                alert('Hackathon created successfully!');
+                toastSuccess('Hackathon created successfully!');
             }
             navigate('/admin/hackathons');
         } catch (error: any) {
             console.error('[AdminCreateHackathon] Error saving:', error);
-            alert('Failed to save: ' + (error.response?.data?.message || error.message));
+            toastError('Failed to save: ' + (error.response?.data?.message || error.message));
         } finally {
             setSaving(false);
         }
@@ -135,7 +161,7 @@ const AdminCreateHackathon: React.FC = () => {
             return url;
         } catch (err) {
             console.error('Banner upload failed', err);
-            alert('Failed to upload banner.');
+            toastError('Failed to upload banner.');
             return null;
         } finally {
             setUploadingBanner(false);
@@ -222,6 +248,16 @@ const AdminCreateHackathon: React.FC = () => {
                                     className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-[#5425FF] font-medium" 
                                 />
                             </div>
+                            <div className="md:col-span-2">
+                                <label className="block text-sm font-bold text-gray-700 mb-2">Description</label>
+                                <textarea 
+                                    placeholder="Describe your hackathon - goals, themes, what participants can expect..." 
+                                    value={description}
+                                    onChange={(e) => setDescription(e.target.value)}
+                                    rows={4}
+                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-[#5425FF] font-medium resize-none" 
+                                />
+                            </div>
                             <div>
                                 <label className="block text-sm font-bold text-gray-700 mb-2">Start Date</label>
                                 <input 
@@ -258,6 +294,36 @@ const AdminCreateHackathon: React.FC = () => {
                                     value={maxTeamSize}
                                     onChange={(e) => setMaxTeamSize(Number(e.target.value))}
                                     className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-[#5425FF]" 
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-2">Cities (comma-separated)</label>
+                                <input
+                                    type="text"
+                                    placeholder="e.g. Bangalore, Mumbai"
+                                    value={citiesInput}
+                                    onChange={(e) => setCitiesInput(e.target.value)}
+                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-[#5425FF]"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-2">Mode(s) (comma-separated)</label>
+                                <input
+                                    type="text"
+                                    placeholder="e.g. Online, Offline"
+                                    value={modesInput}
+                                    onChange={(e) => setModesInput(e.target.value)}
+                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-[#5425FF]"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-2">Themes (comma-separated)</label>
+                                <input
+                                    type="text"
+                                    placeholder="e.g. AI, Web, FinTech"
+                                    value={themesInput}
+                                    onChange={(e) => setThemesInput(e.target.value)}
+                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-[#5425FF]"
                                 />
                             </div>
                         </div>
@@ -340,6 +406,42 @@ const AdminCreateHackathon: React.FC = () => {
                                 placeholder="Type and press Enter to add..." 
                                 className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-[#5425FF]" 
                             />
+                        </div>
+                    </div>
+
+                    {/* 4. Task / Problem Statement */}
+                    <div className="bg-white p-8 rounded-3xl border border-gray-200 shadow-sm">
+                        <h3 className="font-heading text-lg text-gray-900 mb-6 flex items-center gap-2">
+                            <ClipboardList size={20} className="text-[#5425FF]" /> Task / Problem Statement
+                        </h3>
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-2">What needs to be done?</label>
+                            <textarea 
+                                placeholder="Describe the problem statement, requirements, deliverables, and any specific guidelines for participants..." 
+                                value={task}
+                                onChange={(e) => setTask(e.target.value)}
+                                rows={6}
+                                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-[#5425FF] font-medium resize-none" 
+                            />
+                            <p className="text-xs text-gray-500 mt-2">Tip: Be specific about expected outputs, technologies, and evaluation criteria.</p>
+                        </div>
+                    </div>
+
+                    {/* 5. Prizes */}
+                    <div className="bg-white p-8 rounded-3xl border border-gray-200 shadow-sm">
+                        <h3 className="font-heading text-lg text-gray-900 mb-6 flex items-center gap-2">
+                            <Trophy size={20} className="text-[#5425FF]" /> Prizes
+                        </h3>
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-2">Prize Details</label>
+                            <textarea 
+                                placeholder="e.g.&#10;🥇 1st Place: $5,000 + Internship opportunity&#10;🥈 2nd Place: $2,500&#10;🥉 3rd Place: $1,000&#10;Special prizes for best UI, most innovative, etc." 
+                                value={prizes}
+                                onChange={(e) => setPrizes(e.target.value)}
+                                rows={6}
+                                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-[#5425FF] font-medium resize-none" 
+                            />
+                            <p className="text-xs text-gray-500 mt-2">List all prizes including cash rewards, swag, and special category prizes.</p>
                         </div>
                     </div>
                 </div>

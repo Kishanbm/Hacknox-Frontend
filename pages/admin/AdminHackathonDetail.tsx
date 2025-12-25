@@ -3,10 +3,12 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { AdminLayout } from '../../components/AdminLayout';
 import { 
     ChevronLeft, Calendar, MapPin, Users, Gavel, Clock, Trophy, 
-    Calculator, Send, Download, AlertTriangle, CheckCircle2, TrendingUp, ExternalLink 
+    Calculator, Send, Download, AlertTriangle, CheckCircle2, TrendingUp, ExternalLink,
+    Edit3, X, Save, FileText, Target, ClipboardList
 } from 'lucide-react';
 import { adminService } from '../../services/admin.service';
 import apiClient from '../../lib/axios';
+import { useToast } from '../../components/ui/ToastProvider';
 
 const AdminHackathonDetail: React.FC = () => {
     const { id } = useParams();
@@ -26,6 +28,18 @@ const AdminHackathonDetail: React.FC = () => {
     const [leaderboardComputed, setLeaderboardComputed] = useState(false);
     const [publishing, setPublishing] = useState(false);
     const [leaderboardPublished, setLeaderboardPublished] = useState(false);
+    
+    // Edit Modal State
+    const [showEditModal, setShowEditModal] = useState(false);
+    const [editForm, setEditForm] = useState({
+        name: '',
+        description: '',
+        start_date: '',
+        end_date: '',
+        submission_deadline: '',
+        max_team_size: 5
+    });
+    const [saving, setSaving] = useState(false);
 
     useEffect(() => {
         if (id) {
@@ -51,16 +65,27 @@ const AdminHackathonDetail: React.FC = () => {
         };
     }, [id]);
 
+    const { success, error: toastError } = useToast();
+
     const fetchData = async () => {
         try {
             setLoading(true);
             
-            // Fetch all data in parallel (analytics requires x-hackathon-id header set above)
+            // First fetch hackathon metadata so we know the hackathon ID
+            let hackathonData = null;
+            try {
+                hackathonData = await adminService.getHackathon(id!);
+                setHackathon(hackathonData || null);
+            } catch (e) {
+                console.warn('[AdminHackathonDetail] failed to load hackathon metadata', e);
+            }
+            
+            // Fetch all data in parallel with explicit hackathon ID
             const [analyticsRes, judgesRes, teamsRes, leaderboardRes] = await Promise.all([
-                adminService.getAnalyticsOverview().catch(() => ({})),
-                adminService.getJudges(1, 100).catch(() => ({ judges: [] })),
-                adminService.getTeams(1, 100).catch(() => ({ teams: [] })),
-                adminService.getLeaderboard().catch(() => ({ leaderboard: [] }))
+                adminService.getAnalyticsForHackathon(id!).catch(() => ({})),
+                adminService.getJudgesForHackathon(id!, 1, 100).catch(() => ({ judges: [] })),
+                adminService.getTeams(1, 100, {}, '', id!).catch(() => ({ teams: [] })),
+                adminService.getLeaderboard(undefined, id!).catch(() => ({ leaderboard: [] }))
             ]);
 
             console.log('[AdminHackathonDetail] Fetched data:', { analyticsRes, judgesRes, teamsRes, leaderboardRes });
@@ -74,22 +99,21 @@ const AdminHackathonDetail: React.FC = () => {
             };
 
             setAnalytics(normalizedAnalytics || {});
-            setJudges(judgesRes.judges || []);
-            setTeams(teamsRes.teams || []);
+            
+            // Filter judges to only show those assigned to this hackathon
+            const judgesList = judgesRes.judges || judgesRes || [];
+            setJudges(Array.isArray(judgesList) ? judgesList : []);
+            
+            // Filter teams to only show those for this hackathon
+            const teamsList = teamsRes.teams || teamsRes || [];
+            setTeams(Array.isArray(teamsList) ? teamsList : []);
+            
             const lbData = Array.isArray(leaderboardRes) ? leaderboardRes : (leaderboardRes.leaderboard || []);
             const isPublished = leaderboardRes?.is_published ?? leaderboardRes?.isPublished ?? leaderboardRes?.published ?? false;
             setLeaderboard(lbData);
             setLeaderboardPublished(Boolean(isPublished));
-
-            // Also fetch the hackathon metadata (name, deadlines, etc.)
-            try {
-                const hack = await adminService.getHackathon(id!);
-                setHackathon(hack || null);
-            } catch (e) {
-                console.warn('[AdminHackathonDetail] failed to load hackathon metadata', e);
-            }
             
-            if (leaderboardRes.leaderboard && leaderboardRes.leaderboard.length > 0) {
+            if (lbData && lbData.length > 0) {
                 setLeaderboardComputed(true);
             }
         } catch (error: any) {
@@ -114,6 +138,66 @@ const AdminHackathonDetail: React.FC = () => {
         }
     };
 
+    const formatDate = (dateStr: string) => {
+        if (!dateStr) return 'Not set';
+        try {
+            const date = new Date(dateStr);
+            return date.toLocaleDateString('en-US', { 
+                year: 'numeric',
+                month: 'long', 
+                day: 'numeric'
+            });
+        } catch {
+            return dateStr;
+        }
+    };
+
+    const formatDateForInput = (dateStr: string) => {
+        if (!dateStr) return '';
+        try {
+            const date = new Date(dateStr);
+            return date.toISOString().slice(0, 16);
+        } catch {
+            return '';
+        }
+    };
+
+    const openEditModal = () => {
+        setEditForm({
+            name: hackathon?.name || '',
+            description: hackathon?.description || '',
+            start_date: formatDateForInput(hackathon?.start_date),
+            end_date: formatDateForInput(hackathon?.end_date),
+            submission_deadline: formatDateForInput(hackathon?.submission_deadline),
+            max_team_size: hackathon?.max_team_size || 5
+        });
+        setShowEditModal(true);
+    };
+
+    const handleSaveEdit = async () => {
+        try {
+            setSaving(true);
+            await adminService.updateHackathon(id!, {
+                name: editForm.name,
+                description: editForm.description,
+                start_date: editForm.start_date ? new Date(editForm.start_date).toISOString() : null,
+                end_date: editForm.end_date ? new Date(editForm.end_date).toISOString() : null,
+                submission_deadline: editForm.submission_deadline ? new Date(editForm.submission_deadline).toISOString() : null,
+                max_team_size: editForm.max_team_size
+            });
+            setShowEditModal(false);
+            // Refresh hackathon data
+            const hack = await adminService.getHackathon(id!);
+            setHackathon(hack || null);
+            success('Hackathon updated successfully!');
+        } catch (error: any) {
+            console.error('Failed to update: ' + (error.response?.data?.message || error.message));
+            toastError('Failed to update: ' + (error.response?.data?.message || error.message));
+        } finally {
+            setSaving(false);
+        }
+    };
+
     const handleCalculate = async () => {
         try {
             setCalculating(true);
@@ -125,9 +209,10 @@ const AdminHackathonDetail: React.FC = () => {
             const res = await adminService.getLeaderboard();
             setLeaderboard(res.leaderboard || []);
             setLeaderboardComputed(true);
-            alert('Leaderboard calculated successfully!');
+            success('Leaderboard calculated successfully!');
         } catch (error: any) {
-            alert('Failed to calculate: ' + (error.response?.data?.message || error.message));
+            console.error('Failed to calculate: ' + (error.response?.data?.message || error.message));
+            toastError('Failed to calculate: ' + (error.response?.data?.message || error.message));
         } finally {
             setCalculating(false);
         }
@@ -137,9 +222,10 @@ const AdminHackathonDetail: React.FC = () => {
         try {
             setPublishing(true);
             await adminService.publishLeaderboard(true);
-            alert('Leaderboard published successfully!');
+            success('Leaderboard published successfully!');
         } catch (error: any) {
-            alert('Failed to publish: ' + (error.response?.data?.message || error.message));
+            console.error('Failed to publish: ' + (error.response?.data?.message || error.message));
+            toastError('Failed to publish: ' + (error.response?.data?.message || error.message));
         } finally {
             setPublishing(false);
         }
@@ -157,7 +243,8 @@ const AdminHackathonDetail: React.FC = () => {
             window.URL.revokeObjectURL(url);
             document.body.removeChild(a);
         } catch (error: any) {
-            alert('Failed to export: ' + (error.response?.data?.message || error.message));
+            console.error('Failed to export: ' + (error.response?.data?.message || error.message));
+            toastError('Failed to export: ' + (error.response?.data?.message || error.message));
         }
     };
 
@@ -180,23 +267,64 @@ const AdminHackathonDetail: React.FC = () => {
                             <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-[#5425FF]/10 to-transparent rounded-bl-full -mr-16 -mt-16 pointer-events-none"></div>
                             
                             <div className="flex flex-col md:flex-row justify-between items-start gap-6 relative z-10">
-                                <div>
+                                <div className="flex-1">
                                     <div className="flex items-center gap-3 mb-2">
                                         <h1 className="text-4xl font-heading text-gray-900">{hackathon?.name || 'Hackathon Details'}</h1>
-                                        <span className="bg-[#24FF00]/10 text-green-700 border border-[#24FF00]/20 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide flex items-center gap-2">
-                                            <span className="w-2 h-2 bg-[#24FF00] rounded-full animate-pulse"></span> {hackathon?.status || 'Active'}
+                                        <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide flex items-center gap-2 border ${
+                                            hackathon?.status === 'active' || hackathon?.status === 'ongoing' 
+                                                ? 'bg-[#24FF00]/10 text-green-700 border-[#24FF00]/20' 
+                                                : hackathon?.status === 'completed' 
+                                                    ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                                    : 'bg-amber-50 text-amber-700 border-amber-200'
+                                        }`}>
+                                            <span className={`w-2 h-2 rounded-full ${
+                                                hackathon?.status === 'active' || hackathon?.status === 'ongoing' ? 'bg-[#24FF00] animate-pulse' : 
+                                                hackathon?.status === 'completed' ? 'bg-blue-500' : 'bg-amber-500'
+                                            }`}></span> 
+                                            {hackathon?.status || 'Active'}
                                         </span>
+                                        <button
+                                            onClick={openEditModal}
+                                            className="ml-2 p-2 bg-gray-100 hover:bg-gray-200 rounded-xl text-gray-600 hover:text-[#5425FF] transition-all"
+                                            title="Edit Hackathon"
+                                        >
+                                            <Edit3 size={18} />
+                                        </button>
                                     </div>
-                                    <div className="flex items-center gap-6 text-sm font-medium text-gray-500 mt-4">
-                                        <span className="flex items-center gap-2"><Calendar size={18} className="text-[#5425FF]" /> ID: {id}</span>
-                                        <span className="flex items-center gap-2">Max Team: {hackathon?.max_team_size ?? hackathon?.maxTeamSize ?? analytics?.totalTeams ?? 'N/A'}</span>
-                                    </div>
-
-                                    {/* Dev info: show fetched objects so UI doesn't go blank and to aid debugging */}
-                                    <div className="mt-4 text-xs text-gray-400 bg-gray-50 p-3 rounded-lg border border-gray-100">
-                                        <div><strong>Debug:</strong></div>
-                                        <div className="mt-2">
-                                            <pre className="whitespace-pre-wrap break-words max-h-32 overflow-auto">{JSON.stringify({ hackathon: hackathon?.id ? { id: hackathon.id, name: hackathon.name } : null, analytics: analytics ? { totalTeams: analytics.totalTeams, totalSubmissions: analytics.totalSubmissions } : null, judges: judges?.length, teams: teams?.length }, null, 2)}</pre>
+                                    
+                                    {hackathon?.description && (
+                                        <p className="text-gray-600 text-sm mt-2 max-w-2xl line-clamp-2">{hackathon.description}</p>
+                                    )}
+                                    
+                                    {/* Key Dates & Info */}
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
+                                        <div className="bg-gray-50 rounded-xl p-3 border border-gray-100">
+                                            <div className="flex items-center gap-2 text-gray-500 text-xs font-medium mb-1">
+                                                <Calendar size={14} className="text-[#5425FF]" />
+                                                Start Date
+                                            </div>
+                                            <div className="font-bold text-gray-900 text-sm">{formatDate(hackathon?.start_date)}</div>
+                                        </div>
+                                        <div className="bg-gray-50 rounded-xl p-3 border border-gray-100">
+                                            <div className="flex items-center gap-2 text-gray-500 text-xs font-medium mb-1">
+                                                <Calendar size={14} className="text-red-500" />
+                                                End Date
+                                            </div>
+                                            <div className="font-bold text-gray-900 text-sm">{formatDate(hackathon?.end_date)}</div>
+                                        </div>
+                                        <div className="bg-gray-50 rounded-xl p-3 border border-gray-100">
+                                            <div className="flex items-center gap-2 text-gray-500 text-xs font-medium mb-1">
+                                                <Clock size={14} className="text-amber-500" />
+                                                Submission Deadline
+                                            </div>
+                                            <div className="font-bold text-gray-900 text-sm">{formatDeadline(hackathon?.submission_deadline)}</div>
+                                        </div>
+                                        <div className="bg-gray-50 rounded-xl p-3 border border-gray-100">
+                                            <div className="flex items-center gap-2 text-gray-500 text-xs font-medium mb-1">
+                                                <Users size={14} className="text-green-500" />
+                                                Max Team Size
+                                            </div>
+                                            <div className="font-bold text-gray-900 text-sm">{hackathon?.max_team_size || 'N/A'} members</div>
                                         </div>
                                     </div>
                                 </div>
@@ -207,9 +335,117 @@ const AdminHackathonDetail: React.FC = () => {
                                         {analytics?.totalTeams || 0} Teams
                                     </div>
                                     <div className="text-xs text-gray-500 mt-1">{analytics?.totalSubmissions || 0} Submissions</div>
+                                    <div className="border-t border-gray-700 mt-3 pt-3">
+                                        <div className="text-xs text-gray-400">{judges.length} Judges assigned</div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
+
+                        {/* Edit Modal */}
+                        {showEditModal && (
+                            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                                <div className="bg-white rounded-3xl p-8 max-w-xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+                                    <div className="flex justify-between items-center mb-6">
+                                        <h2 className="text-2xl font-heading text-gray-900">Edit Hackathon</h2>
+                                        <button 
+                                            onClick={() => setShowEditModal(false)}
+                                            className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
+                                        >
+                                            <X size={20} />
+                                        </button>
+                                    </div>
+                                    
+                                    <div className="space-y-5">
+                                        <div>
+                                            <label className="block text-sm font-bold text-gray-700 mb-2">Hackathon Name</label>
+                                            <input
+                                                type="text"
+                                                value={editForm.name}
+                                                onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                                                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#5425FF]/20 focus:border-[#5425FF] outline-none transition-all"
+                                                placeholder="Enter hackathon name"
+                                            />
+                                        </div>
+                                        
+                                        <div>
+                                            <label className="block text-sm font-bold text-gray-700 mb-2">Description</label>
+                                            <textarea
+                                                value={editForm.description}
+                                                onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                                                rows={3}
+                                                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#5425FF]/20 focus:border-[#5425FF] outline-none transition-all resize-none"
+                                                placeholder="Enter description"
+                                            />
+                                        </div>
+                                        
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="block text-sm font-bold text-gray-700 mb-2">Start Date</label>
+                                                <input
+                                                    type="datetime-local"
+                                                    value={editForm.start_date}
+                                                    onChange={(e) => setEditForm({ ...editForm, start_date: e.target.value })}
+                                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#5425FF]/20 focus:border-[#5425FF] outline-none transition-all"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-bold text-gray-700 mb-2">End Date</label>
+                                                <input
+                                                    type="datetime-local"
+                                                    value={editForm.end_date}
+                                                    onChange={(e) => setEditForm({ ...editForm, end_date: e.target.value })}
+                                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#5425FF]/20 focus:border-[#5425FF] outline-none transition-all"
+                                                />
+                                            </div>
+                                        </div>
+                                        
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="block text-sm font-bold text-gray-700 mb-2">Submission Deadline</label>
+                                                <input
+                                                    type="datetime-local"
+                                                    value={editForm.submission_deadline}
+                                                    onChange={(e) => setEditForm({ ...editForm, submission_deadline: e.target.value })}
+                                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#5425FF]/20 focus:border-[#5425FF] outline-none transition-all"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-bold text-gray-700 mb-2">Max Team Size</label>
+                                                <input
+                                                    type="number"
+                                                    min={1}
+                                                    max={10}
+                                                    value={editForm.max_team_size}
+                                                    onChange={(e) => setEditForm({ ...editForm, max_team_size: parseInt(e.target.value) || 5 })}
+                                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#5425FF]/20 focus:border-[#5425FF] outline-none transition-all"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="flex gap-3 mt-8">
+                                        <button
+                                            onClick={() => setShowEditModal(false)}
+                                            className="flex-1 px-6 py-3 border border-gray-200 rounded-xl font-bold text-gray-600 hover:bg-gray-50 transition-all"
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            onClick={handleSaveEdit}
+                                            disabled={saving}
+                                            className="flex-1 px-6 py-3 bg-[#5425FF] text-white rounded-xl font-bold hover:bg-[#4015D1] shadow-lg shadow-[#5425FF]/20 transition-all flex items-center justify-center gap-2 disabled:opacity-70"
+                                        >
+                                            {saving ? (
+                                                <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> Saving...</>
+                                            ) : (
+                                                <><Save size={18} /> Save Changes</>
+                                            )}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
 
                         {/* Tabs */}
                         <div className="flex gap-2 overflow-x-auto pb-4 mb-2">
@@ -230,44 +466,71 @@ const AdminHackathonDetail: React.FC = () => {
 
                 {/* --- OVERVIEW TAB --- */}
                 {activeTab === 'Overview' && (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
-                        <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm">
-                            <h3 className="text-gray-500 font-bold text-sm uppercase tracking-wide mb-4">Participation</h3>
-                            <div className="flex items-end gap-2 mb-2">
-                                <span className="text-4xl font-heading text-gray-900">{analytics?.totalTeams || 0}</span>
-                                <span className="text-gray-500 font-bold mb-1">Teams</span>
+                    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
+                        {/* Stats Cards */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm">
+                                <h3 className="text-gray-500 font-bold text-sm uppercase tracking-wide mb-4">Participation</h3>
+                                <div className="flex items-end gap-2 mb-2">
+                                    <span className="text-4xl font-heading text-gray-900">{analytics?.totalTeams || 0}</span>
+                                    <span className="text-gray-500 font-bold mb-1">Teams</span>
+                                </div>
+                                <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
+                                    <div className="bg-[#5425FF] h-2 rounded-full" style={{ width: '85%' }}></div>
+                                </div>
+                                <p className="text-xs text-gray-500 mt-2">Registered teams</p>
                             </div>
-                            <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
-                                <div className="bg-[#5425FF] h-2 rounded-full" style={{ width: '85%' }}></div>
+                            <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm">
+                                <h3 className="text-gray-500 font-bold text-sm uppercase tracking-wide mb-4">Submission Status</h3>
+                                <div className="flex items-end gap-2 mb-2">
+                                    <span className="text-4xl font-heading text-gray-900">{analytics?.totalSubmissions || 0}</span>
+                                    <span className="text-gray-500 font-bold mb-1">Submitted</span>
+                                </div>
+                                <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
+                                    <div className="bg-[#24FF00] h-2 rounded-full" style={{ 
+                                        width: `${analytics?.totalTeams ? (analytics.totalSubmissions / analytics.totalTeams * 100) : 0}%` 
+                                    }}></div>
+                                </div>
+                                <p className="text-xs text-gray-500 mt-2">
+                                    {analytics?.totalTeams ? Math.round((analytics.totalSubmissions / analytics.totalTeams) * 100) : 0}% of teams
+                                </p>
                             </div>
-                            <p className="text-xs text-gray-500 mt-2">Registered teams</p>
+                            <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm">
+                                <h3 className="text-gray-500 font-bold text-sm uppercase tracking-wide mb-4">Evaluation</h3>
+                                <div className="flex items-end gap-2 mb-2">
+                                    <span className="text-4xl font-heading text-gray-900">{judges.length}</span>
+                                    <span className="text-gray-500 font-bold mb-1">Judges</span>
+                                </div>
+                                <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
+                                    <div className="bg-amber-500 h-2 rounded-full" style={{ width: '60%' }}></div>
+                                </div>
+                                <p className="text-xs text-gray-500 mt-2">Active judges</p>
+                            </div>
                         </div>
-                        <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm">
-                            <h3 className="text-gray-500 font-bold text-sm uppercase tracking-wide mb-4">Submission Status</h3>
-                            <div className="flex items-end gap-2 mb-2">
-                                <span className="text-4xl font-heading text-gray-900">{analytics?.totalSubmissions || 0}</span>
-                                <span className="text-gray-500 font-bold mb-1">Submitted</span>
+
+                        {/* Task / Problem Statement */}
+                        {hackathon?.event_info_json?.task && (
+                            <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm">
+                                <h3 className="font-heading text-lg text-gray-900 mb-4 flex items-center gap-2">
+                                    <ClipboardList size={20} className="text-blue-500" /> Task / Problem Statement
+                                </h3>
+                                <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl">
+                                    <p className="whitespace-pre-line text-gray-700 leading-relaxed">{hackathon.event_info_json.task}</p>
+                                </div>
                             </div>
-                            <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
-                                <div className="bg-[#24FF00] h-2 rounded-full" style={{ 
-                                    width: `${analytics?.totalTeams ? (analytics.totalSubmissions / analytics.totalTeams * 100) : 0}%` 
-                                }}></div>
+                        )}
+
+                        {/* Prizes */}
+                        {hackathon?.event_info_json?.prizes && (
+                            <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm">
+                                <h3 className="font-heading text-lg text-gray-900 mb-4 flex items-center gap-2">
+                                    <Trophy size={20} className="text-amber-500" /> Prizes
+                                </h3>
+                                <div className="p-4 bg-amber-50 border border-amber-100 rounded-xl">
+                                    <p className="whitespace-pre-line text-gray-700 leading-relaxed">{hackathon.event_info_json.prizes}</p>
+                                </div>
                             </div>
-                            <p className="text-xs text-gray-500 mt-2">
-                                {analytics?.totalTeams ? Math.round((analytics.totalSubmissions / analytics.totalTeams) * 100) : 0}% of teams
-                            </p>
-                        </div>
-                        <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm">
-                            <h3 className="text-gray-500 font-bold text-sm uppercase tracking-wide mb-4">Evaluation</h3>
-                            <div className="flex items-end gap-2 mb-2">
-                                <span className="text-4xl font-heading text-gray-900">{judges.length}</span>
-                                <span className="text-gray-500 font-bold mb-1">Judges</span>
-                            </div>
-                            <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
-                                <div className="bg-amber-500 h-2 rounded-full" style={{ width: '60%' }}></div>
-                            </div>
-                            <p className="text-xs text-gray-500 mt-2">Active judges</p>
-                        </div>
+                        )}
                     </div>
                 )}
 

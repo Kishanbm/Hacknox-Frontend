@@ -12,12 +12,15 @@ const AdminAudit: React.FC = () => {
     const [searchAction, setSearchAction] = useState('');
     const [searchUser, setSearchUser] = useState('');
     const [filter, setFilter] = useState('All');
+    const [selectedHackathonId, setSelectedHackathonId] = useState<string | undefined>(localStorage.getItem('selectedHackathonId') || undefined);
 
     const load = async (p = 1) => {
         setLoading(true);
         setError(null);
         try {
-            const res = await adminService.getAuditLogs(p, limit);
+            // Pass hackathonId only if specifically selected (not 'all' or undefined)
+            const hackId = selectedHackathonId && selectedHackathonId !== 'all' ? selectedHackathonId : undefined;
+            const res = await adminService.getAuditLogs(p, limit, hackId);
             setLogs(res.logs || res || []);
             setPage(res.page || p);
         } catch (e: any) {
@@ -30,7 +33,7 @@ const AdminAudit: React.FC = () => {
     useEffect(() => {
         load(1);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [selectedHackathonId]);
 
     const formatDetails = (details: any) => {
         if (!details) return '';
@@ -49,10 +52,42 @@ const AdminAudit: React.FC = () => {
             if (parsed.message && typeof parsed.message === 'string') return parsed.message;
             // If result.message nested
             if (parsed.result?.message && typeof parsed.result.message === 'string') return parsed.result.message;
+            
+            // Build a human-readable description from common fields
+            const parts: string[] = [];
+            
+            // Handle announcement-related fields
+            if (parsed.announcementId) parts.push(`announcementId: ${parsed.announcementId}`);
+            if (parsed.title) parts.push(`title: ${parsed.title}`);
+            if (parsed.content) parts.push(`content: ${String(parsed.content).substring(0, 50)}${parsed.content.length > 50 ? '...' : ''}`);
+            
+            // Handle submission-related fields
+            if (parsed.submissionId) parts.push(`submissionId: ${parsed.submissionId}`);
+            if (parsed.submissionTitle || parsed.submission_title) parts.push(`submission: ${parsed.submissionTitle || parsed.submission_title}`);
+            if (parsed.teamName || parsed.team_name) parts.push(`team: ${parsed.teamName || parsed.team_name}`);
+            if (parsed.status) parts.push(`status: ${parsed.status}`);
+            
+            // Handle judge/team related
+            if (parsed.judgeId) parts.push(`judgeId: ${parsed.judgeId}`);
+            if (parsed.judgeName || parsed.judge_name) parts.push(`judge: ${parsed.judgeName || parsed.judge_name}`);
+            if (parsed.teamId) parts.push(`teamId: ${parsed.teamId}`);
+            
+            // Handle hackathon related
+            if (parsed.hackathonId) parts.push(`hackathonId: ${parsed.hackathonId}`);
+            if (parsed.hackathonName || parsed.hackathon_name) parts.push(`hackathon: ${parsed.hackathonName || parsed.hackathon_name}`);
+            
+            // Handle user related
+            if (parsed.email) parts.push(`email: ${parsed.email}`);
+            if (parsed.userId) parts.push(`userId: ${parsed.userId}`);
+            
+            // If we built up parts, return them
+            if (parts.length > 0) return parts.join('\n');
+            
             // Otherwise pretty-print key: value pairs (shallow)
             return Object.entries(parsed)
+                .slice(0, 5) // Limit to first 5 fields
                 .map(([k, v]) => {
-                    if (typeof v === 'object') return `${k}: ${JSON.stringify(v)}`;
+                    if (typeof v === 'object') return `${k}: ${JSON.stringify(v).substring(0, 50)}`;
                     return `${k}: ${v}`;
                 })
                 .join('\n');

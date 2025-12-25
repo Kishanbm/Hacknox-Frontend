@@ -182,7 +182,10 @@ export const AdminLayout: React.FC<SidebarProps> = ({ children }) => {
                    <span className="text-xs font-bold text-gray-600">System Secure</span>
                 </div>
 
-                <button className="relative w-10 h-10 md:w-11 md:h-11 bg-white rounded-full flex items-center justify-center text-gray-500 hover:text-[#5425FF] shadow-sm border border-gray-100 transition-colors group">
+                <button 
+                    onClick={() => navigate('/admin/reports')}
+                    className="relative w-10 h-10 md:w-11 md:h-11 bg-white rounded-full flex items-center justify-center text-gray-500 hover:text-[#5425FF] shadow-sm border border-gray-100 transition-colors group"
+                >
                     <Bell size={20} className="group-hover:animate-swing" />
                     <span className="absolute top-3 right-3 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>
                 </button>

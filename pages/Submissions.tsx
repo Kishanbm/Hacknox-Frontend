@@ -23,12 +23,14 @@ const Submissions: React.FC = () => {
   const [teams, setTeams] = useState<TeamWithHackathon[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const location = useLocation();
 
   useEffect(() => {
     // If the page was opened with a hackathon query param (e.g. from HackathonDetail "Manage Submission"),
     // store it so API client sends `x-hackathon-id` header and the submissions endpoint can return results.
     const params = new URLSearchParams(location.search);
     const hackathonParam = params.get('hackathon');
+    const teamParam = params.get('team');
     if (hackathonParam) {
       try {
         localStorage.setItem('selectedHackathonId', hackathonParam);
@@ -37,10 +39,10 @@ const Submissions: React.FC = () => {
       }
     }
 
-    loadTeamsAndSubmissions();
+    loadTeamsAndSubmissions(hackathonParam || undefined, teamParam || undefined);
   }, []);
 
-  const loadTeamsAndSubmissions = async () => {
+  const loadTeamsAndSubmissions = async (hackathonFilter?: string, teamFilter?: string) => {
     try {
       setIsLoading(true);
       setError(null);
@@ -48,11 +50,16 @@ const Submissions: React.FC = () => {
       // Fetch all teams user is part of (doesn't require hackathon header)
       const teamsResponse = await teamService.getMyTeams();
       const myTeams = Array.isArray(teamsResponse) ? teamsResponse : (teamsResponse as any)?.teams || [];
+      // Log raw teams response for debugging verification status fields
+      console.debug('[Submissions] Raw myTeams response:', myTeams);
       
       // For each team, fetch hackathon details and submission
       const enriched = await Promise.all(
         myTeams.map(async (team: any) => {
           try {
+            // Apply optional filters: if query param provided, only include matching team/hackathon
+            if (teamFilter && String(team.id) !== String(teamFilter)) return null;
+            if (hackathonFilter && String(team.hackathon_id || team.hackathonId) !== String(hackathonFilter)) return null;
             const hackathonId = team.hackathon_id || team.hackathonId;
             if (!hackathonId) return null;
             
@@ -79,7 +86,10 @@ const Submissions: React.FC = () => {
               hackathon_slug: hackathonDetails?.slug,
               submission_deadline: hackathonDetails?.submission_deadline,
               is_leader: team.leader_id === team.current_user_id || team.isLeader,
+              // Preserve verification fields from the API so the UI can decide correctly
               status: team.status,
+              verification_status: (team as any).verification_status,
+              is_verified: (team as any).is_verified,
               submission,
             } as TeamWithHackathon;
           } catch (e) {
@@ -88,6 +98,8 @@ const Submissions: React.FC = () => {
           }
         })
       );
+      // Log enriched teams to inspect verification fields returned from backend
+      console.debug('[Submissions] Enriched teams:', enriched);
       
       setTeams(enriched.filter(Boolean) as TeamWithHackathon[]);
     } catch (err: any) {
@@ -203,6 +215,33 @@ const Submissions: React.FC = () => {
                             <p className="text-sm font-medium text-gray-600 mb-1">
                               {team.hackathon_name} • <span className="text-gray-400">with {team.name}</span>
                               {team.is_leader && <span className="ml-2 text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">Team Leader</span>}
+                              {
+                                // Determine verification using multiple possible fields returned by backend
+                                (() => {
+                                  const statusRaw = (team as any).status || (team as any).verification_status || '';
+                                  const isVerifiedFlag = (team as any).is_verified === true || String(statusRaw).toLowerCase() === 'verified' || String(statusRaw).toLowerCase() === 'accepted';
+                                  const isRejected = String(statusRaw).toLowerCase() === 'rejected';
+                                  if (isVerifiedFlag) {
+                                    return (
+                                      <span className="ml-2 text-xs bg-green-50 text-green-600 border border-green-200 px-2 py-0.5 rounded flex-inline items-center gap-1">
+                                        <CheckCircle2 size={10} className="inline" /> Verified
+                                      </span>
+                                    );
+                                  }
+                                  if (isRejected) {
+                                    return (
+                                      <span className="ml-2 text-xs bg-red-50 text-red-600 border border-red-200 px-2 py-0.5 rounded flex-inline items-center gap-1">
+                                        <AlertCircle size={10} className="inline" /> Rejected
+                                      </span>
+                                    );
+                                  }
+                                  return (
+                                    <span className="ml-2 text-xs bg-amber-50 text-amber-600 border border-amber-200 px-2 py-0.5 rounded flex-inline items-center gap-1">
+                                      <Clock size={10} className="inline" /> Pending Verification
+                                    </span>
+                                  );
+                                })()
+                              }
                             </p>
                             <div className="flex items-center gap-4 text-xs text-gray-400 font-medium">
                                 <span className="flex items-center gap-1">
@@ -233,9 +272,22 @@ const Submissions: React.FC = () => {
                               {sub!.canEdit ? <><Edit3 size={16} /> Continue Edit</> : <><Eye size={16} /> View Project</>}
                           </Link>
                         ) : (
-                          <Link to={`/dashboard/submissions/create?hackathon=${team.hackathon_id}&team=${team.id}`} className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-primary text-white font-bold hover:bg-primary/90 transition-colors flex items-center justify-center gap-2 shadow-lg shadow-primary/20">
-                            <Plus size={16} /> Create Submission
-                          </Link>
+                          (() => {
+                            const statusRaw = (team as any).status || (team as any).verification_status || '';
+                            const isVerifiedFlag = (team as any).is_verified === true || String(statusRaw).toLowerCase() === 'verified' || String(statusRaw).toLowerCase() === 'accepted';
+                            if (isVerifiedFlag) {
+                              return (
+                                <Link to={`/dashboard/submissions/create?hackathon=${team.hackathon_id}&team=${team.id}`} className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-primary text-white font-bold hover:bg-primary/90 transition-colors flex items-center justify-center gap-2 shadow-lg shadow-primary/20">
+                                  <Plus size={16} /> Create Submission
+                                </Link>
+                              );
+                            }
+                            return (
+                              <div className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-gray-100 text-gray-500 font-bold flex items-center justify-center gap-2 border border-gray-200 cursor-not-allowed" title="Team must be verified by admin before submitting">
+                                <AlertCircle size={16} /> Pending Verification
+                              </div>
+                            );
+                          })()
                         )}
                     </div>
                 </div>

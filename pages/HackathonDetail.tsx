@@ -4,7 +4,7 @@ import { DashboardLayout } from '../components/Layout';
 import submissionsService from '../services/submissions.service';
 import { 
   Calendar, MapPin, Users, Trophy, ChevronLeft, Share2, 
-  ExternalLink, Globe, MessageCircle, Clock, CheckCircle2, AlertCircle, Code, Gavel 
+  ExternalLink, Globe, MessageCircle, Clock, CheckCircle2, AlertCircle, Code, Gavel, ClipboardList 
 } from 'lucide-react';
 
 const HackathonDetail: React.FC = () => {
@@ -174,9 +174,9 @@ const HackathonDetail: React.FC = () => {
                                 Register Now
                             </Link>
                         )}
-                        <button className="flex items-center justify-center gap-2 text-gray-600 bg-gray-50 hover:bg-gray-100 py-2.5 rounded-xl font-bold text-sm transition-colors">
+                        {/* <button className="flex items-center justify-center gap-2 text-gray-600 bg-gray-50 hover:bg-gray-100 py-2.5 rounded-xl font-bold text-sm transition-colors">
                             <MessageCircle size={18} /> Join Discord
-                        </button>
+                        </button> */}
                     </div>
                 </div>
             </div>
@@ -264,22 +264,39 @@ const HackathonDetail: React.FC = () => {
                                      </div>
                                  </div>
                              )}
+
+                             {/* Task / Problem Statement */}
+                             {event.raw_event_info?.task && (
+                                 <div>
+                                     <h3 className="font-heading text-lg mb-3 text-gray-900 flex items-center gap-2">
+                                         <ClipboardList size={20} className="text-blue-500"/> Task / Problem Statement
+                                     </h3>
+                                     <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl">
+                                         <p className="whitespace-pre-line text-gray-700 leading-relaxed">{event.raw_event_info.task}</p>
+                                     </div>
+                                 </div>
+                             )}
                              
                              <div>
                                  <h3 className="font-heading text-lg mb-3 text-gray-900 flex items-center gap-2"><Trophy size={20} className="text-amber-500"/> Prizes</h3>
-                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {(Array.isArray(event.prizes) && event.prizes.length > 0) ? (
-                                      event.prizes.map((prize: any, idx: number) => (
-                                        <div key={idx} className="p-4 rounded-xl bg-amber-50 border border-amber-100">
-                                            <div className="text-amber-800 font-bold text-lg">{prize.value}</div>
-                                            <div className="font-bold text-gray-900">{prize.title}</div>
-                                            <div className="text-xs text-amber-700">{prize.desc}</div>
-                                        </div>
-                                      ))
-                                    ) : (
-                                      <div className="p-4 text-sm text-gray-500">No prizes listed for this event.</div>
-                                    )}
-                                 </div>
+                                 {/* Check for text-based prizes from event_info_json first */}
+                                 {event.raw_event_info?.prizes ? (
+                                     <div className="p-4 bg-amber-50 border border-amber-100 rounded-xl">
+                                         <p className="whitespace-pre-line text-gray-700 leading-relaxed">{event.raw_event_info.prizes}</p>
+                                     </div>
+                                 ) : (Array.isArray(event.prizes) && event.prizes.length > 0) ? (
+                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                       {event.prizes.map((prize: any, idx: number) => (
+                                         <div key={idx} className="p-4 rounded-xl bg-amber-50 border border-amber-100">
+                                             <div className="text-amber-800 font-bold text-lg">{prize.value}</div>
+                                             <div className="font-bold text-gray-900">{prize.title}</div>
+                                             <div className="text-xs text-amber-700">{prize.desc}</div>
+                                         </div>
+                                       ))}
+                                     </div>
+                                 ) : (
+                                   <div className="p-4 text-sm text-gray-500">No prizes listed for this event.</div>
+                                 )}
                              </div>
                          </div>
                      )}

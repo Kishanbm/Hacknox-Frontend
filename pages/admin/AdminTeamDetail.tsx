@@ -22,10 +22,12 @@ const AdminTeamDetail: React.FC = () => {
 
     const load = async () => {
         if (!id) return;
-        try {
+            try {
             setLoading(true);
             setError(null);
-            const res = await adminService.getTeamDetail(id);
+            // include the currently selected hackathon as header so backend middleware is satisfied
+            const selectedHackathon = localStorage.getItem('selectedHackathonId') || undefined;
+            const res = await adminService.getTeamDetail(id, selectedHackathon);
             setTeam(res.team || res);
             setEditForm({
                 name: res.team?.name || res?.name || '',
@@ -50,7 +52,8 @@ const AdminTeamDetail: React.FC = () => {
         setError(null);
         setMessage(null);
         try {
-            const res = await adminService.verifyTeam(id, action);
+            const selectedHackathon = localStorage.getItem('selectedHackathonId') || undefined;
+            const res = await adminService.verifyTeam(id, action, selectedHackathon);
             setMessage(res.message || 'Updated');
             await load();
         } catch (e: any) {
@@ -69,7 +72,11 @@ const AdminTeamDetail: React.FC = () => {
             if (editForm.city) payload.city = editForm.city;
             if (editForm.projectCategory) payload.projectCategory = editForm.projectCategory;
             if (editForm.adminNotes) payload.adminNotes = editForm.adminNotes;
-            const res = await adminService.updateTeam(id, payload);
+            // Prefer explicit hackathon id from the team object; fall back to selectedHackathonId in localStorage
+            const teamHackathonId = team?.hackathon_id || team?.hackathonId || undefined;
+            const selectedHackathon = localStorage.getItem('selectedHackathonId') || undefined;
+            const hackIdToSend = teamHackathonId || selectedHackathon;
+            const res = await adminService.updateTeam(id, payload, hackIdToSend);
             setMessage(res.message || 'Saved');
             await load();
         } catch (e: any) {

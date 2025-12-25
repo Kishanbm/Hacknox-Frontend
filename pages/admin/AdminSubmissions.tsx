@@ -10,7 +10,8 @@ import { adminService } from '../../services/admin.service';
 const AdminSubmissions: React.FC = () => {
     const navigate = useNavigate();
     const [hackathons, setHackathons] = useState<any[]>([]);
-    const [selectedHackathonId, setSelectedHackathonId] = useState<string | undefined>(localStorage.getItem('selectedHackathonId') || undefined);
+    // Default to 'All' when opening the Submissions tab (do not restore previous selection)
+    const [selectedHackathonId, setSelectedHackathonId] = useState<string | undefined>(undefined);
     const [statusFilter, setStatusFilter] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
     const [isExporting, setIsExporting] = useState(false);
@@ -34,12 +35,7 @@ const AdminSubmissions: React.FC = () => {
                 const list = res?.hackathons || res || [];
                 setHackathons(list);
 
-                // Clear stored selected hackathon id if it doesn't belong to this admin
-                const stored = localStorage.getItem('selectedHackathonId') || undefined;
-                if (stored && !list.find((h: any) => h.id === stored)) {
-                    localStorage.removeItem('selectedHackathonId');
-                    setSelectedHackathonId(undefined);
-                }
+                // Do not persist selection here; default view is 'All'
             } catch (e) {
                 // ignore
             }
@@ -49,11 +45,6 @@ const AdminSubmissions: React.FC = () => {
 
     // Load data when dependencies change
     useEffect(() => {
-        if (selectedHackathonId) {
-            localStorage.setItem('selectedHackathonId', selectedHackathonId);
-        } else {
-            localStorage.removeItem('selectedHackathonId');
-        }
         load();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedHackathonId, page, statusFilter, hackathons]);
@@ -231,35 +222,23 @@ const AdminSubmissions: React.FC = () => {
                     </div>
                 </div>
 
-                {/* KPI Overview */}
+                {/* KPI Overview (match Assignments card style) */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-                    <div className="bg-gradient-to-br from-blue-200 to-white rounded-2xl p-4 shadow-sm border border-gray-100 hover:border-[#5425FF]/30 hover:shadow-md transition-all duration-200">
-                        <div className="flex items-center gap-2 mb-1">
-                            <FileText size={18} className="text-blue-600" />
-                            <p className="text-sm font-figtree text-[#64748b]">Total Submitted</p>
-                        </div>
-                        <p className="text-2xl font-semibold text-blue-600">{stats.totalSubmitted}</p>
+                    <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
+                        <div className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">Total Submitted</div>
+                        <div className="text-2xl font-heading text-gray-900">{stats.totalSubmitted}</div>
                     </div>
-                    <div className="bg-gradient-to-br from-emerald-200 to-white rounded-2xl p-4 shadow-sm border border-gray-100 hover:border-[#5425FF]/30 hover:shadow-md transition-all duration-200">
-                        <div className="flex items-center gap-2 mb-1">
-                            <CheckCircle2 size={18} className="text-emerald-600" />
-                            <p className="text-sm font-figtree text-[#64748b]">Accepted</p>
-                        </div>
-                        <p className="text-2xl font-semibold text-emerald-600">{stats.accepted}</p>
+                    <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
+                        <div className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">Accepted</div>
+                        <div className="text-2xl font-heading text-green-600">{stats.accepted}</div>
                     </div>
-                    <div className="bg-gradient-to-br from-red-200 to-white rounded-2xl p-4 shadow-sm border border-gray-100 hover:border-[#5425FF]/30 hover:shadow-md transition-all duration-200">
-                        <div className="flex items-center gap-2 mb-1">
-                            <AlertTriangle size={18} className="text-red-600" />
-                            <p className="text-sm font-figtree text-[#64748b]">Rejected</p>
-                        </div>
-                        <p className="text-2xl font-semibold text-red-600">{stats.rejected}</p>
+                    <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
+                        <div className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">Rejected</div>
+                        <div className="text-2xl font-heading text-red-600">{stats.rejected}</div>
                     </div>
-                    <div className="bg-gradient-to-br from-amber-200 to-white rounded-2xl p-4 shadow-sm border border-gray-100 hover:border-[#5425FF]/30 hover:shadow-md transition-all duration-200">
-                        <div className="flex items-center gap-2 mb-1">
-                            <Clock size={18} className="text-amber-600" />
-                            <p className="text-sm font-figtree text-[#64748b]">Under Review</p>
-                        </div>
-                        <p className="text-2xl font-semibold text-amber-600">{stats.underReview}</p>
+                    <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
+                        <div className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">Under Review</div>
+                        <div className="text-2xl font-heading text-amber-500">{stats.underReview}</div>
                     </div>
                 </div>
 
@@ -360,9 +339,9 @@ const AdminSubmissions: React.FC = () => {
                                             const status = (sub.submissionStatus || sub.status || '').toLowerCase();
                                             const teamName = sub.teamName || (sub.team && (sub.team.name || sub.team)) || sub.id;
                                             const projectName = sub.title || sub.project || 'Untitled';
-                                            
+                    
                                             return (
-                                                <tr key={sub.id} className="hover:bg-gray-50/50 transition-colors group">
+                                                <tr key={sub.id} className="hover:bg-gray-50/50 transition-colors group cursor-pointer" onClick={() => navigate(`/admin/submissions/${sub.id}`)}>
                                                     <td className="px-6 py-4">
                                                         <div className="font-bold text-gray-900">{projectName}</div>
                                                         <div className="text-xs text-gray-500">by {teamName}</div>
@@ -393,7 +372,7 @@ const AdminSubmissions: React.FC = () => {
                                                     <td className="px-6 py-4 text-right">
                                                         <div className="flex items-center justify-end gap-2">
                                                             <button 
-                                                                onClick={() => navigate(`/admin/submissions/${sub.id}`)}
+                                                                onClick={(e) => { e.stopPropagation(); navigate(`/admin/submissions/${sub.id}`); }}
                                                                 className="p-2 text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors" 
                                                                 title="View Details"
                                                             >

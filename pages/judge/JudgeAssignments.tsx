@@ -10,7 +10,7 @@ const JudgeAssignments: React.FC = () => {
     const [hackathonFilter, setHackathonFilter] = useState('All Events');
     const [assignments, setAssignments] = useState<JudgeAssignment[]>([]);
     const [loading, setLoading] = useState(true);
-    const [events, setEvents] = useState<{id: string, title: string}[]>([]);
+    const [events, setEvents] = useState<{id: string, name?: string, title?: string}[]>([]);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -21,9 +21,16 @@ const JudgeAssignments: React.FC = () => {
                 // Controller returns: { message, events: [...] }
                 setEvents(eventsData.events || eventsData || []);
 
-                // Fetch assignments
-                const response = await judgeService.getAssignedTeams(1, 100, hackathonFilter === 'All Events' ? undefined : hackathonFilter);
-                setAssignments(response.teams);
+                // When 'All Events' is selected, fetch all assignments without hackathon filter
+                if (hackathonFilter === 'All Events') {
+                    // Pass undefined to get all assignments across all hackathons
+                    const response = await judgeService.getAssignedTeams(1, 100, undefined);
+                    setAssignments(response.teams);
+                } else {
+                    // Fetch assignments for specific hackathon
+                    const response = await judgeService.getAssignedTeams(1, 100, hackathonFilter);
+                    setAssignments(response.teams);
+                }
             } catch (error) {
                 console.error("Failed to fetch assignments", error);
             } finally {
@@ -32,6 +39,9 @@ const JudgeAssignments: React.FC = () => {
         };
         fetchData();
     }, [hackathonFilter]);
+
+    const storedSelected = typeof window !== 'undefined' ? localStorage.getItem('selectedHackathonId') : null;
+    const effectiveHackathonId = hackathonFilter === 'All Events' ? (storedSelected || undefined) : hackathonFilter;
 
     const filtered = assignments.filter(a => {
         const evalStatusRaw = (a as any).evaluationStatus ?? (a as any).evaluation?.[0]?.status ?? 'pending';
@@ -70,10 +80,9 @@ const JudgeAssignments: React.FC = () => {
                             onChange={(e) => {
                                 const val = e.target.value;
                                 setHackathonFilter(val);
-                                // Store in localStorage so evaluation endpoints can use it
-                                if (val === 'All Events') {
-                                    localStorage.removeItem('selectedHackathonId');
-                                } else {
+                                // Don't store 'All Events' in localStorage
+                                // Only store when a specific hackathon is selected
+                                if (val !== 'All Events') {
                                     localStorage.setItem('selectedHackathonId', val);
                                 }
                             }}
@@ -190,7 +199,14 @@ const JudgeAssignments: React.FC = () => {
                                 ) : (
                                     <tr>
                                         <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
-                                            No assignments found matching filters.
+                                            {(!effectiveHackathonId && hackathonFilter === 'All Events') ? (
+                                                <>
+                                                    <div className="font-bold mb-2">No hackathon selected</div>
+                                                    <div>Select a hackathon from the dropdown to view your assignments.</div>
+                                                </>
+                                            ) : (
+                                                'No assignments found matching filters.'
+                                            )}
                                         </td>
                                     </tr>
                                 )}

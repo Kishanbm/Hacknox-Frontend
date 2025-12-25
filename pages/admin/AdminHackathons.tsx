@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { AdminLayout } from '../../components/AdminLayout';
 import { Plus, Calendar, MapPin, Users, Edit, MoreVertical, PlayCircle, PauseCircle, Trash2, Search, Filter } from 'lucide-react';
 import { adminService } from '../../services/admin.service';
+import { useToast } from '../../components/ui/ToastProvider';
 
 const AdminHackathons: React.FC = () => {
     const navigate = useNavigate();
@@ -14,6 +15,8 @@ const AdminHackathons: React.FC = () => {
     useEffect(() => {
         fetchHackathons();
     }, []);
+
+    const { error: toastError } = useToast();
 
     const fetchHackathons = async () => {
         try {
@@ -56,7 +59,7 @@ const AdminHackathons: React.FC = () => {
             }
         } catch (error: any) {
             console.error('[AdminHackathons] Error fetching:', error);
-            alert('Failed to fetch hackathons: ' + (error.response?.data?.message || error.message));
+            toastError('Failed to fetch hackathons: ' + (error.response?.data?.message || error.message));
         } finally {
             setLoading(false);
         }
@@ -91,7 +94,8 @@ const AdminHackathons: React.FC = () => {
             await adminService.updateHackathon(id, { status: newStatus });
             await fetchHackathons();
         } catch (error: any) {
-            alert('Failed to update status: ' + (error.response?.data?.message || error.message));
+            console.error('Failed to update status: ' + (error.response?.data?.message || error.message));
+            toastError('Failed to update status: ' + (error.response?.data?.message || error.message));
         }
     };
 
@@ -102,7 +106,8 @@ const AdminHackathons: React.FC = () => {
                 await adminService.deleteHackathon(id);
                 await fetchHackathons();
             } catch (error: any) {
-                alert('Failed to delete: ' + (error.response?.data?.message || error.message));
+                console.error('Failed to delete: ' + (error.response?.data?.message || error.message));
+                toastError('Failed to delete: ' + (error.response?.data?.message || error.message));
             }
         }
     };

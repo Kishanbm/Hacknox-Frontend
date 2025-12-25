@@ -112,7 +112,7 @@ const submissionsService = {
     if (data.description) form.append('description', data.description);
     if (data.repo_url) form.append('repoUrl', data.repo_url as any);
     if (data.demo_url) form.append('demoUrl', data.demo_url as any);
-    if (data.team_id) form.append('team_id', data.team_id as any);
+    if ((data as any).team_id) form.append('teamId', (data as any).team_id as any);
     if (file) form.append('zipFile', file, file.name);
 
     const headers: any = { 'Content-Type': 'multipart/form-data' };

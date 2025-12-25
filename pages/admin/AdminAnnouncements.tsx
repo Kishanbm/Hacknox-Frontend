@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { AdminLayout } from '../../components/AdminLayout';
 import { Megaphone, Send, Clock, Users, Calendar, AlertCircle, CheckCircle2, History, X } from 'lucide-react';
 import { adminService } from '../../services/admin.service';
@@ -25,10 +25,15 @@ const AdminAnnouncements: React.FC = () => {
     const [hackathons, setHackathons] = useState<any[]>([]);
     const [announcements, setAnnouncements] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [page, setPage] = useState(1);
+    const pageSize = 10;
+    const [lastFetchCount, setLastFetchCount] = useState<number | null>(null);
+    const composeRef = useRef<HTMLDivElement | null>(null);
+    const [historyHeight, setHistoryHeight] = useState<number | undefined>(undefined);
 
     useEffect(() => {
         loadHackathons();
-        loadAnnouncements();
+        loadAnnouncements(1, false);
     }, []);
 
     const loadHackathons = async () => {
@@ -40,18 +45,17 @@ const AdminAnnouncements: React.FC = () => {
         }
     };
 
-    const loadAnnouncements = async () => {
-        // Only load announcements if a specific hackathon is selected
-        if (!selectedHackathonId) {
-            setAnnouncements([]);
-            setLoading(false);
-            return;
-        }
-        
+    const loadAnnouncements = async (pageToLoad = 1, append = false) => {
         try {
-            setLoading(true);
-            const res = await adminService.getAnnouncements(1, 20, selectedHackathonId);
-            setAnnouncements(res.announcements || res || []);
+            if (!append) setLoading(true);
+            setError(null);
+            // Pass hackathonId only if specifically selected (not 'all' or undefined)
+            const hackId = selectedHackathonId && selectedHackathonId !== 'all' ? selectedHackathonId : undefined;
+            const res = await adminService.getAnnouncements(pageToLoad, pageSize, hackId);
+            const fetched = res?.announcements || res || [];
+            setLastFetchCount(Array.isArray(fetched) ? fetched.length : 0);
+            setAnnouncements(prev => (append ? [...prev, ...(Array.isArray(fetched) ? fetched : [])] : (Array.isArray(fetched) ? fetched : [])));
+            setPage(pageToLoad);
         } catch (e: any) {
             setError(e.message || 'Failed to load announcements');
         } finally {
@@ -62,6 +66,10 @@ const AdminAnnouncements: React.FC = () => {
     const handleBroadcastClick = () => {
         if (!title || !message) {
             setError('Please fill in subject and message');
+            return;
+        }
+        if (!selectedHackathonId || selectedHackathonId === 'all') {
+            setError('Select a specific hackathon before broadcasting announcements.');
             return;
         }
         setShowBroadcastModal(true);
@@ -96,7 +104,7 @@ const AdminAnnouncements: React.FC = () => {
             setMessage('');
             setShowBroadcastModal(false);
             setBroadcastType(null);
-            await loadAnnouncements();
+            await loadAnnouncements(1, false);
         } catch (e: any) {
             setError(e.message || 'Failed to send announcement');
         } finally {
@@ -142,12 +150,34 @@ const AdminAnnouncements: React.FC = () => {
             setScheduleTime('');
             setShowBroadcastModal(false);
             setBroadcastType(null);
-            await loadAnnouncements();
+            await loadAnnouncements(1, false);
         } catch (e: any) {
             setError(e.message || 'Failed to schedule announcement');
         } finally {
             setIsSending(false);
         }
+    };
+
+    // Keep history sidebar height equal to compose card
+    useLayoutEffect(() => {
+        const measure = () => {
+            if (composeRef.current) setHistoryHeight(composeRef.current.clientHeight);
+        };
+        measure();
+        window.addEventListener('resize', measure);
+        return () => window.removeEventListener('resize', measure);
+    }, [composeRef, announcements, loading]);
+
+    // Reload announcements when selected hackathon changes
+    useEffect(() => {
+        setAnnouncements([]);
+        setPage(1);
+        loadAnnouncements(1, false);
+    }, [selectedHackathonId]);
+
+    const handleViewMore = async () => {
+        const next = page + 1;
+        await loadAnnouncements(next, true);
     };
 
     const formatDate = (date: string) => {
@@ -208,7 +238,7 @@ const AdminAnnouncements: React.FC = () => {
                     
                     {/* Compose Card */}
                     <div className="lg:col-span-2">
-                        <div className="bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden">
+                        <div ref={composeRef} className="bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden">
                             <div className="p-6 border-b border-gray-50 bg-gray-50/50 flex items-center gap-3">
                                 <div className="w-10 h-10 bg-gray-900/10 text-gray-900 rounded-xl flex items-center justify-center">
                                     <Megaphone size={20} />
@@ -309,7 +339,7 @@ const AdminAnnouncements: React.FC = () => {
                                     </div>
                                     <button 
                                         onClick={handleBroadcastClick}
-                                        disabled={!title || !message}
+                                        disabled={!title || !message || !selectedHackathonId}
                                         className="px-8 py-3 bg-gray-900 text-white rounded-xl font-bold hover:bg-gray-800 transition-colors flex items-center gap-2 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         <Send size={18} /> Broadcast
@@ -334,15 +364,29 @@ const AdminAnnouncements: React.FC = () => {
                             ) : announcements.length === 0 ? (
                                 <div className="py-10 text-center text-gray-400 text-sm">No announcements yet</div>
                             ) : (
-                                <div className="space-y-4">
+                                <div style={historyHeight ? { maxHeight: `${historyHeight}px`, overflowY: 'auto' } : undefined} className="space-y-4">
                                     {announcements.map((item: any) => {
                                         const scheduledAt = item.scheduled_at || item.scheduledAt;
                                         return (
                                             <div key={item.id} className="p-4 bg-gray-50 rounded-2xl border border-gray-100 group hover:border-gray-900/30 transition-colors">
-                                                <div className="flex justify-between items-start mb-2">
-                                                    <h4 className="font-bold text-gray-900 text-sm leading-tight">{item.title}</h4>
-                                                    {getStatusBadge(item)}
-                                                </div>
+                                                                        <div className="flex justify-between items-start mb-2">
+                                                                            <div className="flex items-center gap-3">
+                                                                                <h4 className="font-bold text-gray-900 text-sm leading-tight">{item.title}</h4>
+                                                                                {/* Priority badge */}
+                                                                                {(() => {
+                                                                                    const p = (item.priority || item.priority?.toString() || '').toString().toLowerCase();
+                                                                                    if (!p) return null;
+                                                                                    const isHigh = p === 'high';
+                                                                                    return (
+                                                                                        <div className={`flex items-center gap-2 text-[11px] font-semibold ${isHigh ? 'text-red-600' : 'text-blue-600'}`}>
+                                                                                            <span className={`${isHigh ? 'bg-red-500' : 'bg-blue-500'} w-2 h-2 rounded-full inline-block`} />
+                                                                                            <span>{isHigh ? 'High Priority' : 'Normal'}</span>
+                                                                                        </div>
+                                                                                    );
+                                                                                })()}
+                                                                            </div>
+                                                                            {getStatusBadge(item)}
+                                                                        </div>
                                                 <p className="text-xs text-gray-600 mb-3 line-clamp-2">{item.message}</p>
                                                 
                                                 <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold text-gray-500 uppercase tracking-wide">
@@ -362,6 +406,18 @@ const AdminAnnouncements: React.FC = () => {
                                             </div>
                                         );
                                     })}
+                                </div>
+                            )}
+                            {/* View more button for pagination */}
+                            {lastFetchCount === pageSize && (
+                                <div className="mt-4 text-center">
+                                    <button
+                                        onClick={handleViewMore}
+                                        disabled={loading}
+                                        className="px-4 py-2 bg-gray-100 border border-gray-200 rounded-md text-sm hover:bg-gray-200 disabled:opacity-50"
+                                    >
+                                        {loading ? 'Loading...' : 'View more'}
+                                    </button>
                                 </div>
                             )}
                         </div>
