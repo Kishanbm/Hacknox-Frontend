@@ -132,11 +132,41 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     password: string
   ): Promise<void> => {
     try {
+      // Attempt to include reCAPTCHA v3 token if site key is configured
+      let recaptchaToken: string | undefined;
+      try {
+        const SITE_KEY = (import.meta as any).env?.VITE_RECAPTCHA_SITE_KEY;
+        if (SITE_KEY) {
+          // Load grecaptcha script if not already present
+          await new Promise<void>((resolve, reject) => {
+            if (typeof window === 'undefined') return resolve();
+            const w = window as any;
+            if (w.grecaptcha && w.grecaptcha.execute) return resolve();
+            const script = document.createElement('script');
+            script.src = `https://www.google.com/recaptcha/api.js?render=${SITE_KEY}`;
+            script.async = true;
+            script.defer = true;
+            script.onload = () => resolve();
+            script.onerror = () => reject(new Error('Failed to load reCAPTCHA script'));
+            document.head.appendChild(script);
+          });
+
+          const w = window as any;
+          if (w.grecaptcha && w.grecaptcha.execute) {
+            recaptchaToken = await w.grecaptcha.execute((import.meta as any).env.VITE_RECAPTCHA_SITE_KEY, { action: 'signup' });
+          }
+        }
+      } catch (err) {
+        // If reCAPTCHA fails to load or execute, continue without token
+        console.warn('reCAPTCHA token generation failed:', err);
+      }
+
       await apiClient.post('/auth/signup', {
         firstName,
         lastName,
         email,
         password,
+        ...(recaptchaToken ? { recaptchaToken } : {}),
       });
       // Note: User needs to verify email before logging in
     } catch (error) {
