@@ -1,20 +1,37 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
 
-# Run and deploy your AI Studio app
+# HackonxDesigns (Frontend)
 
-This contains everything you need to run your app locally.
+HackonxDesigns hackathon platform (Vite + React + TypeScript).
 
-View your app in AI Studio: https://ai.studio/apps/drive/1ByTEY59bGC6mjSRgif2Qqd1-Aab0IHpa
+Short: UI for participants, judges, and admins. Built with Vite and Tailwind.
 
-## Run Locally
+Prerequisites
+- Node.js 18+ and npm or pnpm
 
-**Prerequisites:**  Node.js
+Quick start
+- Install dependencies:
+
+	npm install
+
+- Run development server:
+
+	npm run dev
+
+- Build for production:
+
+	npm run build
+
+- Preview the production build:
+
+	npm run preview
+
+Environment
+- Frontend may use `VITE_PUBLIC_URL` or `VITE_FRONTEND_URL` for absolute links in some flows. For local dev this is optional; set `VITE_PUBLIC_URL` to your deployed frontend domain in production.
+
+Deploy
+- Ideal: Vercel for frontend. Set the same env var `VITE_PUBLIC_URL` (or `VITE_FRONTEND_URL`) in Vercel settings.
+
+Notes
+- This README is intentionally minimal. See `src/` and `components/` for UI details.
 
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
