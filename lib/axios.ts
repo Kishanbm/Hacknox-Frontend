@@ -50,6 +50,25 @@ class ApiClient {
           }
         }
 
+        
+        // Normalize duplicate '/api' when baseURL already contains '/api' and callers also include it
+        // This avoids requests like baseURL='http://host/api' + url='/api/judge/...' => '/api/api/...'
+        try {
+          const base = (config.baseURL || '').toString();
+          const u = (config.url || '').toString();
+          if (base.endsWith('/api') && u.startsWith('/api')) {
+            // remove the leading '/api' from the url so axios will call '/api/...'
+            config.url = u.replace(/^\/api/, '');
+          }
+          // also handle accidental double slashes from baseURL ending with '/' and url starting with '/'
+          if ((base.endsWith('/') || (!base && base.length === 0)) && u.startsWith('/')) {
+            // no-op: axios handles joining, but ensure we don't produce '//' in paths
+          }
+        } catch (e) {
+          // ignore normalization errors
+        }
+
+
         return config;
       },
       (error: AxiosError) => {
