@@ -351,10 +351,20 @@ const AdminParticipants: React.FC = () => {
 
                                         return (
                                             <tr
-                                                key={team.id}
-                                                onClick={() => navigate(`/admin/teams/${team.id}`)}
-                                                className="hover:bg-gray-50/50 transition-colors cursor-pointer"
-                                            >
+                                                    key={team.id}
+                                                    onClick={async () => {
+                                                        const teamHack = (team as any).hackathonId || (team as any).hackathon_id || undefined;
+                                                        // If global selection is All/unset, auto-select this team's hackathon first
+                                                        if (!selectedHackathonId || selectedHackathonId === 'all' || selectedHackathonId === '') {
+                                                            try { if (teamHack) localStorage.setItem('selectedHackathonId', teamHack); } catch (e) {}
+                                                            setSelectedHackathonId(teamHack);
+                                                        }
+                                                        // Pass hackathonId via router state so HashRouter preserves it reliably
+                                                        if (teamHack) navigate(`/admin/teams/${team.id}`, { state: { hackathonId: teamHack, team } });
+                                                        else navigate(`/admin/teams/${team.id}`, { state: { team } });
+                                                    }}
+                                                    className="hover:bg-gray-50/50 transition-colors cursor-pointer"
+                                                >
                                                 <td className="px-6 py-4">
                                                     <input
                                                         type="checkbox"

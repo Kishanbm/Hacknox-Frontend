@@ -82,33 +82,45 @@ export const judgeService = {
     return response.data;
   },
 
-  getSubmissionForEvaluation: async (teamId: string) => {
-    const response = await axios.get(`${ENDPOINTS.JUDGE.SUBMISSION_DETAIL(teamId)}`);
+  getSubmissionForEvaluation: async (teamId: string, hackathonId?: string) => {
+    const options: any = {};
+    if (hackathonId) options.headers = { 'x-hackathon-id': hackathonId };
+    const response = await axios.get(`${ENDPOINTS.JUDGE.SUBMISSION_DETAIL(teamId)}`, options);
     return response.data;
   },
 
-  getEvaluationDraft: async (teamId: string) => {
-    const response = await axios.get(`${ENDPOINTS.JUDGE.GET_DRAFT(teamId)}`);
+  getEvaluationDraft: async (teamId: string, hackathonId?: string) => {
+    const options: any = {};
+    if (hackathonId) options.headers = { 'x-hackathon-id': hackathonId };
+    const response = await axios.get(`${ENDPOINTS.JUDGE.GET_DRAFT(teamId)}`, options);
     return response.data;
   },
 
-  getEvaluationStatus: async (teamId: string) => {
-    const response = await axios.get(`${ENDPOINTS.JUDGE.GET_STATUS(teamId)}`);
+  getEvaluationStatus: async (teamId: string, hackathonId?: string) => {
+    const options: any = {};
+    if (hackathonId) options.headers = { 'x-hackathon-id': hackathonId };
+    const response = await axios.get(`${ENDPOINTS.JUDGE.GET_STATUS(teamId)}`, options);
     return response.data;
   },
 
-  saveEvaluationDraft: async (teamId: string, payload: any) => {
-    const response = await axios.post(`${ENDPOINTS.JUDGE.SAVE_DRAFT(teamId)}`, payload);
+  saveEvaluationDraft: async (teamId: string, payload: any, hackathonId?: string) => {
+    const options: any = {};
+    if (hackathonId) options.headers = { 'x-hackathon-id': hackathonId };
+    const response = await axios.post(`${ENDPOINTS.JUDGE.SAVE_DRAFT(teamId)}`, payload, options);
     return response.data;
   },
 
-  submitFinalEvaluation: async (teamId: string, payload: any) => {
-    const response = await axios.post(`${ENDPOINTS.JUDGE.SUBMIT_EVALUATION(teamId)}`, payload);
+  submitFinalEvaluation: async (teamId: string, payload: any, hackathonId?: string) => {
+    const options: any = {};
+    if (hackathonId) options.headers = { 'x-hackathon-id': hackathonId };
+    const response = await axios.post(`${ENDPOINTS.JUDGE.SUBMIT_EVALUATION(teamId)}`, payload, options);
     return response.data;
   },
 
-  updateSubmittedEvaluation: async (teamId: string, payload: any) => {
-    const response = await axios.patch(`${ENDPOINTS.JUDGE.UPDATE_EVALUATION(teamId)}`, payload);
+  updateSubmittedEvaluation: async (teamId: string, payload: any, hackathonId?: string) => {
+    const options: any = {};
+    if (hackathonId) options.headers = { 'x-hackathon-id': hackathonId };
+    const response = await axios.patch(`${ENDPOINTS.JUDGE.UPDATE_EVALUATION(teamId)}`, payload, options);
     return response.data;
   },
 

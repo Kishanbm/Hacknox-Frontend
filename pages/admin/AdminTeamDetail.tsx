@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { AdminLayout } from '../../components/AdminLayout';
 import { Edit, ChevronLeft, Users, FileText, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { adminService } from '../../services/admin.service';
@@ -20,14 +20,45 @@ const AdminTeamDetail: React.FC = () => {
     });
     const [saving, setSaving] = useState(false);
 
+    const location = useLocation();
+
     const load = async () => {
         if (!id) return;
             try {
             setLoading(true);
             setError(null);
-            // include the currently selected hackathon as header so backend middleware is satisfied
-            const selectedHackathon = localStorage.getItem('selectedHackathonId') || undefined;
-            const res = await adminService.getTeamDetail(id, selectedHackathon);
+            // Prefer router state -> hash query -> team object -> stored selection
+            let queryHack: string | undefined = undefined;
+            if ((location.state as any)?.hackathonId) queryHack = (location.state as any).hackathonId;
+            // if caller passed the full team in state, use it immediately (and prefer its hackathon)
+            if ((location.state as any)?.team) {
+                const sTeam = (location.state as any).team;
+                setTeam(sTeam);
+                setEditForm({
+                    name: sTeam.name || '',
+                    city: sTeam.city || '',
+                    projectCategory: sTeam.project_category || sTeam.projectCategory || '',
+                    adminNotes: sTeam.admin_notes || sTeam.adminNotes || '',
+                });
+                if (!queryHack) queryHack = sTeam.hackathonId || sTeam.hackathon_id || undefined;
+            }
+            // fallback: parse hash query if present (HashRouter places query after #)
+            if (!queryHack) {
+                try {
+                    const hash = window.location.hash || '';
+                    const qIdx = hash.indexOf('?');
+                    if (qIdx >= 0) {
+                        const qs = hash.substring(qIdx + 1);
+                        const p = new URLSearchParams(qs);
+                        queryHack = p.get('hackathonId') || undefined;
+                    }
+                } catch (e) {
+                    // ignore
+                }
+            }
+            const storedHack = localStorage.getItem('selectedHackathonId') || undefined;
+            const hackToSend = queryHack || storedHack;
+            const res = await adminService.getTeamDetail(id, hackToSend);
             setTeam(res.team || res);
             setEditForm({
                 name: res.team?.name || res?.name || '',
@@ -52,8 +83,28 @@ const AdminTeamDetail: React.FC = () => {
         setError(null);
         setMessage(null);
         try {
-            const selectedHackathon = localStorage.getItem('selectedHackathonId') || undefined;
-            const res = await adminService.verifyTeam(id, action, selectedHackathon);
+            let queryHack: string | undefined = undefined;
+            if ((location.state as any)?.hackathonId) queryHack = (location.state as any).hackathonId;
+            // also read from location.state.team if passed (navigation from All view)
+            if (!queryHack && (location.state as any)?.team) {
+                const sTeam = (location.state as any).team;
+                queryHack = sTeam.hackathonId || sTeam.hackathon_id || undefined;
+            }
+            if (!queryHack) {
+                try {
+                    const hash = window.location.hash || '';
+                    const qIdx = hash.indexOf('?');
+                    if (qIdx >= 0) {
+                        const qs = hash.substring(qIdx + 1);
+                        const p = new URLSearchParams(qs);
+                        queryHack = p.get('hackathonId') || undefined;
+                    }
+                } catch (e) {}
+            }
+            const teamHackathonId = team?.hackathon_id || team?.hackathonId || undefined;
+            const stored = localStorage.getItem('selectedHackathonId') || undefined;
+            const hackToSend = queryHack || teamHackathonId || stored;
+            const res = await adminService.verifyTeam(id, action, hackToSend);
             setMessage(res.message || 'Updated');
             await load();
         } catch (e: any) {
@@ -72,11 +123,30 @@ const AdminTeamDetail: React.FC = () => {
             if (editForm.city) payload.city = editForm.city;
             if (editForm.projectCategory) payload.projectCategory = editForm.projectCategory;
             if (editForm.adminNotes) payload.adminNotes = editForm.adminNotes;
-            // Prefer explicit hackathon id from the team object; fall back to selectedHackathonId in localStorage
+           // Prefer explicit hackathon id from the team object; fall back to selectedHackathonId in localStorage
+            let queryHack: string | undefined = undefined;
+            if ((location.state as any)?.hackathonId) queryHack = (location.state as any).hackathonId;
+            // also read from location.state.team if passed (navigation from All view)
+            if (!queryHack && (location.state as any)?.team) {
+                const sTeam = (location.state as any).team;
+                queryHack = sTeam.hackathonId || sTeam.hackathon_id || undefined;
+            }
+            if (!queryHack) {
+                try {
+                    const hash = window.location.hash || '';
+                    const qIdx = hash.indexOf('?');
+                    if (qIdx >= 0) {
+                        const qs = hash.substring(qIdx + 1);
+                        const p = new URLSearchParams(qs);
+                        queryHack = p.get('hackathonId') || undefined;
+                    }
+                } catch (e) {}
+            }
             const teamHackathonId = team?.hackathon_id || team?.hackathonId || undefined;
-            const selectedHackathon = localStorage.getItem('selectedHackathonId') || undefined;
-            const hackIdToSend = teamHackathonId || selectedHackathon;
+            const stored = localStorage.getItem('selectedHackathonId') || undefined;
+            const hackIdToSend = queryHack || teamHackathonId || stored;
             const res = await adminService.updateTeam(id, payload, hackIdToSend);
+
             setMessage(res.message || 'Saved');
             await load();
         } catch (e: any) {

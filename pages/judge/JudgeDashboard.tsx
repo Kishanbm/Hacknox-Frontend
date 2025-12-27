@@ -53,6 +53,24 @@ const JudgeDashboard: React.FC = () => {
                         completed: it.completed || 0 
                     })));
                 }
+
+                // Nearest submission deadline (backend returns ISO string)
+                const getTimeRemaining = (deadline?: string) => {
+                    if (!deadline) return '--';
+                    const diff = new Date(deadline).getTime() - Date.now();
+                    if (diff <= 0) return 'Passed';
+                    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+                    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                    if (days > 0) return `${days}d ${hours}h`;
+                    const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                    return `${hours}h ${mins}m`;
+                };
+
+                if (d.nextDeadlineTime) {
+                    setNextDeadlineTime(getTimeRemaining(d.nextDeadlineTime));
+                    setNextDeadlineEvent(d.nextDeadlineEvent || 'Upcoming');
+                }
+                
                 
                 // Fetch pending assignments from assignments endpoint
                 const assignResp = await apiClient.get(ENDPOINTS.JUDGE.ASSIGNMENTS, {
@@ -75,20 +93,40 @@ const JudgeDashboard: React.FC = () => {
                 
                 setPendingEvaluations(pending.slice(0, 3)); // Show top 3
                 
-                // Fetch reports/flags that judge has submitted
-                try {
-                    const reportsResp = await apiClient.get('/api/judge/my-reports');
-                    const reports = reportsResp.data?.reports || [];
-                    setFlaggedReports(reports.filter((r: any) => r.status === 'open').slice(0, 2));
-                } catch (reportErr) {
-                    console.warn('Could not fetch reports:', reportErr);
+                // Use reports included in dashboard payload if present; otherwise fall back to endpoint
+                let reportsList: any[] = d.reports || [];
+                if (!reportsList || reportsList.length === 0) {
+                    try {
+                        const reportsResp = await apiClient.get(ENDPOINTS.JUDGE.MY_REPORTS);
+                        reportsList = reportsResp.data?.reports || [];
+                    } catch (reportErr) {
+                        console.warn('Could not fetch reports:', reportErr);
+                        reportsList = [];
+                    }
                 }
+
+                const openReports = (reportsList || []).filter((r: any) => (r.status && String(r.status).toLowerCase() !== 'closed'));
+                setFlaggedReports(openReports.slice(0, 2));
                 
-                // Calculate next deadline from assignments
-                if (teams.length > 0) {
-                    // This is placeholder - ideally backend should provide deadline info
-                    setNextDeadlineTime('Check assignments');
-                    setNextDeadlineEvent('Multiple events');
+                // If backend didn't send a nearest deadline, infer from assignments list
+                if (!d.nextDeadlineTime) {
+                    const upcoming = (teams || [])
+                        .map((t: any) => ({
+                            name: t.hackathonName || t.hackathon || 'Hackathon',
+                            deadline: t.submissionDeadline || t.submission_deadline || null
+                        }))
+                        .filter((x: any) => x.deadline)
+                        .map((x: any) => ({ ...x, ts: new Date(x.deadline).getTime() }))
+                        .filter((x: any) => !isNaN(x.ts) && x.ts > Date.now())
+                        .sort((a: any, b: any) => a.ts - b.ts);
+
+                    if (upcoming.length > 0) {
+                        setNextDeadlineTime(getTimeRemaining(upcoming[0].deadline));
+                        setNextDeadlineEvent(upcoming[0].name || 'Upcoming');
+                    } else {
+                        setNextDeadlineTime('--');
+                        setNextDeadlineEvent('No upcoming deadline');
+                    }
                 }
             } catch (err) {
                 console.error('Failed to load judge dashboard', err);
@@ -98,6 +136,19 @@ const JudgeDashboard: React.FC = () => {
         };
         load();
     }, []);
+
+        // Prepare chart-friendly data and domains
+    const chartProgressData = progressData.map((it) => ({
+        dayLabel: (() => {
+            try { return new Date(it.day).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }); } catch { return it.day; }
+        })(),
+        completed: it.completed || 0,
+    }));
+
+    const maxCompleted = Math.max(1, ...(chartProgressData.map((c) => c.completed || 0)));
+
+    const maxScoreCount = Math.max(1, ...(scoreDistributionData.map((s) => s.count || 0)));
+
 
   return (
     <JudgeLayout>
@@ -151,7 +202,7 @@ const JudgeDashboard: React.FC = () => {
                     </div>
                     <div>
                         <div className="text-3xl lg:text-4xl font-heading text-amber-500 mb-1">{pendingUrgent}</div>
-                        <div className="text-xs lg:text-sm font-medium text-gray-500">Deadline in 2 days</div>
+                        <div className="text-xs lg:text-sm font-medium text-gray-500">{nextDeadlineTime && nextDeadlineTime !== '--' ? `Deadline in ${nextDeadlineTime}` : 'No upcoming deadlines'}</div>
                     </div>
                 </div>
 
@@ -185,7 +236,7 @@ const JudgeDashboard: React.FC = () => {
                     </div>
                     <div className="h-64 w-full">
                         <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={progressData}>
+                            <AreaChart data={chartProgressData}>
                                 <defs>
                                     <linearGradient id="colorCompleted" x1="0" y1="0" x2="0" y2="1">
                                         <stop offset="5%" stopColor="#5425FF" stopOpacity={0.2}/>
@@ -193,8 +244,8 @@ const JudgeDashboard: React.FC = () => {
                                     </linearGradient>
                                 </defs>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
-                                <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{fill: '#94A3B8', fontSize: 12}} dy={10} />
-                                <YAxis axisLine={false} tickLine={false} tick={{fill: '#94A3B8', fontSize: 12}} />
+                                <XAxis dataKey="dayLabel" axisLine={false} tickLine={false} tick={{fill: '#94A3B8', fontSize: 12}} dy={10} />
+                                    <YAxis axisLine={false} tickLine={false} tick={{fill: '#94A3B8', fontSize: 12}} domain={[0, maxCompleted]} />
                                 <Tooltip 
                                     contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}}
                                     itemStyle={{color: '#5425FF', fontWeight: 'bold'}}
@@ -217,7 +268,8 @@ const JudgeDashboard: React.FC = () => {
                         <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={scoreDistributionData}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
-                                <XAxis dataKey="range" axisLine={false} tickLine={false} tick={{fill: '#94A3B8', fontSize: 12}} dy={10} />
+                                    <XAxis dataKey="range" axisLine={false} tickLine={false} tick={{fill: '#94A3B8', fontSize: 12}} dy={10} />
+                                    <YAxis axisLine={false} tickLine={false} tick={{fill: '#94A3B8', fontSize: 12}} domain={[0, maxScoreCount]} />
                                 <Tooltip 
                                     cursor={{fill: '#F8FAFC', radius: 8}}
                                     contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}}

@@ -149,6 +149,7 @@ const JudgeAssignments: React.FC = () => {
                                         const deadline = ((item as any).submissionStatus === 'submitted' || (item as any).evaluationSubmittedAt) ? 'Submitted' : 'Open';
                                         const rowKey = (item as any).assignmentId ?? (item as any).id ?? (item as any).teamId ?? idx;
                                         const teamIdForRoute = (item as any).teamId ?? (item as any).team?.id;
+                                        const itemHackathonId = (item as any).hackathonId ?? (item as any).hackathon?.id ?? (item as any).hackathon_id ?? (hackathonFilter !== 'All Events' ? hackathonFilter : undefined);
 
                                         return (
                                         <tr key={rowKey} className="hover:bg-gray-50/50 transition-colors group">
@@ -184,7 +185,10 @@ const JudgeAssignments: React.FC = () => {
                                             </td>
                                             <td className="px-6 py-4 text-right whitespace-nowrap">
                                                 <button 
-                                                    onClick={() => navigate(`/judge/evaluate/${teamIdForRoute}`)}
+                                                    onClick={() => {
+                                                        if (itemHackathonId) localStorage.setItem('selectedHackathonId', itemHackathonId);
+                                                        navigate(`/judge/evaluate/${teamIdForRoute}${itemHackathonId ? `?hackathonId=${itemHackathonId}` : ''}`);
+                                                    }}
                                                     className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 ml-auto ${
                                                         uiStatus === 'Completed' 
                                                         ? 'bg-gray-100 text-gray-600 hover:bg-gray-200' 

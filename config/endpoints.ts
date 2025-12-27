@@ -84,6 +84,8 @@ export const ENDPOINTS = {
     SUBMIT_EVALUATION: (teamId: string) => `/judge/evaluation/${teamId}/submit`,
     UPDATE_EVALUATION: (teamId: string) => `/judge/evaluation/${teamId}/update`,
     MY_REVIEWS: '/judge/my-reviews',
+    MY_REPORTS: '/judge/my-reports',
+
   },
 
   // Admin Portal Endpoints

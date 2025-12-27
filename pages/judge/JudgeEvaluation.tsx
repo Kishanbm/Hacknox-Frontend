@@ -65,6 +65,10 @@ const JudgeEvaluation: React.FC = () => {
 
     const { success, error: toastError, warn } = useToast();
 
+    // Prefer query param hackathonId, fall back to selectedHackathonId in localStorage
+    const _qp = new URLSearchParams(window.location.search || window.location.hash.split('?')[1] || '');
+    const selectedHackathonId = _qp.get('hackathonId') || localStorage.getItem('selectedHackathonId') || undefined;
+
     const downloadHackathonDetails = () => {
         if (!hackathon) {
             warn('Hackathon details not available');
@@ -128,21 +132,22 @@ const JudgeEvaluation: React.FC = () => {
         const teamId = submissionId; // route param is named submissionId but it's actually teamId
         if (!teamId) return;
 
-        // Ensure hackathonId is in localStorage (should be set by assignments page)
-        const selectedHackathonId = localStorage.getItem('selectedHackathonId');
-        if (!selectedHackathonId) {
-            console.error('No hackathonId found in localStorage. Please select a hackathon first.');
-            // Still try to load, axios interceptor will add header if available
-        }
+            // Determine hackathon id: prefer explicit query param, then localStorage
+            const urlParams = new URLSearchParams(window.location.search || window.location.hash.split('?')[1] || '');
+            const paramHackathonId = urlParams.get('hackathonId');
+            const selectedHackathonId = paramHackathonId || localStorage.getItem('selectedHackathonId');
+            if (!selectedHackathonId) {
+                console.error('No hackathonId found in localStorage or query param. Requests may fail if backend requires hackathon context.');
+            }
 
         const load = async () => {
             setLoading(true);
             try {
                 // Fetch submission, evaluation draft, status, and hackathon details in parallel
                 const [submissionRes, draftRes, statusRes, hackathonRes] = await Promise.allSettled([
-                    judgeService.getSubmissionForEvaluation(teamId),
-                    judgeService.getEvaluationDraft(teamId),
-                    judgeService.getEvaluationStatus(teamId),
+                    judgeService.getSubmissionForEvaluation(teamId, selectedHackathonId || undefined),
+                    judgeService.getEvaluationDraft(teamId, selectedHackathonId || undefined),
+                    judgeService.getEvaluationStatus(teamId, selectedHackathonId || undefined),
                     selectedHackathonId ? publicService.getHackathonById(selectedHackathonId).catch(() => null) : Promise.resolve(null),
                 ]);
 
@@ -275,7 +280,9 @@ const JudgeEvaluation: React.FC = () => {
                 payload.score_presentation = Number(scores.utility || scores.presentation || 0);
             }
 
-            const res = await judgeService.saveEvaluationDraft(teamId, payload);
+            // Ensure hackathon id included in body as fallback for some backend variants
+            payload.hackathon_id = payload.hackathon_id || (selectedHackathonId || hackathon?.id);
+            const res = await judgeService.saveEvaluationDraft(teamId, payload, selectedHackathonId || hackathon?.id);
             if (res && res.evaluation) setDraftId(res.evaluation.id || null);
         } catch (err) {
             console.error('Failed to save draft', err);
@@ -347,10 +354,13 @@ const JudgeEvaluation: React.FC = () => {
                 }
             });
 
+            // Ensure hackathon id included in body as fallback for some backend variants
+            payload.hackathon_id = payload.hackathon_id || (selectedHackathonId || hackathon?.id);
+
             if (evaluationStatus?.status === 'submitted') {
-                await judgeService.updateSubmittedEvaluation(teamId, payload);
+                await judgeService.updateSubmittedEvaluation(teamId, payload, selectedHackathonId || hackathon?.id);
             } else {
-                await judgeService.submitFinalEvaluation(teamId, payload);
+                await judgeService.submitFinalEvaluation(teamId, payload, selectedHackathonId || hackathon?.id);
             }
 
             navigate('/judge/assignments');

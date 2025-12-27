@@ -112,6 +112,11 @@ const Profile: React.FC = () => {
     // Get full name
     const fullName = `${user.Profiles?.first_name || ''} ${user.Profiles?.last_name || ''}`.trim() || 'User';
 
+    const bannerExists = !!(user.Profiles?.banner_url || (user.Profiles as any)?.banner);
+    const editBtnClass = bannerExists
+        ? "px-4 py-2 bg-white text-black rounded-xl text-sm font-bold transition-all flex items-center gap-2 shadow-lg z-20 border border-gray-100"
+        : "px-4 py-2 bg-[#5425FF] text-white rounded-xl text-sm font-bold hover:bg-[#3b2bff] transition-all flex items-center gap-2 shadow-lg z-20";
+
     // Prefer server-provided experiences if available; otherwise show none
     const workExperience = (user.Profiles?.experiences && Array.isArray(user.Profiles.experiences) && user.Profiles.experiences.length > 0)
         ? user.Profiles.experiences.map((e: any, i: number) => ({ id: `db-${i}`, role: e.role || 'Contributor', company: e.company || '', period: e.period || '', description: e.description || '' }))
@@ -135,9 +140,9 @@ const Profile: React.FC = () => {
                         )}
                         <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
                         <div className="absolute top-4 right-4">
-                            <button 
+                            <button
                                 onClick={() => navigate('/dashboard/profile/edit')}
-                                className="px-4 py-2 bg-white/20 backdrop-blur-md border border-white/30 text-white rounded-xl text-sm font-bold hover:bg-white hover:text-primary transition-all flex items-center gap-2"
+                                className={editBtnClass}
                             >
                                 <Edit2 size={16} /> Edit Profile
                             </button>

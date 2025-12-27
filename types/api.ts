@@ -32,6 +32,8 @@ export interface MeResponse {
   Profiles?: {
     first_name: string;
     last_name: string;
+    banner_url?: string;
+    banner?: string;
     avatar_url?: string;
     bio?: string;
     github_url?: string;

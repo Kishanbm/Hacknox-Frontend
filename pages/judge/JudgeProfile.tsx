@@ -237,6 +237,11 @@ const JudgeProfile: React.FC = () => {
     // Get full name
     const fullName = `${firstName} ${lastName}`.trim() || 'Judge';
 
+    const bannerExists = !!((user as any)?.Profiles?.banner_url || (user as any)?.Profiles?.banner);
+    const editBtnClass = bannerExists
+        ? "px-4 py-2 bg-white text-black rounded-xl text-sm font-bold transition-all flex items-center gap-2 shadow-lg z-20 border border-gray-100"
+        : "px-4 py-2 bg-[#5425FF] text-white rounded-xl text-sm font-bold hover:bg-[#3b2bff] transition-all flex items-center gap-2 shadow-lg z-20";
+
     return (
         <JudgeLayout>
             <div className="max-w-5xl mx-auto pb-12">
@@ -260,9 +265,9 @@ const JudgeProfile: React.FC = () => {
                         <div className="absolute top-0 right-0 w-64 h-64 bg-[#5425FF] blur-[100px] opacity-20 rounded-full pointer-events-none"></div>
                         <div className="absolute top-4 right-4 flex items-center gap-2">
                             {!isEditing ? (
-                                <button 
+                                <button
                                     onClick={() => setIsEditing(true)}
-                                    className="px-4 py-2 bg-white/20 backdrop-blur-md border border-white/30 text-white rounded-xl text-sm font-bold hover:bg-white hover:text-[#5425FF] transition-all flex items-center gap-2"
+                                    className={editBtnClass}
                                 >
                                     <Edit2 size={16} /> Edit Profile
                                 </button>

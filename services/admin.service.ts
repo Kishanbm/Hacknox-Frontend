@@ -120,10 +120,14 @@ export const adminService = {
   // 10. Get Team Detail
   getTeamDetail: async (teamId: string, hackathonId?: string) => {
     const config: any = {};
-    if (hackathonId) config.headers = { 'x-hackathon-id': hackathonId };
+    // prefer explicit param, else fall back to stored selection (unless it's 'all' or empty)
+    const stored = typeof window !== 'undefined' ? localStorage.getItem('selectedHackathonId') : null;
+    const hack = hackathonId || (stored && stored !== 'all' && stored !== '' ? stored : undefined);
+    if (hack) config.headers = { 'x-hackathon-id': hack };
     const response = await apiClient.get(`/admin/team/${teamId}`, config);
     return response.data;
   },
+
 
   // 11. Update Team
   updateTeam: async (teamId: string, data: any, hackathonId?: string) => {
@@ -136,8 +140,17 @@ export const adminService = {
   // 12. Verify Team
   verifyTeam: async (teamId: string, action: 'approve' | 'reject', hackathonId?: string) => {
     const config: any = { headers: { 'Content-Type': 'application/json' } };
-    if (hackathonId) config.headers['x-hackathon-id'] = hackathonId;
-    const response = await apiClient.post(`/admin/team/${teamId}/verify`, { action }, config);
+    // fallback to stored selection when caller didn't provide a hackathon id
+    const stored = typeof window !== 'undefined' ? localStorage.getItem('selectedHackathonId') : null;
+    const hack = hackathonId || (stored && stored !== 'all' && stored !== '' ? stored : undefined);
+    if (hack) config.headers['x-hackathon-id'] = hack;
+    // include hackathon id in request body as a robust fallback for middleware that accepts body params
+    const payload: any = { action };
+    if (hack) {
+      payload.hackathonId = hack;
+      payload.hackathon_id = hack;
+    }
+    const response = await apiClient.post(`/admin/team/${teamId}/verify`, payload, config);
     return response.data;
   },
 
