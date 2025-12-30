@@ -1,300 +1,705 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
-import { MapPin, Clock, Users, Gift, Cpu, Database, Globe, Shield, Leaf, Lightbulb, ChevronRight, Settings } from 'lucide-react';
+"use client";
 
-const LandingPage: React.FC = () => {
+import "./globals.css";
+import { useEffect, useRef } from "react";
+
+export default function Home() {
+  const observerRef = useRef<IntersectionObserver | null>(null);
+
+  useEffect(() => {
+    // Create Intersection Observer for scroll animations
+    observerRef.current = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("visible");
+          }
+        });
+      },
+      {
+        threshold: 0.1,
+        rootMargin: "0px 0px -50px 0px",
+      }
+    );
+
+    // Observe all elements with animation classes after a short delay to ensure DOM is ready
+    const observeElements = () => {
+      const animatedElements = document.querySelectorAll(
+        ".fade-in-on-scroll, .slide-left-on-scroll, .slide-right-on-scroll, .scale-in-on-scroll"
+      );
+      animatedElements.forEach((el) => observerRef.current?.observe(el));
+    };
+
+    // Use setTimeout to ensure DOM is fully rendered
+    const timeoutId = setTimeout(observeElements, 100);
+
+    return () => {
+      clearTimeout(timeoutId);
+      if (observerRef.current) {
+        const animatedElements = document.querySelectorAll(
+          ".fade-in-on-scroll, .slide-left-on-scroll, .slide-right-on-scroll, .scale-in-on-scroll"
+        );
+        animatedElements.forEach((el) => observerRef.current?.unobserve(el));
+      }
+    };
+  }, []);
+
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-900 font-sans selection:bg-purple-200">
-      
+    <div
+      className="relative w-full flex flex-col items-center bg-white overflow-x-hidden"
+      style={{ height: "9104px" }}
+    >
       {/* Top Banner */}
-      <div className="bg-purple-700 text-white text-center py-2 text-sm font-medium">
-        Hackathon begins in: 05 Days 12 Hours 46 Minutes
+      <div className="absolute top-0 left-0 w-full h-[65px] bg-[#5425FF] flex items-center justify-center z-50 animate-fade-in-down">
+        <p className="text-white font-figtree text-[24px] leading-[120%] text-center">
+          Hackathon begins in: 05 Days 12 Hours 46 Minutes
+        </p>
       </div>
 
-      {/* Navbar */}
-      <nav className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex-shrink-0 flex items-center">
-              <span className="font-pixel text-3xl tracking-widest text-black">HACKON</span>
-              <span className="font-pixel text-3xl tracking-widest text-purple-600">X</span>
-            </div>
-            <div className="hidden md:flex items-center space-x-8">
-              <a href="#about" className="text-gray-600 hover:text-purple-600 font-medium">About</a>
-              <a href="#locations" className="text-gray-600 hover:text-purple-600 font-medium">Locations</a>
-              <a href="#prizes" className="text-gray-600 hover:text-purple-600 font-medium">Prizes</a>
-              <a href="#faq" className="text-gray-600 hover:text-purple-600 font-medium">FAQ</a>
-              
-              <div className="h-6 w-px bg-gray-300"></div>
+      {/* Hero Section - Full Width */}
+      <div className="absolute top-[65px] left-0 w-full h-[971px] overflow-hidden z-10 animate-fade-in">
+        <img
+          src="/images/highlights/image.png"
+          alt="Hero"
+          fill
+          quality={100}
+          priority
+          className="object-cover"
+        />
 
-              <Link to="/judge/dashboard" className="text-gray-600 hover:text-amber-600 font-bold text-sm">
-                Judge Portal
-              </Link>
-              <Link to="/admin/dashboard" className="text-gray-600 hover:text-red-600 font-bold text-sm flex items-center gap-1">
-                 Organizer Login
-              </Link>
-
-              <Link to="/dashboard" className="bg-purple-600 text-white px-6 py-2 rounded-full font-medium hover:bg-purple-700 transition-colors shadow-lg shadow-purple-200">
-                Dashboard Demo
-              </Link>
-            </div>
-          </div>
-        </div>
-      </nav>
-
-      {/* Hero Section */}
-      <section className="relative pt-16 pb-32 overflow-hidden bg-gray-50">
-        {/* Abstract 3D Shapes (Simulated with CSS) */}
-        <div className="absolute top-20 left-10 w-8 h-8 rounded-full bg-green-400 blur-sm animate-pulse"></div>
-        <div className="absolute top-40 right-20 w-16 h-16 bg-purple-400/20 transform rotate-45 rounded-xl"></div>
-        
-        <div className="max-w-7xl mx-auto px-4 text-center relative z-10">
-          <p className="text-gray-500 mb-4 font-medium tracking-wide">March XX – April XX</p>
-          
-          <h1 className="text-6xl md:text-8xl font-pixel mb-6 tracking-tight">
-            HACKON<span className="text-purple-600 relative inline-block">
-                X
-                <div className="absolute -top-2 -right-4 w-4 h-4 bg-green-400 rounded-full"></div>
-            </span>
-          </h1>
-          
-          <p className="text-xl md:text-2xl text-gray-700 mb-8 max-w-2xl mx-auto">
-            India's Multi-State HPC Hackathon
-          </p>
-          
-          <div className="flex justify-center gap-12 mb-12 text-center">
-             <div>
-                <div className="text-purple-600 font-bold text-xl">5+</div>
-                <div className="text-sm text-gray-500 uppercase tracking-wider">Cities</div>
-             </div>
-             <div>
-                <div className="text-purple-600 font-bold text-xl">36</div>
-                <div className="text-sm text-gray-500 uppercase tracking-wider">Hours</div>
-             </div>
-             <div>
-                <div className="text-purple-600 font-bold text-xl">Offline</div>
-                <div className="text-sm text-gray-500 uppercase tracking-wider">Type</div>
-             </div>
-          </div>
-
-          <div className="flex justify-center gap-4">
-            <Link to="/signup" className="bg-purple-600 text-white px-8 py-3 rounded-md font-bold shadow-lg hover:bg-purple-700 hover:-translate-y-1 transition-all">
+        {/* Buttons */}
+        <div className="absolute bottom-[350px] left-1/2 transform -translate-x-1/2 flex items-center gap-3 z-20 animate-scale-in">
+          <a
+            href="/signup"
+            className="flex items-center justify-center px-6 py-3 gap-[10px] w-[171px] h-[48px] bg-[#5425FF] hover:bg-[#4319CC] hover:scale-105 transition-all duration-300 rounded-xl shadow-lg hover:shadow-xl"
+          >
+            <span className="w-[123px] h-[24px] font-figtree font-medium text-[20px] leading-[24px] text-center text-white">
               Register Now
-            </Link>
-            <Link to="/login" className="bg-white text-purple-600 border-2 border-purple-100 px-8 py-3 rounded-md font-bold hover:bg-purple-50 transition-all">
+            </span>
+          </a>
+          <a
+            href="/login"
+            className="box-border flex items-center justify-center px-6 py-3 gap-[10px] w-[98px] h-[48px] bg-white border-2 border-[#5425FF] hover:bg-[#F9F9F9] hover:scale-105 transition-all duration-300 rounded-xl shadow-lg hover:shadow-xl"
+          >
+            <span className="w-[50px] h-[24px] font-figtree font-medium text-[20px] leading-[24px] text-center text-[#5425FF]">
               Login
-            </Link>
+            </span>
+          </a>
+        </div>
+      </div>
+
+      <main
+        className="relative w-[1440px] bg-white overflow-hidden"
+        style={{ minHeight: "8604px" }}
+      >
+        {/* Decorative Groups */}
+        <div className="absolute left-[88px] top-[3630px] w-[105.27px] h-[121.27px] -rotate-[44.83deg] animate-float z-50">
+          <img src="/images/decoration-1.svg" alt="" width={105} height={121} />
+        </div>
+        <div
+          className="absolute left-[1217.94px] top-[1033.33px] w-[105.27px] h-[121.27px] -rotate-[44.83deg] animate-float z-50"
+          style={{ animationDelay: "1s" }}
+        >
+          <img src="/images/decoration-2.svg" alt="" width={105} height={121} />
+        </div>
+        <div
+          className="absolute left-[1310px] top-[3489.8px] w-[105.27px] h-[121.27px] rotate-[32.83deg] animate-float z-50"
+          style={{ animationDelay: "2s" }}
+        >
+          <img src="/images/decoration-3.svg" alt="" width={105} height={121} />
+        </div>
+
+        {/* More Green Circles */}
+        <div className="absolute left-[359px] top-[1586px] w-[45.8px] h-[45.77px] bg-[#24FF00] rounded-full shadow-[0px_0px_6.48px_2.05px_rgba(36,255,0,1)] animate-pulse-slow" />
+        <div
+          className="absolute left-[412px] top-[2113px] w-[45.8px] h-[45.77px] bg-[#24FF00] rounded-full shadow-[0px_0px_6.48px_2.05px_rgba(36,255,0,1)] animate-pulse-slow"
+          style={{ animationDelay: "1s" }}
+        />
+        <div
+          className="absolute left-[1072px] top-[1818px] w-[45.8px] h-[45.77px] bg-[#24FF00] rounded-full shadow-[0px_0px_6.48px_2.05px_rgba(36,255,0,1)] animate-pulse-slow"
+          style={{ animationDelay: "2s" }}
+        />
+
+        {/* HIGHLIGHTS Frame 22 */}
+        <div
+          className="fade-in-on-scroll absolute top-[1600px] w-[1383px] h-[574px] flex flex-col items-center gap-9"
+          style={{ left: "calc(50% - 1383px/2 - 2.5px)" }}
+        >
+          <h2 className="w-[1383px] h-[74px] font-silkscreen font-normal text-[58px] leading-[74px] text-center text-[#5425FF]">
+            HIGHLIGHTS
+          </h2>
+
+          <div className="w-[1383px] h-[464px] flex flex-col gap-6">
+            {/* Row 1 */}
+            <div className="w-[1383px] h-[220px] flex gap-6">
+              {[
+                {
+                  text: "36-hour non-stop build marathon",
+                  img: "highlight-1.png",
+                },
+                { text: "Happening across 5+ states", img: "highlight-2.png" },
+                {
+                  text: "Work with top industry mentors",
+                  img: "highlight-3.png",
+                },
+              ].map((item, idx) => (
+                <div
+                  key={idx}
+                  className="fade-in-on-scroll stagger-1 flex-1 flex flex-col justify-center items-center gap-5 px-[84px] py-[26px] bg-[#F3F3F3] rounded-2xl hover:scale-105 hover:shadow-lg transition-all duration-300"
+                  style={{ transitionDelay: `${idx * 0.1}s` }}
+                >
+                  <div className="w-20 h-20 bg-[#5425FF] rounded-xl flex items-center justify-center hover:rotate-12 transition-transform duration-300">
+                    <img
+                      src={`/images/highlights/${item.img}`}
+                      alt=""
+                      width={80}
+                      height={80}
+                      className="w-full h-full rounded-xl object-contain"
+                    />
+                  </div>
+                  <p className="w-[264px] h-[68px] font-figtree font-semibold text-[28px] leading-[34px] text-center text-[#6A6A6A]">
+                    {item.text}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            {/* Row 2 */}
+            <div className="w-[1383px] h-[220px] flex gap-6">
+              {[
+                {
+                  text: "Solve real-world problem statements",
+                  img: "highlight-5.png",
+                },
+                {
+                  text: "Meet tech leaders & potential employers",
+                  img: "highlight-6.png",
+                },
+                {
+                  text: "Showcase your work to recruiters",
+                  img: "highlight-7.png",
+                },
+              ].map((item, idx) => (
+                <div
+                  key={idx}
+                  className="fade-in-on-scroll stagger-1 flex-1 flex flex-col justify-center items-center gap-5 px-[84px] py-[26px] bg-[#F3F3F3] rounded-2xl hover:scale-105 hover:shadow-lg transition-all duration-300"
+                  style={{ transitionDelay: `${(idx + 3) * 0.1}s` }}
+                >
+                  <div className="w-20 h-20 bg-[#5425FF] rounded-xl flex items-center justify-center hover:rotate-12 transition-transform duration-300">
+                    <img
+                      src={`/images/highlights/${item.img}`}
+                      alt=""
+                      width={80}
+                      height={80}
+                      className="w-full h-full rounded-xl object-contain"
+                    />
+                  </div>
+                  <p className="w-[264px] h-[68px] font-figtree font-semibold text-[28px] leading-[34px] text-center text-[#6A6A6A]">
+                    {item.text}
+                  </p>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 
-        {/* Wavy Background Bottom */}
-        <div className="absolute bottom-0 left-0 w-full leading-none">
-          <svg className="w-full h-24 md:h-48" viewBox="0 0 1440 320" preserveAspectRatio="none">
-             <path fill="#4ade80" fillOpacity="0.4" d="M0,224L48,213.3C96,203,192,181,288,181.3C384,181,480,203,576,224C672,245,768,267,864,250.7C960,235,1056,181,1152,165.3C1248,149,1344,171,1392,181.3L1440,192L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"></path>
-             <path fill="#8b5cf6" fillOpacity="0.6" d="M0,96L48,112C96,128,192,160,288,186.7C384,213,480,235,576,213.3C672,192,768,128,864,122.7C960,117,1056,171,1152,197.3C1248,224,1344,224,1392,224L1440,224L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"></path>
-          </svg>
-        </div>
-      </section>
-
-      {/* What is HackOnX */}
-      <section id="about" className="py-20 bg-white">
-        <div className="max-w-4xl mx-auto px-4 text-center">
-          <h2 className="text-4xl font-pixel text-purple-700 mb-8 tracking-wide">WHAT'S HACKONX</h2>
-          <p className="text-lg text-gray-700 leading-relaxed">
-            HackOnX is a multi-state offline hackathon bringing together India's smartest student builders. Designed around High-Performance Computing, it challenges you to solve real-world problems at scale. Learn, build, and compete—city by city.
-          </p>
-        </div>
-      </section>
-
-      {/* Highlights */}
-      <section className="py-20 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-pixel text-purple-700 mb-4 tracking-wide">HIGHLIGHTS</h2>
-            <div className="w-24 h-1 bg-green-400 mx-auto rounded-full"></div>
+        {/* LOCATIONS Frame 28 */}
+        <div className="fade-in-on-scroll absolute left-[26px] top-[2250px] w-[1388px] h-[716px] flex flex-col justify-center items-center gap-9">
+          <div className="w-[1388px] h-[120px] flex flex-col items-center gap-3">
+            <h2 className="w-[1388px] h-[74px] font-silkscreen font-normal text-[58px] leading-[74px] text-center text-[#5425FF]">
+              LOCATIONS
+            </h2>
+            <p className="w-[1108px] h-[34px] font-figtree font-semibold text-[28px] leading-[34px] text-center text-black">
+              Choose your city at registration
+            </p>
           </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+
+          <div className="w-[1388px] h-[560px] flex flex-col gap-6">
+            {/* Row 1 */}
+            <div className="w-[1388px] h-[172px] flex justify-center items-center gap-6">
+              {[
+                { city: "Bengaluru", img: "bengaluru.png" },
+                { city: "Chennai", img: "chennai.png" },
+                { city: "Hyderabad", img: "hyderabad.png" },
+              ].map((item, idx) => (
+                <div
+                  key={idx}
+                  className="slide-left-on-scroll stagger-1 flex-1 flex items-center justify-center gap-5 px-6 py-[26px] bg-[#F3F3F3] rounded-2xl hover:scale-105 hover:shadow-lg transition-all duration-300"
+                  style={{ transitionDelay: `${idx * 0.1}s` }}
+                >
+                  <div className="w-[120px] h-[120px] rounded-xl overflow-hidden hover:scale-110 transition-transform duration-300">
+                    <img
+                      src={`/images/locations/${item.img}`}
+                      alt=""
+                      width={120}
+                      height={120}
+                      className="w-full h-full rounded-xl"
+                    />
+                  </div>
+                  <div className="flex flex-col justify-center gap-2 w-[264px] h-[94px]">
+                    <p className="w-[264px] h-[34px] font-figtree font-semibold text-[28px] leading-[34px] text-black">
+                      {item.city}
+                    </p>
+                    <div className="flex flex-col gap-1 w-[264px] h-[52px]">
+                      <p className="w-[264px] h-[24px] font-figtree font-semibold text-[20px] leading-[24px] text-[#6A6A6A]">
+                        Date : 17 / 03 / 2025
+                      </p>
+                      <p className="w-[264px] h-[24px] font-figtree font-semibold text-[20px] leading-[24px] text-[#6A6A6A]">
+                        Venue: Social Indirangar
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Row 2 */}
+            <div className="w-[1388px] h-[172px] flex justify-center items-center gap-6">
+              {[
+                { city: "Goa", img: "goa.png" },
+                { city: "Pune", img: "pune.png" },
+                { city: "Delhi NCR", img: "delhi.png" },
+              ].map((item, idx) => (
+                <div
+                  key={idx}
+                  className="slide-right-on-scroll stagger-1 flex-1 flex items-center justify-center gap-5 px-6 py-[26px] bg-[#F3F3F3] rounded-2xl hover:scale-105 hover:shadow-lg transition-all duration-300"
+                  style={{ transitionDelay: `${idx * 0.1}s` }}
+                >
+                  <div className="w-[120px] h-[120px] rounded-xl overflow-hidden hover:scale-110 transition-transform duration-300">
+                    <img
+                      src={`/images/locations/${item.img}`}
+                      alt=""
+                      width={120}
+                      height={120}
+                      className="w-full h-full rounded-xl"
+                    />
+                  </div>
+                  <div className="flex flex-col justify-center gap-2 w-[264px] h-[94px]">
+                    <p className="w-[264px] h-[34px] font-figtree font-semibold text-[28px] leading-[34px] text-black">
+                      {item.city}
+                    </p>
+                    <div className="flex flex-col gap-1 w-[264px] h-[52px]">
+                      <p className="w-[264px] h-[24px] font-figtree font-semibold text-[20px] leading-[24px] text-[#6A6A6A]">
+                        Date : 17 / 03 / 2025
+                      </p>
+                      <p className="w-[264px] h-[24px] font-figtree font-semibold text-[20px] leading-[24px] text-[#6A6A6A]">
+                        Venue: Social Indirangar
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Map */}
+            <div className="scale-in-on-scroll w-[1389px] h-[168px]">
+              <img
+                src="/images/map.svg"
+                alt=""
+                width={1389}
+                height={168}
+                className="w-full h-full"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Meet the Experts Frame 35 */}
+        <div className="fade-in-on-scroll absolute left-[25.61px] top-[3564px] w-[1389px] h-[552px] flex flex-col gap-9">
+          <div className="w-[1389px] h-[154px] flex flex-col items-center gap-3">
+            <h2 className="w-[1389px] h-[74px] font-silkscreen font-normal text-[58px] leading-[74px] text-center text-[#5425FF]">
+              MEET THE EXPERTS
+            </h2>
+            <p className="w-[765px] h-[68px] font-figtree font-semibold text-[28px] leading-[34px] text-center text-black">
+              Your projects will be evaluated and guided by leading
+              professionals in HPC, AI, cloud, and engineering.
+            </p>
+          </div>
+
+          <div className="w-[1389px] h-[362px] flex justify-between items-center gap-[14px]">
+            {Array.from({ length: 5 }).map((_, idx) => (
+              <div
+                key={idx}
+                className="scale-in-on-scroll stagger-1 flex flex-col gap-4 w-[264px] h-[362px] bg-[#F3F3F3] rounded-xl p-4 hover:scale-105 hover:shadow-xl transition-all duration-300"
+                style={{ transitionDelay: `${idx * 0.1}s` }}
+              >
+                <div className="w-full h-[280px] bg-white rounded-xl overflow-hidden hover:scale-105 transition-transform duration-300">
+                  <img
+                    src="/images/experts/expert-1.png"
+                    alt=""
+                    width={260}
+                    height={280}
+                    className="w-full h-full object-cover rounded-xl"
+                  />
+                </div>
+                <div className="flex flex-col justify-center items-center gap-2 w-full">
+                  <p className="w-full h-[34px] font-figtree font-semibold text-[28px] leading-[34px] text-center text-black">
+                    &lt;Name&gt;
+                  </p>
+                  <p className="w-full h-[24px] font-figtree font-semibold text-[20px] leading-[24px] text-center text-[#6A6A6A]">
+                    Director, HPC Labs
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Prize Pool */}
+        <div className="fade-in-on-scroll absolute left-[26px] top-[4176px] w-[1388px] h-[815px] rounded-2xl overflow-hidden hover:scale-[1.02] transition-transform duration-500">
+          <img
+            src="/images/prize-pool-bg.svg"
+            alt="Prize Pool"
+            width={1388}
+            height={815}
+            className="w-full h-full rounded-2xl"
+          />
+        </div>
+
+        {/* THEMES Frame 48 */}
+        <div className="fade-in-on-scroll absolute left-[26px] top-[5050px] w-[1388px] h-[586px] flex flex-col items-center gap-9">
+          <div className="w-[1388px] h-[120px] flex flex-col items-center gap-3">
+            <h2 className="w-[1388px] h-[74px] font-silkscreen font-normal text-[58px] leading-[74px] text-center text-[#5425FF]">
+              THEMES
+            </h2>
+            <p className="w-[765px] h-[34px] font-figtree font-semibold text-[28px] leading-[34px] text-center text-black">
+              Build solutions across cutting-edge domains:
+            </p>
+          </div>
+
+          <div className="w-[1388px] h-[430px] flex flex-col gap-6">
+            {/* Row 1 - 4 cards */}
+            <div className="w-[1388px] h-[220px] grid grid-cols-4 gap-6">
+              {[
+                { text: "High-Performance Computing", img: "theme-1.png" },
+                { text: "AI / ML", img: "theme-2.png" },
+                { text: "Developer Tools", img: "theme-3.png" },
+                { text: "Cloud & Distributed Systems", img: "theme-4.png" },
+              ].map((item, idx) => (
+                <div
+                  key={idx}
+                  className="scale-in-on-scroll stagger-1 flex flex-col justify-center items-center gap-5 px-[84px] py-[26px] bg-[#F3F3F3] rounded-2xl hover:scale-105 hover:shadow-lg transition-all duration-300"
+                  style={{ transitionDelay: `${idx * 0.1}s` }}
+                >
+                  <div className="w-20 h-20 bg-[#5425FF] rounded-xl flex items-center justify-center hover:rotate-12 transition-transform duration-300">
+                    <img
+                      src={`/images/themes/${item.img}`}
+                      alt=""
+                      width={80}
+                      height={80}
+                      className="w-full h-full rounded-xl object-contain"
+                    />
+                  </div>
+                  <p className="w-[264px] min-h-[68px] font-figtree font-semibold text-[28px] leading-[34px] text-center text-[#6A6A6A]">
+                    {item.text}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            {/* Row 2 - 3 cards aligned with first 3 cards of Row 1 */}
+            <div className="w-[1388px] h-[186px] grid grid-cols-4 gap-6">
+              {[
+                { text: "Cybersecurity", img: "theme-5.png" },
+                { text: "Sustainability", img: "theme-6.png" },
+                { text: "Open Innovation", img: "theme-7.png" },
+              ].map((item, idx) => (
+                <div
+                  key={idx}
+                  className="scale-in-on-scroll stagger-1 flex flex-col justify-center items-center gap-5 px-[84px] py-[26px] bg-[#F3F3F3] rounded-2xl hover:scale-105 hover:shadow-lg transition-all duration-300"
+                  style={{ transitionDelay: `${(idx + 4) * 0.1}s` }}
+                >
+                  <div className="w-20 h-20 bg-[#5425FF] rounded-xl flex items-center justify-center hover:rotate-12 transition-transform duration-300">
+                    <img
+                      src={`/images/themes/${item.img}`}
+                      alt=""
+                      width={80}
+                      height={80}
+                      className="w-full h-full rounded-xl object-contain"
+                    />
+                  </div>
+                  <p className="w-[264px] h-[34px] font-figtree font-semibold text-[28px] leading-[34px] text-center text-[#6A6A6A]">
+                    {item.text}
+                  </p>
+                </div>
+              ))}
+              {/* Empty spacer to maintain 4-column grid alignment */}
+              <div />
+            </div>
+          </div>
+        </div>
+
+        {/* HOW IT WORKS Frame 57 - Full Width */}
+        <div className="fade-in-on-scroll absolute left-0 top-[5650px] w-full h-[592px] flex flex-col items-center gap-8 z-10 relative">
+          {/* Floating Cubes - Left Side */}
+          <div className="absolute left-[12%] top-[150px] z-30 animate-float pointer-events-none">
+            <img src="/images/decoration-1.svg" alt="" width={90} height={90} />
+          </div>
+          <div
+            className="absolute left-[10%] top-[400px] z-30 animate-float pointer-events-none"
+            style={{ animationDelay: "1.5s" }}
+          >
+            <img src="/images/decoration-2.svg" alt="" width={85} height={85} />
+          </div>
+
+          {/* Floating Cubes - Right Side */}
+          <div
+            className="absolute right-[12%] top-[100px] z-30 animate-float pointer-events-none"
+            style={{ animationDelay: "0.8s" }}
+          >
+            <img src="/images/decoration-2.svg" alt="" width={95} height={95} />
+          </div>
+          <div
+            className="absolute right-[10%] top-[380px] z-30 animate-float pointer-events-none"
+            style={{ animationDelay: "2.2s" }}
+          >
+            <img src="/images/decoration-1.svg" alt="" width={88} height={88} />
+          </div>
+
+          <div className="w-full h-[112px] flex items-center justify-center gap-[10px] px-[9px] py-[10px] bg-[#24FF00] relative z-10">
+            <h2 className="w-[594px] h-[92px] font-silkscreen font-normal text-[72px] leading-[92px] text-center text-[#5425FF]">
+              HOW IT WORKS
+            </h2>
+          </div>
+
+          <div className="w-[731px] h-[448px] flex flex-col gap-4 relative z-10">
             {[
-              { icon: <Clock size={32} />, title: "36-hour non-stop build marathon", color: "bg-red-100 text-red-600" },
-              { icon: <MapPin size={32} />, title: "Happening across 5+ states", color: "bg-purple-100 text-purple-600" },
-              { icon: <Users size={32} />, title: "Work with top industry mentors", color: "bg-amber-100 text-amber-600" },
-              { icon: <Gift size={32} />, title: "Win cash prizes & national recognition", color: "bg-purple-100 text-purple-800" },
-              { icon: <Lightbulb size={32} />, title: "Solve real-world problem statements", color: "bg-blue-100 text-blue-600" },
-              { icon: <Globe size={32} />, title: "Showcase your work to recruiters", color: "bg-green-100 text-green-600" },
+              { step: "1", title: "Register your team", desc: " (Team of 4)" },
+              {
+                step: "2",
+                title: "Select your city",
+                desc: "Attend the offline edition near you.",
+              },
+              {
+                step: "3",
+                title: "Build for 36 hours",
+                desc: "Solve a real-world problem with your team.",
+              },
+              {
+                step: "4",
+                title: "Demo to judges",
+                desc: "Top teams from each city qualify for the grand stage.",
+              },
             ].map((item, idx) => (
-              <div key={idx} className="bg-white p-8 rounded-2xl shadow-sm hover:shadow-md transition-shadow flex flex-col items-center text-center">
-                <div className={`w-16 h-16 rounded-2xl ${item.color} flex items-center justify-center mb-6`}>
-                  {item.icon}
+              <div
+                key={idx}
+                className="slide-right-on-scroll stagger-1 w-[731px] h-[100px] flex items-center gap-9 px-[37px] py-[13px] bg-[#E9FEE6] rounded-xl hover:scale-[1.02] hover:shadow-md transition-all duration-300"
+                style={{ transitionDelay: `${idx * 0.1}s` }}
+              >
+                <p className="w-[37px] h-[74px] font-silkscreen font-normal text-[58px] leading-[74px] text-center text-[#5425FF]">
+                  {item.step}
+                </p>
+                <div className="flex flex-col justify-center gap-1">
+                  <p className="font-figtree font-semibold text-[28px] leading-[34px] text-black">
+                    {item.title}
+                  </p>
+                  <p className="font-figtree font-semibold text-[20px] leading-[24px] text-[#6A6A6A]">
+                    {item.desc}
+                  </p>
                 </div>
-                <h3 className="font-medium text-gray-800">{item.title}</h3>
               </div>
             ))}
           </div>
         </div>
-      </section>
 
-      {/* Locations */}
-      <section id="locations" className="py-20 bg-white">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="text-center mb-12">
-            <h2 className="text-4xl font-pixel text-purple-700 mb-4 tracking-wide">LOCATIONS</h2>
-            <p className="text-gray-600">Choose your city at registration</p>
+        {/* RULES & ELIGIBILITY Frame 56 */}
+        <div className="fade-in-on-scroll absolute left-[337.61px] top-[5700px] w-[765px] h-[750px] flex flex-col items-center gap-8 relative">
+          {/* Floating Cubes - Left Side */}
+          <div className="absolute -left-[160px] top-[50px] z-30 animate-float pointer-events-none">
+            <img src="/images/decoration-1.svg" alt="" width={85} height={85} />
+          </div>
+          <div
+            className="absolute -left-[145px] top-[320px] z-30 animate-float pointer-events-none"
+            style={{ animationDelay: "1.2s" }}
+          >
+            <img src="/images/decoration-2.svg" alt="" width={82} height={82} />
+          </div>
+          <div
+            className="absolute -left-[150px] top-[590px] z-30 animate-float pointer-events-none"
+            style={{ animationDelay: "2.4s" }}
+          >
+            <img src="/images/decoration-1.svg" alt="" width={88} height={88} />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {/* Floating Cubes - Right Side */}
+          <div
+            className="absolute -right-[160px] top-[150px] z-30 animate-float pointer-events-none"
+            style={{ animationDelay: "0.7s" }}
+          >
+            <img src="/images/decoration-2.svg" alt="" width={86} height={86} />
+          </div>
+          <div
+            className="absolute -right-[145px] top-[420px] z-30 animate-float pointer-events-none"
+            style={{ animationDelay: "1.8s" }}
+          >
+            <img src="/images/decoration-1.svg" alt="" width={84} height={84} />
+          </div>
+          <div
+            className="absolute -right-[150px] top-[650px] z-30 animate-float pointer-events-none"
+            style={{ animationDelay: "3.0s" }}
+          >
+            <img src="/images/decoration-2.svg" alt="" width={90} height={90} />
+          </div>
+
+          <h2 className="w-[765px] h-[74px] font-silkscreen font-normal text-[58px] leading-[74px] text-center text-[#5425FF] relative z-20">
+            RULES & ELIGIBILITY
+          </h2>
+
+          <div className="w-[731px] h-[564px] flex flex-col gap-4 relative z-20">
             {[
-              { city: "Bengaluru", date: "17 / 03 / 2025", venue: "Social Indiranagar", img: "https://picsum.photos/400/200?random=1" },
-              { city: "Chennai", date: "17 / 03 / 2025", venue: "Social Indiranagar", img: "https://picsum.photos/400/200?random=2" },
-              { city: "Hyderabad", date: "17 / 03 / 2025", venue: "Social Indiranagar", img: "https://picsum.photos/400/200?random=3" },
-              { city: "Goa", date: "17 / 03 / 2025", venue: "Social Indiranagar", img: "https://picsum.photos/400/200?random=4" },
-              { city: "Pune", date: "17 / 03 / 2025", venue: "Social Indiranagar", img: "https://picsum.photos/400/200?random=5" },
-              { city: "Delhi NCR", date: "17 / 03 / 2025", venue: "Social Indiranagar", img: "https://picsum.photos/400/200?random=6" },
-            ].map((loc, idx) => (
-              <div key={idx} className="bg-gray-50 rounded-xl overflow-hidden group hover:shadow-lg transition-all cursor-pointer border border-gray-100">
-                <div className="h-32 overflow-hidden">
-                    <img src={loc.img} alt={loc.city} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                </div>
-                <div className="p-4 flex gap-4">
-                  <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0 text-purple-600">
-                    <MapPin size={24} />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-gray-900">{loc.city}</h3>
-                    <p className="text-xs text-gray-500 mt-1">Date : {loc.date}</p>
-                    <p className="text-xs text-gray-500">Venue: {loc.venue}</p>
-                  </div>
-                </div>
+              "Team of exactly 4 students",
+              "Must be enrolled in any college in India",
+              "Only original work allowed",
+              "Allowed tech stack: Open-source, Cloud tools, HPC resources",
+              "Judging criteria: Innovation | Feasibility | Technical Execution | Presentation",
+            ].map((rule, idx) => (
+              <div
+                key={idx}
+                className="slide-left-on-scroll stagger-1 w-[731px] h-[100px] flex items-center gap-9 px-[37px] py-[13px] bg-[#F3F3F3] rounded-xl hover:scale-[1.02] hover:shadow-md transition-all duration-300"
+                style={{ transitionDelay: `${idx * 0.1}s` }}
+              >
+                <p className="w-[44px] h-[74px] font-silkscreen font-normal text-[58px] leading-[74px] text-center text-[#5425FF]">
+                  {idx + 1}
+                </p>
+                <p className="font-figtree font-semibold text-[28px] leading-[34px] text-black flex-1">
+                  {rule}
+                </p>
               </div>
             ))}
           </div>
+
+          <button className="scale-in-on-scroll flex items-center justify-center px-6 py-3 gap-[10px] w-[183px] h-[48px] bg-[#5425FF] hover:bg-[#4319CC] hover:scale-105 transition-all duration-300 rounded-xl shadow-lg hover:shadow-xl relative z-20">
+            <span className="w-[135px] h-[24px] font-figtree font-medium text-[20px] leading-[24px] text-center text-white">
+              View Full Rules
+            </span>
+          </button>
         </div>
-      </section>
 
-      {/* Prize Pool */}
-      <section id="prizes" className="py-20 relative overflow-hidden bg-purple-900 text-white">
-        <div className="absolute inset-0 bg-gradient-to-br from-purple-900 to-indigo-900"></div>
-        {/* Decorative Circles */}
-        <div className="absolute top-0 right-0 w-64 h-64 bg-green-400 rounded-full mix-blend-multiply filter blur-3xl opacity-20"></div>
-        <div className="absolute bottom-0 left-0 w-64 h-64 bg-pink-400 rounded-full mix-blend-multiply filter blur-3xl opacity-20"></div>
-
-        <div className="max-w-5xl mx-auto px-4 relative z-10 text-center">
-          <h2 className="text-4xl font-pixel mb-8 tracking-widest text-white">PRIZE POOL</h2>
-          
-          <div className="bg-white/10 backdrop-blur-lg border border-white/20 rounded-3xl p-12 mb-12">
-            <h3 className="text-6xl font-pixel text-green-400 mb-6">₹XX,XX,XXX+</h3>
-            <div className="space-y-4 text-lg">
-              <p><strong className="text-purple-300">1st Prize:</strong> Cash + Laptop + Goodies + Fast-Track Internship</p>
-              <p><strong className="text-purple-300">2nd Prize:</strong> Cash + Swag + Industry Vouchers</p>
-              <p><strong className="text-purple-300">3rd Prize:</strong> Goodies + Tech Accessories + Recognition</p>
-            </div>
+        {/* GALLERY Frame 58 */}
+        <div className="fade-in-on-scroll absolute left-[25.61px] top-[7060px] w-[1389px] h-[436px] flex flex-col gap-9">
+          <div className="w-[1389px] h-[120px] flex flex-col items-center gap-3">
+            <h2 className="w-[1389px] h-[74px] font-silkscreen font-normal text-[58px] leading-[74px] text-center text-[#5425FF]">
+              GALLERY
+            </h2>
+            <p className="w-[765px] h-[34px] font-figtree font-semibold text-[28px] leading-[34px] text-center text-black">
+              A sneak peek into the vibe
+            </p>
           </div>
-          
-          <div className="bg-purple-800/50 rounded-xl p-6 inline-block">
-             <h4 className="text-green-400 font-bold mb-2 uppercase tracking-wider">For Every Participant</h4>
-             <ul className="text-sm space-y-2 flex flex-col md:flex-row gap-4 md:gap-8 justify-center">
-                <li className="flex items-center gap-2"><div className="w-2 h-2 bg-green-400 rounded-full"></div> Certificate of Participation</li>
-                <li className="flex items-center gap-2"><div className="w-2 h-2 bg-green-400 rounded-full"></div> Access to mentors</li>
-                <li className="flex items-center gap-2"><div className="w-2 h-2 bg-green-400 rounded-full"></div> Event Swags</li>
-             </ul>
+          <div className="w-[1389px] h-[280px] flex items-center justify-center hover:scale-[1.02] transition-transform duration-500">
+            <img
+              src="/images/gallery.svg"
+              alt="Gallery"
+              width={1389}
+              height={280}
+              className="w-full h-full"
+            />
           </div>
         </div>
-      </section>
 
-      {/* Themes */}
-      <section className="py-20 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-pixel text-purple-700 mb-4 tracking-wide">THEMES</h2>
-            <p className="text-gray-600">Build solutions across cutting-edge domains</p>
-          </div>
+        {/* Registration CTA Frame 65 */}
+        <div className="fade-in-on-scroll absolute left-[26.11px] top-[7560px] w-[1388px] h-[440px] overflow-hidden rounded-2xl">
+          <img
+            src="/images/image.png"
+            alt="Registration CTA"
+            fill
+            quality={100}
+            className="object-cover rounded-2xl"
+          />
+        </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+        {/* FAQ Frame 59 */}
+        <div className="fade-in-on-scroll absolute left-[337.61px] top-[8050px] w-[765px] h-[554px] flex flex-col items-center gap-8">
+          <h2 className="w-[765px] h-[74px] font-silkscreen font-normal text-[58px] leading-[74px] text-center text-[#5425FF]">
+            FAQ
+          </h2>
+
+          <div className="w-[731px] h-[448px] flex flex-col gap-4">
             {[
-              { label: "High-Performance Computing", icon: <Cpu /> },
-              { label: "AI / ML", icon: <Database /> },
-              { label: "Developer Tools", icon: <Settings /> },
-              { label: "Cloud & Distributed Systems", icon: <Globe /> },
-              { label: "Cybersecurity", icon: <Shield /> },
-              { label: "Sustainability", icon: <Leaf /> },
-              { label: "Open Innovation", icon: <Lightbulb /> },
-            ].map((theme, idx) => (
-              <div key={idx} className="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center gap-4 group">
-                <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center text-purple-600 group-hover:scale-110 transition-transform">
-                  {theme.icon}
+              {
+                q: "Who can participate?",
+                a: "Any student currently enrolled in a college",
+              },
+              { q: "Is it free?", a: "Yes, participation is completely free." },
+              {
+                q: "Is it an offline event?",
+                a: "Yes, 100% offline across all cities.",
+              },
+              {
+                q: "Are the prizes real?",
+                a: "Absolutely — backed by sponsors and partners.",
+              },
+            ].map((item, idx) => (
+              <div
+                key={idx}
+                className="scale-in-on-scroll stagger-1 w-[731px] h-[100px] flex items-center gap-9 px-[37px] py-[13px] bg-[#F3F3F3] rounded-xl hover:scale-[1.02] hover:shadow-md transition-all duration-300"
+                style={{ transitionDelay: `${idx * 0.1}s` }}
+              >
+                <div className="flex flex-col justify-center gap-1">
+                  <p className="font-figtree font-semibold text-[28px] leading-[34px] text-black">
+                    {item.q}
+                  </p>
+                  <p className="font-figtree font-semibold text-[20px] leading-[24px] text-[#6A6A6A]">
+                    {item.a}
+                  </p>
                 </div>
-                <span className="font-medium text-gray-800 text-sm">{theme.label}</span>
               </div>
             ))}
           </div>
         </div>
-      </section>
 
-      {/* How It Works */}
-      <section className="py-20 bg-green-500 text-white relative overflow-hidden">
-        {/* Wavy top divider inside section for visual break if needed, using standard border here for simplicity */}
-        
-        <div className="max-w-4xl mx-auto px-4 relative z-10">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-pixel mb-4 tracking-wide text-gray-900">HOW IT WORKS</h2>
-          </div>
-
-          <div className="space-y-4">
-             {[
-                { step: "1", title: "Register your team", desc: "(Team of 4)" },
-                { step: "2", title: "Select your city", desc: "Attend the offline edition near you." },
-                { step: "3", title: "Build for 36 hours", desc: "Solve a real-world problem with your team." },
-                { step: "4", title: "Demo to judges", desc: "Top teams from each city qualify for the grand stage." },
-             ].map((item, idx) => (
-                <div key={idx} className="bg-green-50/90 backdrop-blur-sm p-6 rounded-lg flex items-center gap-6">
-                   <div className="text-4xl font-pixel text-purple-600 font-bold w-12">{item.step}</div>
-                   <div>
-                      <h3 className="text-xl font-bold text-gray-900">{item.title}</h3>
-                      <p className="text-gray-600">{item.desc}</p>
-                   </div>
-                </div>
-             ))}
-          </div>
+        {/* Final Decorative Element */}
+        <div
+          className="absolute left-[31px] top-[1373.15px] w-[105.27px] h-[121.27px] -rotate-[40.45deg] z-50 animate-float"
+          style={{ animationDelay: "1.5s" }}
+        >
+          <img
+            src="/images/decoration-small.svg"
+            alt=""
+            width={105}
+            height={121}
+          />
         </div>
-      </section>
+      </main>
 
-      {/* Footer / CTA */}
-      <section className="py-20 bg-white relative">
-        <div className="max-w-4xl mx-auto px-4 text-center">
-            <p className="text-gray-500 mb-6">Hurry! Only limited seats per city.</p>
-            
-            <div className="relative inline-block w-full max-w-lg mx-auto">
-                <div className="absolute inset-0 bg-purple-400 blur-lg opacity-30 transform translate-y-2"></div>
-                <div className="bg-purple-600 text-white rounded-xl p-8 shadow-2xl relative z-10 transform -rotate-1">
-                    <h3 className="text-2xl font-bold mb-2">Registrations close in 8 days</h3>
-                </div>
-            </div>
+      {/* Footer Frame 63 */}
+      <div className="fade-in-on-scroll absolute left-0 top-[8664px] w-full h-[440px] overflow-hidden">
+        <img
+          src="/images/footer.png"
+          alt="Footer"
+          fill
+          quality={100}
+          className="object-cover"
+        />
+      </div>
 
-            <div className="mt-12">
-                <Link to="/signup" className="bg-purple-600 text-white px-12 py-4 rounded-md font-bold text-lg shadow-xl hover:bg-purple-700 transition-all">
-                  Register Now
-                </Link>
-            </div>
+      {/* What's HackOnX Frame 11 - Full Width */}
+      <div className="fade-in-on-scroll absolute left-0 top-[1157px] w-full h-[283px] flex flex-col justify-center items-center gap-6 px-[139px] py-12 bg-gradient-to-r from-[#E9E3FF] to-[#E9FFE5] rounded-2xl overflow-hidden">
+        <h2 className="w-[486px] h-[61px] font-silkscreen font-normal text-[48px] leading-[61px] text-[#5425FF]">
+          What's HackOnX
+        </h2>
+        <p className="w-[1108px] h-[102px] font-figtree font-semibold text-[28px] leading-[34px] text-center text-black">
+          HackOnX is a multi-state offline hackathon bringing together India's
+          smartest student builders. Designed around High-Performance Computing,
+          it challenges you to solve real-world problems at scale. Learn, build,
+          and compete—city by city.
+        </p>
+      </div>
+
+      {/* In Collaboration With Frame 29 - Full Width */}
+      <div className="fade-in-on-scroll absolute left-0 top-[3050px] w-full h-[294px] flex flex-col items-center gap-9">
+        <h2 className="w-full h-[74px] font-silkscreen font-normal text-[58px] leading-[74px] text-center text-[#5425FF]">
+          IN COLLABORATION WITH
+        </h2>
+        <div className="w-full max-w-[1390px] h-[184px] flex flex-row flex-wrap justify-center items-center gap-6">
+          {Array.from({ length: 10 }).map((_, idx) => (
+            <div
+              key={idx}
+              className="scale-in-on-scroll stagger-1 w-[200px] h-[80px] bg-[#D9D9D9] hover:scale-110 hover:bg-[#C9C9C9] transition-all duration-300 rounded-lg"
+              style={{ transitionDelay: `${idx * 0.05}s` }}
+            />
+          ))}
         </div>
-      </section>
-
-       {/* Simple Footer */}
-       <footer className="bg-purple-700 text-white py-12">
-          <div className="max-w-7xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center">
-             <div className="mb-4 md:mb-0">
-                 <h2 className="text-3xl font-pixel tracking-widest">HACKONX</h2>
-                 <p className="text-purple-200 text-sm mt-2">support@hackonx.com</p>
-             </div>
-             <div className="flex gap-6 text-sm font-medium">
-                <a href="#" className="hover:text-green-300">Home</a>
-                <a href="#" className="hover:text-green-300">Register</a>
-                <a href="#" className="hover:text-green-300">Rules</a>
-                <a href="#" className="hover:text-green-300">Contact</a>
-             </div>
-          </div>
-       </footer>
+      </div>
     </div>
   );
-};
-
-export default LandingPage;
+}
