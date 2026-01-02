@@ -50,7 +50,6 @@ class ApiClient {
           }
         }
 
-        
         // Normalize duplicate '/api' when baseURL already contains '/api' and callers also include it
         // This avoids requests like baseURL='http://host/api' + url='/api/judge/...' => '/api/api/...'
         try {
@@ -67,7 +66,6 @@ class ApiClient {
         } catch (e) {
           // ignore normalization errors
         }
-
 
         return config;
       },
