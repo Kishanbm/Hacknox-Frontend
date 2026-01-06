@@ -321,7 +321,7 @@ const JudgeDashboard: React.FC = () => {
                                         <div className="text-[10px] text-gray-400 font-bold uppercase">Time Left</div>
                                     </div>
                                     <button 
-                                        onClick={() => navigate(`/judge/evaluate/${sub.id}`)}
+                                        onClick={() => navigate('/judge/assignments')}
                                         className="px-4 py-2 bg-white border border-gray-200 text-gray-700 text-xs font-bold rounded-xl hover:border-[#5425FF] hover:text-[#5425FF] transition-colors shadow-sm"
                                     >
                                         Evaluate

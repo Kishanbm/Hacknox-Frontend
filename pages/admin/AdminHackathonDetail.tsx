@@ -449,7 +449,7 @@ const AdminHackathonDetail: React.FC = () => {
 
                         {/* Tabs */}
                         <div className="flex gap-2 overflow-x-auto pb-4 mb-2">
-                            {['Overview', 'Judges', 'Participants', 'Results'].map(tab => (
+                            {['Overview', 'Judges', 'Participants'].map(tab => (
                                 <button
                                     key={tab}
                                     onClick={() => setActiveTab(tab)}
@@ -635,71 +635,7 @@ const AdminHackathonDetail: React.FC = () => {
                     </div>
                 )}
 
-                {/* --- RESULTS TAB --- */}
-                {activeTab === 'Results' && (
-                    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
-                        {/* Control Bar */}
-                        <div className="flex justify-between items-center bg-white p-4 rounded-2xl border border-gray-200 shadow-sm">
-                            <h3 className="font-bold text-gray-900 ml-2">Scoring & Leaderboard</h3>
-                            <div className="flex gap-3">
-                                <button 
-                                    onClick={handleExportCSV}
-                                    className="px-4 py-2 border border-gray-200 rounded-xl text-sm font-bold text-gray-600 hover:bg-gray-50 flex items-center gap-2"
-                                >
-                                    <Download size={16} /> Export CSV
-                                </button>
-                                <button 
-                                    onClick={handleCalculate}
-                                    disabled={calculating}
-                                    className="px-5 py-2 bg-[#5425FF] text-white rounded-xl text-sm font-bold hover:bg-[#4015D1] shadow-lg shadow-[#5425FF]/20 flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed transition-all"
-                                >
-                                    {calculating ? (
-                                        <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> Calculating...</>
-                                    ) : (
-                                        <><Calculator size={16} /> Calculate Aggregate</>
-                                    )}
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* Leaderboard (show top 3 only when published) */}
-                        {!leaderboardPublished ? (
-                            <div className="bg-white rounded-3xl border border-gray-200 shadow-sm p-8 text-center text-gray-500">
-                                Results are not published for this hackathon.
-                            </div>
-                        ) : (
-                            <div className="space-y-6">
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                    {leaderboard.slice(0, 3).map((entry: any, index: number) => (
-                                        <div key={entry.id || index} className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm text-center">
-                                            <div className="text-2xl font-heading mb-2">{index + 1}</div>
-                                            <div className="font-bold text-lg">{entry.team_name || entry.teamName || 'Unknown Team'}</div>
-                                            <div className="text-sm text-gray-500 mt-1">{entry.project_title || entry.project || ''}</div>
-                                            <div className="text-3xl font-heading text-[#5425FF] mt-4">{(entry.final_score ?? entry.score ?? '-')}</div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Publish Section */}
-                        {leaderboardComputed && leaderboard.length > 0 && (
-                            <div className="bg-gray-900 rounded-3xl p-8 text-white flex flex-col md:flex-row items-center justify-between gap-6 shadow-2xl">
-                                <div>
-                                    <h3 className="text-2xl font-heading mb-2 text-[#24FF00]">Ready to Publish?</h3>
-                                    <p className="text-gray-400 text-sm max-w-md">This will release the final scores and rankings to all participants and public dashboards. This action cannot be undone.</p>
-                                </div>
-                                <button 
-                                    onClick={handlePublish}
-                                    disabled={publishing}
-                                    className="px-8 py-4 bg-[#24FF00] text-black rounded-xl font-bold hover:bg-[#1fe600] shadow-[0_0_20px_rgba(36,255,0,0.4)] transition-all flex items-center gap-2 transform hover:scale-105 disabled:opacity-70 disabled:cursor-not-allowed"
-                                >
-                                    {publishing ? 'Publishing...' : <><Send size={20} /> Publish Leaderboard</>}
-                                </button>
-                            </div>
-                        )}
-                    </div>
-                )}
+                
                     </>
                 )}
             </div>
