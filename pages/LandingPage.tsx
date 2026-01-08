@@ -61,10 +61,7 @@ export default function Home() {
         <img
           src="/images/highlights/image.png"
           alt="Hero"
-          fill
-          quality={100}
-          priority
-          className="object-cover"
+          className="w-full h-full object-cover"
         />
 
         {/* Buttons */}
@@ -601,9 +598,7 @@ export default function Home() {
           <img
             src="/images/image.png"
             alt="Registration CTA"
-            fill
-            quality={100}
-            className="object-cover rounded-2xl"
+            className="w-full h-full object-cover rounded-2xl"
           />
         </div>
 
@@ -666,9 +661,7 @@ export default function Home() {
         <img
           src="/images/footer.png"
           alt="Footer"
-          fill
-          quality={100}
-          className="object-cover"
+          className="w-full h-full object-cover"
         />
       </div>
 

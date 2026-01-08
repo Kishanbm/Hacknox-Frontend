@@ -1,5 +1,5 @@
 import React from 'react';
-import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { ToastProvider } from './components/ui/ToastProvider';
 import { ProtectedRoute, PublicRoute } from './components/ProtectedRoute';
@@ -50,7 +50,7 @@ const App: React.FC = () => {
   return (
     <AuthProvider>
       <ToastProvider>
-        <HashRouter>
+        <BrowserRouter>
         <Routes>
           {/* Public Routes */}
           <Route path="/" element={
@@ -274,7 +274,7 @@ const App: React.FC = () => {
           {/* Redirect unknown routes to landing */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-        </HashRouter>
+        </BrowserRouter>
       </ToastProvider>
     </AuthProvider>
   );
