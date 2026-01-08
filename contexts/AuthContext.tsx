@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import apiClient, { ApiError } from '../lib/axios';
+import apiClient, { ApiError} from '../lib/axios';
 
 // User Role Type
 export type UserRole = 'participant' | 'judge' | 'admin';
@@ -136,10 +136,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       let recaptchaToken: string | undefined;
       try {
         const SITE_KEY = (import.meta as any).env?.VITE_RECAPTCHA_SITE_KEY;
-        if (SITE_KEY) {
-          // Load grecaptcha script if not already present
+        if (!SITE_KEY) {
+          console.warn('VITE_RECAPTCHA_SITE_KEY not set; signup will be attempted without reCAPTCHA token');
+        }
+
+        // Ensure grecaptcha script is loaded and generate a fresh token immediately before sending
+        if (SITE_KEY && typeof window !== 'undefined') {
           await new Promise<void>((resolve, reject) => {
-            if (typeof window === 'undefined') return resolve();
             const w = window as any;
             if (w.grecaptcha && w.grecaptcha.execute) return resolve();
             const script = document.createElement('script');
@@ -153,21 +156,26 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
           const w = window as any;
           if (w.grecaptcha && w.grecaptcha.execute) {
-            recaptchaToken = await w.grecaptcha.execute((import.meta as any).env.VITE_RECAPTCHA_SITE_KEY, { action: 'signup' });
+            try {
+              recaptchaToken = await w.grecaptcha.execute(SITE_KEY, { action: 'signup' });
+              console.debug('Auth.signup: recaptcha token generated (len=', recaptchaToken?.length, ')');
+            } catch (e) {
+              console.warn('Auth.signup: grecaptcha.execute failed', e);
+            }
           }
         }
-      } catch (err) {
-        // If reCAPTCHA fails to load or execute, continue without token
-        console.warn('reCAPTCHA token generation failed:', err);
-      }
 
-      await apiClient.post('/auth/signup', {
-        firstName,
-        lastName,
-        email,
-        password,
-        ...(recaptchaToken ? { recaptchaToken } : {}),
-      });
+        await apiClient.post('/auth/signup', {
+          firstName,
+          lastName,
+          email,
+          password,
+          ...(recaptchaToken ? { recaptchaToken } : {}),
+        });
+      } catch (err) {
+        const apiError = err as ApiError;
+        throw new Error(apiError.message || 'Signup failed');
+      }
       // Note: User needs to verify email before logging in
     } catch (error) {
       const apiError = error as ApiError;
