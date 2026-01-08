@@ -47,6 +47,27 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Check if user is authenticated on mount
   useEffect(() => {
     checkAuth();
+    // Preload grecaptcha script early so it's ready when signup is triggered
+    (async () => {
+      try {
+        const SITE_KEY = (import.meta as any).env?.VITE_RECAPTCHA_SITE_KEY;
+        if (!SITE_KEY || typeof window === 'undefined') return;
+        const w = window as any;
+        if (w.grecaptcha && w.grecaptcha.execute) return;
+        await new Promise<void>((resolve, reject) => {
+          const script = document.createElement('script');
+          script.src = `https://www.google.com/recaptcha/api.js?render=${SITE_KEY}`;
+          script.async = true;
+          script.defer = true;
+          script.onload = () => resolve();
+          script.onerror = () => reject(new Error('Failed to load reCAPTCHA script'));
+          document.head.appendChild(script);
+        });
+        console.debug('AuthProvider: grecaptcha script preloaded');
+      } catch (e) {
+        console.warn('AuthProvider: grecaptcha preload failed', e);
+      }
+    })();
   }, []);
 
   /**
