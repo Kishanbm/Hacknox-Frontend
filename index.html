@@ -70,18 +70,7 @@
       .animate-float-fast { animation: float-fast 6s ease-in-out infinite; }
     </style>
     <!-- Removed path-to-hash redirect script because the app now uses BrowserRouter (HTML5 history API). -->
-  <script type="importmap">
-{
-  "imports": {
-    "react-router-dom": "https://esm.sh/react-router-dom@^7.11.0",
-    "react/": "https://esm.sh/react@^19.2.3/",
-    "react": "https://esm.sh/react@^19.2.3",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-    "lucide-react": "https://esm.sh/lucide-react@^0.561.0",
-    "recharts": "https://esm.sh/recharts@^3.6.0"
-  }
-}
-</script>
+  <!-- Removed importmap: production build bundles dependencies. Using importmap caused runtime resolution issues on Vercel. -->
 </head>
   <body>
     <div id="root"></div>
