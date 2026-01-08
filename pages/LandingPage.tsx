@@ -52,7 +52,7 @@ export default function Home() {
       {/* Top Banner */}
       <div className="absolute top-0 left-0 w-full h-[65px] bg-[#5425FF] flex items-center justify-center z-50 animate-fade-in-down">
         <p className="text-white font-figtree text-[24px] leading-[120%] text-center">
-          Hackathon begins in: 05 Days 12 Hours 46 Minutes
+          Hackathon begins in: 05 Days 12 Hours 50 Minutes
         </p>
       </div>
 
