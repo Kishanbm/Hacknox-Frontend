@@ -15,11 +15,11 @@ const InviteModal: React.FC<InviteModalProps> = ({ open, onClose, teamId, teamNa
   const [email, setEmail] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { success, error: toastError } = useToast();
 
   if (!open) return null;
 
   const handleSend = async () => {
-    const { success, error: toastError } = useToast();
     if (!teamId) return;
     if (!email || !email.includes('@')) {
       setError('Enter a valid email');
