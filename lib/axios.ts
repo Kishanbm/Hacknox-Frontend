@@ -83,7 +83,10 @@ class ApiClient {
         const originalRequest = error.config as AxiosRequestConfig & { _retry?: boolean };
 
         // Handle 401 Unauthorized (Token expired or invalid)
-        if (error.response?.status === 401 && !originalRequest._retry) {
+        // BUT: Don't redirect if it's a login or signup attempt (expected 401 for wrong credentials)
+        const isAuthAttempt = originalRequest.url?.includes('/auth/login') || originalRequest.url?.includes('/auth/signup');
+        
+        if (error.response?.status === 401 && !originalRequest._retry && !isAuthAttempt) {
           originalRequest._retry = true;
 
           // Clear authentication state
@@ -91,7 +94,7 @@ class ApiClient {
           localStorage.removeItem('user');
           
           // Redirect to login page
-          window.location.href = '/#/login';
+          window.location.href = '/login';
           
           return Promise.reject(error);
         }

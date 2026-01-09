@@ -71,7 +71,7 @@ const App: React.FC = () => {
           } />
           <Route path="/verify-email" element={<VerifyEmail />} />
           <Route path="/forgot-password" element={<PublicRoute><ForgotPassword /></PublicRoute>} />
-          <Route path="/reset-password" element={<PublicRoute><ResetPassword /></PublicRoute>} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           
           {/* Participant Routes - Protected */}
           <Route path="/dashboard" element={

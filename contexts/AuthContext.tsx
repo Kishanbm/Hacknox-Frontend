@@ -137,9 +137,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setUser(user);
       localStorage.setItem('user', JSON.stringify(user));
       return user;
-    } catch (error) {
+    } catch (error: any) {
+      // Extract error message from various possible formats
       const apiError = error as ApiError;
-      throw new Error(apiError.message || 'Login failed');
+      const errorMessage = 
+        error?.response?.data?.message || 
+        apiError?.message || 
+        error?.message || 
+        'Login failed. Please check your credentials.';
+      throw new Error(errorMessage);
     }
   };
 
