@@ -60,15 +60,6 @@ const JudgeHackathons: React.FC = () => {
                         })
                     );
                     setHackathons(enriched);
-                } else {
-                    // Load invitations
-                    try {
-                        const inviteResponse = await judgeService.getInvitations();
-                        setInvitations(inviteResponse?.invitations || inviteResponse || []);
-                    } catch (e) {
-                        console.warn('Failed to load invitations:', e);
-                        setInvitations([]);
-                    }
                 }
             } catch (err: any) {
                 console.error('Failed to load judge data:', err);
@@ -80,6 +71,21 @@ const JudgeHackathons: React.FC = () => {
 
         loadData();
     }, [activeTab]);
+
+    // Always fetch invitations in background so the Invitations badge shows counts even when on the Events tab
+    useEffect(() => {
+        let mounted = true;
+        (async () => {
+            try {
+                const inviteResponse = await judgeService.getInvitations();
+                if (!mounted) return;
+                setInvitations(inviteResponse?.invitations || inviteResponse || []);
+            } catch (e) {
+                console.warn('Failed to load invitations (background):', e);
+            }
+        })();
+        return () => { mounted = false; };
+    }, []);
 
     const getHackathonStatus = (status?: string) => {
         // If backend provides status, use it
