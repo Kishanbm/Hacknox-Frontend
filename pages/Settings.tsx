@@ -10,7 +10,6 @@ const Settings: React.FC = () => {
 
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
-    const [username, setUsername] = useState('');
     const [email, setEmail] = useState('');
     const [statusMessage, setStatusMessage] = useState<string | null>(null);
     const navigate = useNavigate();
@@ -26,7 +25,6 @@ const Settings: React.FC = () => {
                 const user = await authService.me();
                 if (user) {
                     setEmail(user.email || '');
-                    setUsername((user.username as string) || '');
                     const profile = Array.isArray(user.Profiles) ? user.Profiles[0] : user.Profiles;
                     setFirstName(profile?.first_name || '');
                     setLastName(profile?.last_name || '');
@@ -104,15 +102,6 @@ const Settings: React.FC = () => {
                                             setFirstName(first || '');
                                             setLastName(rest.join(' ') || '');
                                         }}
-                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-primary transition-colors font-medium text-gray-900"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-2">Username</label>
-                                    <input
-                                        type="text"
-                                        value={username}
-                                        onChange={(e) => setUsername(e.target.value)}
                                         className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-primary transition-colors font-medium text-gray-900"
                                     />
                                 </div>
