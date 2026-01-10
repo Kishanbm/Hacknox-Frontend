@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { DashboardLayout } from '../components/Layout';
 import submissionsService from '../services/submissions.service';
+import { teamService } from '../services/team.service';
 import { 
   Calendar, MapPin, Users, Trophy, ChevronLeft, Share2, 
   ExternalLink, Globe, MessageCircle, Clock, CheckCircle2, AlertCircle, Code, Gavel, ClipboardList 
@@ -16,6 +17,8 @@ const HackathonDetail: React.FC = () => {
     const [event, setEvent] = useState<any | null>(null);
     const [isRegistered, setIsRegistered] = useState(false);
     const [userTeamName, setUserTeamName] = useState<string | null>(null);
+    const [teamStatus, setTeamStatus] = useState<'Pending' | 'Verified' | null>(null);
+    const [hasSubmission, setHasSubmission] = useState(false);
 
     useEffect(() => {
         const fetchDetail = async () => {
@@ -36,21 +39,35 @@ const HackathonDetail: React.FC = () => {
         fetchDetail();
     }, [id]);
 
-    // after we have hackathon data, check authenticated user's submissions to determine registration
+    // after we have hackathon data, check authenticated user's teams and submissions to determine registration
     useEffect(() => {
         const checkRegistration = async () => {
             if (!event || !event.id) return;
             try {
-                const res = await submissionsService.getMySubmissions();
-                if (res && Array.isArray(res.submissions)) {
-                    const found = res.submissions.find(s => (s.hackathon && (s.hackathon.id === event.id || s.hackathon.id === event.hackathon_id)));
-                    if (found) {
-                        setIsRegistered(true);
-                        setUserTeamName(found.team?.name || null);
-                    } else {
-                        setIsRegistered(false);
-                        setUserTeamName(null);
+                // Check teams first to see if user is part of a team for this hackathon
+                const teams = await teamService.getMyTeams();
+                const userTeam = teams.find((t: any) => 
+                    (t.hackathon_id === event.id || t.hackathon_id === event.hackathon_id)
+                );
+                
+                if (userTeam) {
+                    setIsRegistered(true);
+                    setUserTeamName(userTeam.name || null);
+                    setTeamStatus(userTeam.is_verified ? 'Verified' : 'Pending');
+                    
+                    // Now check if they have a submission
+                    const res = await submissionsService.getMySubmissions();
+                    if (res && Array.isArray(res.submissions)) {
+                        const found = res.submissions.find(s => 
+                            (s.hackathon && (s.hackathon.id === event.id || s.hackathon.id === event.hackathon_id))
+                        );
+                        setHasSubmission(!!found);
                     }
+                } else {
+                    setIsRegistered(false);
+                    setUserTeamName(null);
+                    setTeamStatus(null);
+                    setHasSubmission(false);
                 }
             } catch (err) {
                 // ignore errors (not authenticated or API error)
@@ -162,11 +179,33 @@ const HackathonDetail: React.FC = () => {
                                 <div className="flex items-center gap-2 font-bold text-green-700 mb-1">
                                     <CheckCircle2 size={20} /> Registered
                                 </div>
-                                <p className="text-xs text-green-600 mb-3">You are part of team "{userTeamName || event.userTeamName || event.team?.name || event.current_user?.team_name || 'your team'}"</p>
-                                <Link to={`/dashboard/submissions?hackathon=${event.id || event._id || event.hackathon_id}`}
-                                    className="w-full block text-center bg-white border border-green-200 text-green-700 py-2 rounded-lg text-sm font-bold hover:bg-green-100 transition-colors">
-                                    Manage Submission
-                                </Link>
+                                <p className="text-xs text-green-600 mb-2">You are part of team "{userTeamName || event.userTeamName || event.team?.name || event.current_user?.team_name || 'your team'}"</p>
+                                
+                                {/* Show team status badge */}
+                                {teamStatus && (
+                                    <div className="mb-3">
+                                        <span className={`inline-block px-2 py-1 rounded text-xs font-bold ${
+                                            teamStatus === 'Verified' 
+                                                ? 'bg-green-100 text-green-700 border border-green-200' 
+                                                : 'bg-amber-100 text-amber-700 border border-amber-200'
+                                        }`}>
+                                            {teamStatus === 'Verified' ? '✓ Verified' : '⏱ Pending Approval'}
+                                        </span>
+                                    </div>
+                                )}
+                                
+                                {/* Only show Manage Submission button if they have actually submitted */}
+                                {hasSubmission ? (
+                                    <Link to={`/dashboard/submissions?hackathon=${event.id || event._id || event.hackathon_id}`}
+                                        className="w-full block text-center bg-white border border-green-200 text-green-700 py-2 rounded-lg text-sm font-bold hover:bg-green-100 transition-colors">
+                                        Manage Submission
+                                    </Link>
+                                ) : (
+                                    <Link to={`/dashboard/teams?hackathon=${event.id || event._id || event.hackathon_id}`}
+                                        className="w-full block text-center bg-white border border-green-200 text-green-700 py-2 rounded-lg text-sm font-bold hover:bg-green-100 transition-colors">
+                                        View My Team
+                                    </Link>
+                                )}
                             </div>
                         ) : (
                             <Link to={`/dashboard/teams?hackathon=${event.id || event._id || event.hackathon_id}`}
