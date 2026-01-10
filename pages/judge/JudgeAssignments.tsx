@@ -55,6 +55,10 @@ const JudgeAssignments: React.FC = () => {
                               statusFilter === 'Pending' ? (uiStatus === 'Pending' || uiStatus === 'Draft') : 
                               uiStatus === statusFilter;
         
+        // Hide placeholder assignments created by accepting an invitation if there's no actual team assigned yet
+        const teamIdForRow = (a as any).teamId ?? (a as any).team?.id;
+        if (!teamIdForRow) return false;
+
         return matchesStatus;
     });
 
@@ -140,6 +144,15 @@ const JudgeAssignments: React.FC = () => {
                                         if (evalStatusRaw === 'draft') uiStatus = 'Draft';
                                         if (evalStatusRaw === 'submitted') uiStatus = 'Completed';
 
+                                        // Determine whether a submission exists for this team/assignment
+                                        const hasSubmission = Boolean(
+                                            (item as any).team?.submission?.length ||
+                                            (item as any).submission?.length ||
+                                            (item as any).submissionStatus === 'submitted' ||
+                                            evalStatusRaw === 'submitted' ||
+                                            (item as any).evaluation?.[0]?.status === 'submitted'
+                                        );
+
                                         const score = (item as any).evaluationScore ?? (item as any).evaluation?.[0]?.score ?? '-';
 
                                         const projectTitle = (item as any).teamName ?? (item as any).team?.submission?.[0]?.title ?? (item as any).team?.name ?? 'Untitled';
@@ -169,13 +182,20 @@ const JudgeAssignments: React.FC = () => {
                                                 <div className="text-xs text-gray-400">{category}</div>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
-                                                <span className={`flex items-center gap-1.5 text-sm font-bold ${
-                                                    uiStatus === 'Completed' ? 'text-green-600' : 
-                                                    uiStatus === 'Draft' ? 'text-amber-600' : 'text-gray-600'
-                                                }`}>
-                                                    {uiStatus === 'Completed' ? <CheckCircle2 size={16} /> : <Clock size={16} />}
-                                                    {uiStatus}
-                                                </span>
+                                                {!hasSubmission ? (
+                                                    <span className="inline-flex items-center gap-1.5 text-sm font-bold px-3 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-100">
+                                                        <Clock size={14} />
+                                                        No Submission
+                                                    </span>
+                                                ) : (
+                                                    <span className={`flex items-center gap-1.5 text-sm font-bold ${
+                                                        uiStatus === 'Completed' ? 'text-green-600' : 
+                                                        uiStatus === 'Draft' ? 'text-amber-600' : 'text-gray-600'
+                                                    }`}>
+                                                        {uiStatus === 'Completed' ? <CheckCircle2 size={16} /> : <Clock size={16} />}
+                                                        {uiStatus}
+                                                    </span>
+                                                )}
                                             </td>
                                             <td className="px-6 py-4 text-sm text-gray-500 font-medium whitespace-nowrap">
                                                 {deadline}
@@ -184,19 +204,30 @@ const JudgeAssignments: React.FC = () => {
                                                 {score}
                                             </td>
                                             <td className="px-6 py-4 text-right whitespace-nowrap">
-                                                <button 
-                                                    onClick={() => {
-                                                        if (itemHackathonId) localStorage.setItem('selectedHackathonId', itemHackathonId);
-                                                        navigate(`/judge/evaluate/${teamIdForRoute}${itemHackathonId ? `?hackathonId=${itemHackathonId}` : ''}`);
-                                                    }}
-                                                    className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 ml-auto ${
-                                                        uiStatus === 'Completed' 
-                                                        ? 'bg-gray-100 text-gray-600 hover:bg-gray-200' 
-                                                        : 'bg-[#5425FF] text-white hover:bg-[#4015D1] shadow-lg shadow-[#5425FF]/20'
-                                                    }`}>
-                                                    {uiStatus === 'Completed' ? 'Edit Score' : 'Grade Now'}
-                                                    {uiStatus !== 'Completed' && <ArrowRight size={12} />}
-                                                </button>
+                                                { !hasSubmission ? (
+                                                    <button
+                                                        disabled
+                                                        title="No submission available"
+                                                        className="px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 ml-auto bg-amber-100 text-amber-800 cursor-not-allowed"
+                                                    >
+                                                        No Submission
+                                                    </button>
+                                                ) : (
+                                                    <button 
+                                                        onClick={() => {
+                                                            if (!hasSubmission) return; // guard
+                                                            if (itemHackathonId) localStorage.setItem('selectedHackathonId', itemHackathonId);
+                                                            if (teamIdForRoute) navigate(`/judge/evaluate/${teamIdForRoute}${itemHackathonId ? `?hackathonId=${itemHackathonId}` : ''}`);
+                                                        }}
+                                                        className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 ml-auto ${
+                                                            uiStatus === 'Completed' 
+                                                            ? 'bg-gray-100 text-gray-600 hover:bg-gray-200' 
+                                                            : 'bg-[#5425FF] text-white hover:bg-[#4015D1] shadow-lg shadow-[#5425FF]/20'
+                                                        }`}>
+                                                        {uiStatus === 'Completed' ? 'Edit Score' : 'Grade Now'}
+                                                        {uiStatus !== 'Completed' && <ArrowRight size={12} />}
+                                                    </button>
+                                                )}
                                             </td>
                                         </tr>
                                     )})
