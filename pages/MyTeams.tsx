@@ -3,7 +3,7 @@ import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { DashboardLayout } from '../components/Layout';
 import { 
   Users, MoreVertical, Plus, MessageCircle, Settings, 
-  Check, Clock, Trophy, Archive, Hash, ArrowUpRight, Clipboard, ChevronLeft, ChevronRight
+  Check, Clock, Trophy, Archive, Hash, ArrowUpRight, Clipboard, ChevronLeft, ChevronRight, AlertCircle
 } from 'lucide-react';
 import { ParticipantTeam } from '../types';
 import { teamService } from '../services/team.service';
@@ -85,19 +85,41 @@ const MyTeams: React.FC = () => {
         const active: ParticipantTeam[] = [];
         const past: PastTeam[] = [];
 
+        // Helper function to clean hackathon name (remove ID-like suffixes if present)
+        // Examples: "test-hack-aiml-b26c" -> "test-hack" | "testH-4038" -> "testH"
+        const cleanHackathonName = (title: string | undefined): string => {
+          if (!title) return 'Hackathon';
+          // Trim whitespace
+          const t = title.trim();
+          // If there's no dash, return as-is
+          if (!t.includes('-')) return t;
+          const parts = t.split('-');
+          const last = parts[parts.length - 1];
+          // If last segment looks like an id (all digits) or short alphanumeric id, drop it
+          if (/^\d+$/.test(last) || /^[a-z0-9]{3,8}$/i.test(last)) {
+            return parts.slice(0, -1).join('-');
+          }
+          // Also remove patterns like "aiml-b26c" (two short id parts) at end
+          if (parts.length >= 2) {
+            const last2 = parts.slice(-2).join('-');
+            if (/^[a-z0-9]+-[a-z0-9]{3,8}$/i.test(last2)) {
+              return parts.slice(0, -2).join('-');
+            }
+          }
+          return t;
+        };
+
         allTeams.forEach((t: any) => {
           const members = (t.members || []).map((m: any) => {
             const user = m.user || {};
             const profile = Array.isArray(user.profile) ? user.profile[0] : user.profile;
             const name = profile?.first_name ? `${profile.first_name} ${profile.last_name || ''}`.trim() : (user.email || m.user_id || 'Member');
-            const avatarUrl = profile?.avatar_url || user.avatar_url || null;
-            const avatarInitials = (!avatarUrl) ? (name.split(' ').map((s:string)=>s[0]).slice(0,2).join('')) : '';
+            const avatarUrl = profile?.avatar_url || user.avatar_url || '';
             return {
               id: user.id || m.user_id,
               name,
               role: (m.role === 'leader' || t.leader_id === (user.id || m.user_id)) ? 'Leader' : 'Member',
-              avatarUrl,
-              avatarInitials,
+              avatar: avatarUrl,
               status: 'Offline'
             };
           });
@@ -111,7 +133,7 @@ const MyTeams: React.FC = () => {
             past.push({
               id: t.id,
               name: t.name,
-              hackathonName: t.hackathon_title || 'Hackathon',
+              hackathonName: cleanHackathonName(t.hackathon_title),
               date: t.hackathon_end_date ? new Date(t.hackathon_end_date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : '',
               role,
               membersCount: members.length,
@@ -122,7 +144,7 @@ const MyTeams: React.FC = () => {
               id: t.id,
               name: t.name,
               hackathonId: t.hackathon_id || t.hackathonId || '',
-              hackathonName: t.hackathon_title || 'Hackathon',
+              hackathonName: cleanHackathonName(t.hackathon_title),
               hackathonOrganizer: t.hackathon_organizer || undefined,
               role,
               status: t.is_verified ? 'Verified' : 'Pending',
@@ -135,12 +157,11 @@ const MyTeams: React.FC = () => {
 
         setActiveTeams(active);
         setPastTeams(past);
-
         // Map invitations from normalized backend response
         const mappedInvites: TeamInvite[] = (invitations || []).map((inv: any) => ({
           id: inv.id,
           teamName: inv.team_name || inv.team?.name || 'Team',
-          hackathonName: inv.hackathon_title || inv.team?.hackathon_title || 'Hackathon',
+          hackathonName: cleanHackathonName(inv.hackathon_title || inv.team?.hackathon_title),
           inviterName: inv.inviter_name || 'Team Leader',
           inviterAvatar: inv.inviter_avatar || '',
           role: inv.role || 'Member',
@@ -231,6 +252,19 @@ const MyTeams: React.FC = () => {
           </div>
         </div>
 
+        {/* Disclaimer/Info Banner for New Users */}
+        <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 md:p-5 flex items-start gap-3 shadow-sm">
+          <div className="shrink-0 w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center text-blue-600 mt-0.5">
+            <AlertCircle size={20} />
+          </div>
+          <div>
+            <h3 className="font-bold text-blue-900 mb-1 text-sm md:text-base">New to HackOnX? Here's how to join a hackathon</h3>
+            <p className="text-blue-700 text-xs md:text-sm leading-relaxed">
+              To participate in a hackathon, you need to <span className="font-bold">create or join a team</span>. Browse available hackathons, click "Register Now", and you'll be brought here to create your team. You can also join an existing team using an invite code. Creating a team automatically registers you for that hackathon!
+            </p>
+          </div>
+        </div>
+
         {/* Tab Navigation */}
         <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm py-2 -mx-4 px-4 md:mx-0 md:px-0 md:static md:bg-transparent md:py-0">
           <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-gray-100 w-full md:w-fit overflow-x-auto no-scrollbar shadow-sm md:shadow-none">
@@ -261,9 +295,9 @@ const MyTeams: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
                   {activeTeams.map(team => (
                     <div key={team.id} className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-md transition-shadow group flex flex-col h-full">
-                      <div className="p-5 md:p-6 border-b border-gray-50 bg-gray-50/50 flex flex-col sm:flex-row justify-between items-start gap-4">
+                        <div className="p-5 md:p-6 border-b border-gray-50 bg-gray-50/50 flex flex-col sm:flex-row justify-between items-start gap-4">
                         <div onClick={() => {
-                          try { localStorage.setItem('selectedHackathonId', team.hackathonId || team.hackathon_id || ''); } catch(e) {}
+                          try { localStorage.setItem('selectedHackathonId', team.hackathonId || ''); } catch(e) {}
                           navigate(`/dashboard/teams/${team.id}`);
                         }} className="cursor-pointer flex-1">
                           <div className="flex flex-wrap items-center gap-2 mb-2">
@@ -273,7 +307,7 @@ const MyTeams: React.FC = () => {
                             </span>
                           </div>
                           <div className="text-sm text-gray-500 font-medium flex flex-col gap-1">
-                            <div className="flex items-center gap-2 text-gray-900"><Trophy size={14} className="text-primary"/> {team.hackathonName}</div>
+                            <div className="flex items-center gap-2 text-gray-900 text-base md:text-lg font-semibold"><Trophy size={16} className="text-primary"/> {team.hackathonName}</div>
                             {team.hackathonOrganizer && (<div className="text-xs text-gray-400 pl-6 hidden sm:block">Hosted by {team.hackathonOrganizer}</div>)}
                               {/** Show join code if available */}
                               {(() => {
@@ -311,10 +345,10 @@ const MyTeams: React.FC = () => {
                             <Link to={`/dashboard/user/${member.id}`} key={member.id} className="flex items-center justify-between p-2 hover:bg-gray-50 rounded-lg transition-colors cursor-pointer">
                               <div className="flex items-center gap-3">
                                 <div className="relative">
-                                  {member.avatarUrl ? (
-                                    <img src={member.avatarUrl} alt={member.name} className="w-9 h-9 rounded-full object-cover border-2 border-white shadow-sm" />
+                                  {member.avatar ? (
+                                    <img src={member.avatar} alt={member.name} className="w-9 h-9 rounded-full object-cover border-2 border-white shadow-sm" />
                                   ) : (
-                                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center text-xs font-bold text-gray-600 border-2 border-white shadow-sm">{member.avatarInitials}</div>
+                                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center text-xs font-bold text-gray-600 border-2 border-white shadow-sm">{(member.name || '').split(' ').map((s:string)=>s[0]).slice(0,2).join('')}</div>
                                   )}
                                   <div className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-white ${member.status === 'Online' ? 'bg-green-500' : member.status === 'Busy' ? 'bg-red-500' : 'bg-gray-300'}`}></div>
                                 </div>
@@ -330,11 +364,11 @@ const MyTeams: React.FC = () => {
 
                         <div className="p-4 bg-gray-50 flex gap-2 border-t border-gray-100">
                           {team.role === 'Leader' && (
-                            <button onClick={() => { try { localStorage.setItem('selectedHackathonId', team.hackathonId || team.hackathon_id || ''); } catch(e) {} setInviteTeamId(team.id); setInviteHackathonId(team.hackathonId || team.hackathon_id || null); setInviteOpen(true); }} className="flex-1 py-2 bg-black text-white rounded-xl text-sm font-bold hover:bg-gray-800 transition-colors flex items-center justify-center gap-2">
+                            <button onClick={() => { try { localStorage.setItem('selectedHackathonId', team.hackathonId || ''); } catch(e) {} setInviteTeamId(team.id); setInviteHackathonId(team.hackathonId || null); setInviteOpen(true); }} className="flex-1 py-2 bg-black text-white rounded-xl text-sm font-bold hover:bg-gray-800 transition-colors flex items-center justify-center gap-2">
                               <Plus size={16} className="text-white"/> Invite
                             </button>
                           )}
-                          <button onClick={() => { try { localStorage.setItem('selectedHackathonId', team.hackathonId || team.hackathon_id || ''); } catch(e) {} navigate(`/dashboard/teams/${team.id}`); }} className="flex-1 py-2 bg-black text-white rounded-xl text-sm font-bold hover:bg-gray-800 transition-colors flex items-center justify-center gap-2"><Settings size={16} className="text-white"/> Manage</button>
+                          <button onClick={() => { try { localStorage.setItem('selectedHackathonId', team.hackathonId || ''); } catch(e) {} navigate(`/dashboard/teams/${team.id}`); }} className="flex-1 py-2 bg-black text-white rounded-xl text-sm font-bold hover:bg-gray-800 transition-colors flex items-center justify-center gap-2"><Settings size={16} className="text-white"/> Manage</button>
                         </div>
                     </div>
                   ))}
@@ -411,8 +445,8 @@ const MyTeams: React.FC = () => {
                                 {team.date}
                               </span>
                             </div>
-                            <div className="flex items-center gap-2 text-sm text-gray-600">
-                              <Trophy size={14} className="text-primary" />
+                            <div className="flex items-center gap-2 text-gray-700 text-base font-semibold">
+                              <Trophy size={16} className="text-primary" />
                               <span className="truncate">{team.hackathonName}</span>
                             </div>
                             {team.achievement && team.achievement !== 'Participant' && (
