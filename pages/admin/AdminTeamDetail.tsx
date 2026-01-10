@@ -82,6 +82,12 @@ const AdminTeamDetail: React.FC = () => {
         if (!id) return;
         setError(null);
         setMessage(null);
+        const currentStatus = (team?.verification_status || team?.verificationStatus || '').toLowerCase();
+        // Prevent redundant calls: don't call approve if already verified, or reject if already rejected
+        if ((action === 'approve' && currentStatus === 'verified') || (action === 'reject' && currentStatus === 'rejected')) {
+            setMessage(`Team is already ${currentStatus}.`);
+            return;
+        }
         try {
             let queryHack: string | undefined = undefined;
             if ((location.state as any)?.hackathonId) queryHack = (location.state as any).hackathonId;
@@ -207,26 +213,29 @@ const AdminTeamDetail: React.FC = () => {
                                 </p>
                             </div>
                             <div className="flex items-center gap-2">
-                                <button
-                                    onClick={() => onVerify('approve')}
-                                    className={`px-4 py-2 rounded-xl font-bold ${
-                                        (team?.verification_status || team?.verificationStatus || '').toLowerCase() === 'verified'
-                                            ? 'bg-gray-900 text-white'
-                                            : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
-                                    }`}
-                                >
-                                    Approve
-                                </button>
-                                <button
-                                    onClick={() => onVerify('reject')}
-                                    className={`px-4 py-2 rounded-xl font-bold ${
-                                        (team?.verification_status || team?.verificationStatus || '').toLowerCase() === 'rejected'
-                                            ? 'bg-gray-900 text-white'
-                                            : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
-                                    }`}
-                                >
-                                    Reject
-                                </button>
+                                {(() => {
+                                    const status = (team?.verification_status || team?.verificationStatus || '').toLowerCase();
+                                    const approveDisabled = status === 'verified';
+                                    const rejectDisabled = status === 'rejected';
+                                    return (
+                                        <>
+                                            <button
+                                                onClick={() => !approveDisabled && onVerify('approve')}
+                                                disabled={approveDisabled}
+                                                className={`px-4 py-2 rounded-xl font-bold ${approveDisabled ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'}`}
+                                            >
+                                                Approve
+                                            </button>
+                                            <button
+                                                onClick={() => !rejectDisabled && onVerify('reject')}
+                                                disabled={rejectDisabled}
+                                                className={`px-4 py-2 rounded-xl font-bold ${rejectDisabled ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'}`}
+                                            >
+                                                Reject
+                                            </button>
+                                        </>
+                                    );
+                                })()}
                             </div>
                         </div>
 
