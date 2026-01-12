@@ -214,6 +214,22 @@ export const adminService = {
     return response.data;
   },
 
+  // 19b. Delete assignments for a judge (optionally scoped to hackathon)
+  deleteAssignmentsForJudge: async (judgeId: string, hackathonId?: string) => {
+    const config: any = {};
+    if (hackathonId) config.headers = { 'x-hackathon-id': hackathonId };
+    const response = await apiClient.delete(`/admin/assignments/${judgeId}`, config);
+    return response.data;
+  },
+
+  // Delete single assignment row by id
+  deleteAssignment: async (assignmentId: string, hackathonId?: string) => {
+    const config: any = {};
+    if (hackathonId) config.headers = { 'x-hackathon-id': hackathonId };
+    const response = await apiClient.delete(`/admin/assignments/assignment/${assignmentId}`, config);
+    return response.data;
+  },
+
   // 19. Assign Teams to Judges
   assignTeamsToJudges: async (data: { judgeId: string; teamIds: string[] } | any[], hackathonId?: string) => {
     const config: any = {};
