@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { AdminLayout } from '../../components/AdminLayout';
 import { 
     GitMerge, UploadCloud, Zap, Users, CheckCircle2, 
@@ -19,6 +19,33 @@ const AdminAssignments: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [message, setMessage] = useState<string | null>(null);
     const [loadingData, setLoadingData] = useState(false);
+    const [liveSync, setLiveSync] = useState(false);
+    const liveSyncRef = useRef<number | null>(null);
+    const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+
+    useEffect(() => {
+        // Start/stop polling when liveSync toggles
+        if (liveSync) {
+            // immediately load then poll
+            load();
+            liveSyncRef.current = window.setInterval(() => {
+                load();
+            }, 5000);
+        } else {
+            if (liveSyncRef.current) {
+                clearInterval(liveSyncRef.current);
+                liveSyncRef.current = null;
+            }
+        }
+
+        return () => {
+            if (liveSyncRef.current) {
+                clearInterval(liveSyncRef.current);
+                liveSyncRef.current = null;
+            }
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [liveSync]);
     
     const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success'>('idle');
     const [manualSelection, setManualSelection] = useState({ judge: '', team: '' });
@@ -133,20 +160,21 @@ const AdminAssignments: React.FC = () => {
             load();
             loadJudgesAndTeams();
         } else {
+            // Clear stored selection and load the global assignment matrix (All context).
             localStorage.removeItem('selectedHackathonId');
-            // For "All" context we still want to show global judges (verified & accepted)
-            // so fetch the platform-level judges for this admin (no hackathon header)
-            setAssignments([]); // assignment matrix is per-hackathon; keep empty
-            setTeams([]);
+            setSelectedHackathonId(undefined);
+            // Load assignments, judges and teams without a hackathon filter so admin
+            // can view the full assignment matrix across hackathons.
             (async () => {
                 try {
                     setLoadingData(true);
-                    const judgesRes = await adminService.getJudges(1, 100); // global for admin
-                    const judgesList = judgesRes?.judges || judgesRes?.data || (Array.isArray(judgesRes) ? judgesRes : []);
-                    setJudges(judgesList);
+                    await load();
+                    await loadJudgesAndTeams();
                 } catch (e) {
-                    console.error('Failed to load global judges:', e);
+                    console.error('Failed to load global assignments/judges/teams:', e);
+                    setAssignments([]);
                     setJudges([]);
+                    setTeams([]);
                 } finally {
                     setLoadingData(false);
                 }
@@ -154,6 +182,28 @@ const AdminAssignments: React.FC = () => {
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedHackathonId]);
+
+    // Live sync: poll assignments every 5s when enabled
+    useEffect(() => {
+        if (liveSync) {
+            // start interval
+            liveSyncRef.current = window.setInterval(() => {
+                load();
+            }, 5000);
+        } else {
+            if (liveSyncRef.current) {
+                clearInterval(liveSyncRef.current);
+                liveSyncRef.current = null;
+            }
+        }
+
+        return () => {
+            if (liveSyncRef.current) {
+                clearInterval(liveSyncRef.current);
+                liveSyncRef.current = null;
+            }
+        };
+    }, [liveSync, selectedHackathonId]);
 
     const load = async () => {
         try {
@@ -170,12 +220,15 @@ const AdminAssignments: React.FC = () => {
                 const isActive = (j.isActive === undefined) ? (j.status !== 'Deactivated') : j.isActive;
                 const loadCount = j.totalLoad || j.load || (j.loadStats && j.loadStats.totalAssigned) || 0;
                 const maxLoad = j.maxLoad || j.capacity || (j.loadStats && j.loadStats.capacity) || 999;
-                // teams may be array of strings or objects
-                const teamsArr = j.teamsAssigned || j.teams || j.teamsList || [];
+                // teams may be array of strings or objects; preserve assignment id when present
+                const teamsArr = j.teamsAssigned || j.teams || j.teamsList || j.assignments || [];
                 const teams = (Array.isArray(teamsArr) ? teamsArr : []).map((t: any) => {
-                    if (!t) return '';
-                    if (typeof t === 'string') return t;
-                    return t.teamName || t.name || t.team || t.team_id || t.teamId || (t.team && (t.team.name || t.team.id)) || '';
+                    if (!t) return { name: '', assignmentId: null };
+                    if (typeof t === 'string') return { name: t, assignmentId: null };
+                    const teamObj = t.team || t || {};
+                    const teamName = t.teamName || teamObj.name || t.name || t.team || t.team_id || t.teamId || '';
+                    const assignmentId = t.assignmentId || t.id || t.assignment_id || null;
+                    return { name: teamName, assignmentId };
                 });
 
                 return {
@@ -377,6 +430,44 @@ const AdminAssignments: React.FC = () => {
         }
     };
 
+    const handleDeleteAssignments = async (judgeId: string) => {
+        if (!judgeId) return;
+        const confirmed = window.confirm('Delete all assignments for this judge? This action cannot be undone.');
+        if (!confirmed) return;
+        try {
+            setWorking(true);
+            setError(null);
+            const res = await adminService.deleteAssignmentsForJudge(judgeId, selectedHackathonId);
+            setMessage(res?.message || 'Assignments deleted successfully');
+            await load();
+        } catch (e: any) {
+            console.error('Failed to delete assignments:', e?.message || e);
+            setError(e?.message || 'Failed to delete assignments');
+        } finally {
+            setWorking(false);
+            setOpenMenuId(null);
+        }
+    };
+
+    const handleDeleteAssignment = async (assignmentId: string) => {
+        if (!assignmentId) return;
+        const confirmed = window.confirm('Delete this assignment? This action cannot be undone.');
+        if (!confirmed) return;
+        try {
+            setWorking(true);
+            setError(null);
+            const res = await adminService.deleteAssignment(assignmentId, selectedHackathonId);
+            setMessage(res?.message || 'Assignment deleted');
+            await load();
+        } catch (e: any) {
+            console.error('Failed to delete assignment:', e?.message || e);
+            setError(e?.message || 'Failed to delete assignment');
+        } finally {
+            setWorking(false);
+            setOpenMenuId(null);
+        }
+    };
+
     // Download CSV template with sample data
     const handleDownloadTemplate = () => {
         const headers = ['judgeEmail', 'teamName'];
@@ -421,6 +512,23 @@ const AdminAssignments: React.FC = () => {
             if (hackIdToUse) {
                 const res = await adminService.getJudgeAssignments(hackIdToUse);
                 matrixToExport = res?.assignmentMatrix || res?.matrix || res?.data || res || [];
+                // Normalize backend shapes so export includes assigned team names regardless of API shape
+                matrixToExport = (Array.isArray(matrixToExport) ? matrixToExport : []).map((j: any) => {
+                    const judgeId = j.judgeId || j.id || j.judge || j.judge_email || j.judgeEmail;
+                    const judgeName = j.judgeName || j.judge || j.judge_email || j.judgeEmail || (j.profile && ((j.profile.first_name || '') + ' ' + (j.profile.last_name || '')));
+                    const status = (j.status !== undefined) ? (j.status === 'Deactivated' ? 'Deactivated' : 'Active') : (j.isActive === false ? 'Deactivated' : 'Active');
+                    const loadCount = j.totalLoad || j.load || (j.loadStats && j.loadStats.totalAssigned) || 0;
+                    const maxLoad = j.maxLoad || j.capacity || (j.loadStats && j.loadStats.capacity) || '';
+                    // teams may be in several shapes: teams, teamsAssigned, teamsList, assignments (with team objects)
+                    const teamsArr = j.teamsAssigned || j.teams || j.teamsList || j.assignments || [];
+                    const teams = (Array.isArray(teamsArr) ? teamsArr : []).map((t: any) => {
+                        if (!t) return '';
+                        if (typeof t === 'string') return t;
+                        // assignment row may include team or teamName
+                        return t.teamName || t.name || t.team || t.team_id || t.teamId || (t.team && (t.team.name || t.team.id)) || '';
+                    });
+                    return { id: judgeId, judge: judgeName || judgeId, status, load: loadCount, maxLoad, teams };
+                });
             } else {
                 // Export current matrix shown (if hackathon selected)
                 matrixToExport = assignments;
@@ -904,10 +1012,13 @@ const AdminAssignments: React.FC = () => {
                         <h3 className="font-bold text-gray-900 flex items-center gap-2">
                             <Users size={18} /> Assignment Matrix
                         </h3>
-                        <div className="text-xs text-gray-500 font-medium flex items-center gap-2">
-                             <span className="w-2 h-2 rounded-full bg-green-500"></span> Live Sync
-                             <button onClick={() => load()} className="p-1 hover:bg-gray-200 rounded"><RefreshCw size={14}/></button>
-                        </div>
+                            <div className="text-xs text-gray-500 font-medium flex items-center gap-2">
+                                <button onClick={() => setLiveSync(s => !s)} className="flex items-center gap-2 p-1 rounded hover:bg-gray-100">
+                                   <span className={`w-2 h-2 rounded-full ${liveSync ? 'bg-green-500' : 'bg-gray-300'}`}></span>
+                                   <span className="font-medium">Live Sync</span>
+                                </button>
+                                <button onClick={() => load()} className="p-1 hover:bg-gray-200 rounded"><RefreshCw size={14}/></button>
+                            </div>
                     </div>
                     
                     <div className="overflow-x-auto">
@@ -943,18 +1054,44 @@ const AdminAssignments: React.FC = () => {
                                         <td className="px-6 py-4">
                                             <div className="flex flex-wrap gap-2">
                                                 {row.teams && row.teams.length > 0 ? row.teams.map((team: any, i: number) => (
-                                                    <span key={i} className="px-2 py-1 bg-gray-100 text-gray-700 rounded-md text-xs font-bold border border-gray-200 flex items-center gap-1 group cursor-pointer hover:bg-red-50 hover:text-red-600 hover:border-red-100 transition-colors">
-                                                        {typeof team === 'string' ? team : team.name || team.id}
+                                                    <span key={i} className="px-2 py-1 bg-gray-100 text-gray-700 rounded-md text-xs font-bold border border-gray-200 flex items-center gap-2 group transition-colors">
+                                                        <span className="truncate">{typeof team === 'string' ? team : (team.name || team.teamName || team.id || '')}</span>
                                                     </span>
                                                 )) : (
                                                     <span className="text-xs text-gray-400 italic">No active assignments</span>
                                                 )}
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4 text-right">
-                                            <button className="p-2 text-gray-400 hover:text-gray-900 rounded-lg">
-                                                <MoreHorizontal size={18} />
-                                            </button>
+                                        <td className="px-6 py-4 text-right relative">
+                                            <div className="inline-flex items-center justify-end">
+                                                <button onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === row.id ? null : row.id); }} className="p-2 text-gray-400 hover:text-gray-900 rounded-lg">
+                                                    <MoreHorizontal size={18} />
+                                                </button>
+                                            </div>
+                                            {openMenuId === row.id && (
+                                                <div className="absolute right-6 top-10 bg-white border border-gray-200 rounded-lg shadow-md z-50 w-64">
+                                                    <div className="p-2">
+                                                        <div className="text-xs font-bold text-gray-600 mb-2">Assigned Teams</div>
+                                                        <div className="max-h-40 overflow-y-auto space-y-1">
+                                                            {row.teams && row.teams.length > 0 ? row.teams.map((team: any, ti: number) => (
+                                                                <div key={ti} className="flex items-center justify-between px-2 py-1 rounded hover:bg-gray-50">
+                                                                    <div className="text-xs text-gray-700 truncate mr-2">{typeof team === 'string' ? team : (team.name || team.teamName || team.id || '')}</div>
+                                                                    {team?.assignmentId ? (
+                                                                        <button onClick={() => { handleDeleteAssignment(team.assignmentId); }} className="ml-2 inline-flex items-center justify-center px-2 py-1 rounded bg-yellow-100 text-yellow-800 text-xs hover:bg-yellow-200">Delete</button>
+                                                                    ) : (
+                                                                        <div className="text-xs text-gray-400">—</div>
+                                                                    )}
+                                                                </div>
+                                                            )) : (
+                                                                <div className="text-xs text-gray-400 px-2 py-2">No assignments</div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    <div className="border-t border-gray-100 p-2">
+                                                        <button onClick={() => handleDeleteAssignments(row.id)} className="w-full text-left px-4 py-3 text-sm text-white bg-red-600 hover:bg-red-700">Delete all assignments</button>
+                                                    </div>
+                                                </div>
+                                            )}
                                         </td>
                                     </tr>
                                 ))}
