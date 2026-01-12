@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { DashboardLayout } from '../components/Layout';
 import { ENDPOINTS } from '../config/endpoints';
 import { Calendar, MapPin, Search, Filter, ArrowUpRight, Award } from 'lucide-react';
 import { HackathonEvent } from '../types';
 import { publicService } from '../services/public.service';
+import { teamService } from '../services/team.service';
 
 const Hackathons: React.FC = () => {
   // Default to show Live events first
@@ -82,7 +83,39 @@ const Hackathons: React.FC = () => {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
-  const filteredEvents = hackathons;
+  const [myTeamHackathonIds, setMyTeamHackathonIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    const loadMyTeams = async () => {
+      try {
+        const teams = await teamService.getMyTeams();
+        const ids = Array.isArray(teams) ? teams.map((t: any) => t.hackathon_id || t.hackathonId || t.hackathon || t.hackathonId) : [];
+        setMyTeamHackathonIds(Array.from(new Set(ids.filter(Boolean))));
+      } catch (e) {
+        // ignore — user might be unauthenticated
+      }
+    };
+    loadMyTeams();
+  }, []);
+
+  const filteredEvents = useMemo(() => {
+    const now = new Date();
+    if (filter === 'History') {
+      const ids = new Set(myTeamHackathonIds);
+      // Show all hackathons the current user has registered for (no end-date restriction)
+      return hackathons.filter(h => ids.has(h.id));
+    }
+    // Default behavior: rely on server-side filter for Live/Upcoming/Past/All
+    // but ensure 'Past' shows events that have their end_date < now
+    if (filter === 'Past') {
+      return hackathons.filter(h => {
+        const end = h.end_date ? new Date(h.end_date) : null;
+        return end ? end < now : false;
+      });
+    }
+
+    return hackathons;
+  }, [hackathons, filter, myTeamHackathonIds]);
 
   return (
     <DashboardLayout>
@@ -173,7 +206,7 @@ const Hackathons: React.FC = () => {
 
             {/* Filters - Scrollable on mobile */}
         <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 md:mx-0 md:px-0 scrollbar-hide">
-            {['All', 'Live', 'Upcoming', 'Registration Open', 'Past'].map(status => (
+          {['All', 'Live', 'Upcoming', 'Past', 'History'].map(status => (
                 <button 
                     key={status}
                     onClick={() => setFilter(status)}
