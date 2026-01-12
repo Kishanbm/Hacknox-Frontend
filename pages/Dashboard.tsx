@@ -25,6 +25,26 @@ const FUNNEL_COLORS = {
   'Submitted': '#10b981',
 };
 
+// Clean hackathon display name: remove trailing id-like suffix after a dash.
+// Examples: "S-0853" -> "S", "NEW-HACKATHON-96DE" -> "NEW-HACKATHON"
+// Heuristic: if the last dash-separated segment is short (<=6 chars) and
+// either contains a digit or is an uppercase alphanumeric token, strip it.
+const cleanHackathonName = (raw?: string | null) => {
+  if (!raw) return '';
+  const name = String(raw).trim();
+  if (!name.includes('-')) return name;
+  const parts = name.split('-').map(p => p.trim()).filter(Boolean);
+  if (parts.length <= 1) return name;
+  const last = parts[parts.length - 1];
+  const isShort = last.length > 0 && last.length <= 6;
+  const hasDigit = /\d/.test(last);
+  const isUpperAlnum = /^[A-Z0-9]+$/.test(last);
+  if (isShort && (hasDigit || isUpperAlnum)) {
+    return parts.slice(0, parts.length - 1).join('-').trim();
+  }
+  return name;
+};
+
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -78,14 +98,17 @@ const Dashboard: React.FC = () => {
 
         const activeEvents = (teams || [])
           .filter((t: any) => t.hackathon_phase !== 'completed')
-          .map((t: any) => {
+            .map((t: any) => {
             const hackathon = hackathons.find((h: any) => h.id === t.hackathon_id);
             const isLeader = t.leader_id === localUser?.id;
             const progress = t.submission_status === 'submitted' ? 100 : t.submission_status === 'draft' ? 50 : 10;
             
+            const rawName = t.hackathon_title || hackathon?.title || 'Hackathon';
+            const displayName = cleanHackathonName(rawName);
+
             return {
               id: t.hackathon_id || t.id,
-              name: t.hackathon_title || hackathon?.title || 'Hackathon',
+              name: displayName || rawName,
               organizer: hackathon?.organizer_name || 'Organizer',
               role: isLeader ? 'Leader' : 'Member',
               team: t.name,
@@ -137,7 +160,7 @@ const Dashboard: React.FC = () => {
         if (upcomingDeadlines.length > 0) {
           const next = upcomingDeadlines[0];
           setNextDeadline(getTimeRemaining(next.submissionDeadline));
-          setNextDeadlineEvent((next.name || next.title || 'Hackathon') + ' Submission');
+          setNextDeadlineEvent((next.name || 'Hackathon') + ' Submission');
         } else {
           setNextDeadline("--");
           setNextDeadlineEvent("No upcoming deadlines");
@@ -197,15 +220,16 @@ const Dashboard: React.FC = () => {
         // Build calendar events only from the user's active hackathons
         const events: any[] = [];
         activeEvents.forEach((h: any) => {
+          const display = h.name || 'Hackathon';
           if (h.startDate) {
-            events.push({ date: new Date(h.startDate), title: (h.name || h.title) + ' Start', type: 'event', color: 'bg-primary', hackathonId: h.id });
+            events.push({ date: new Date(h.startDate), title: display + ' Start', type: 'event', color: 'bg-primary', hackathonId: h.id });
           }
           if (h.submissionDeadline) {
-            events.push({ date: new Date(h.submissionDeadline), title: (h.name || h.title) + ' Submission', type: 'deadline', color: 'bg-red-500', hackathonId: h.id });
+            events.push({ date: new Date(h.submissionDeadline), title: display + ' Submission', type: 'deadline', color: 'bg-red-500', hackathonId: h.id });
           }
           if (h.resultDate || h.result_date) {
             const rd = h.resultDate || h.result_date;
-            events.push({ date: new Date(rd), title: (h.name || h.title) + ' Results', type: 'results', color: 'bg-green-500', hackathonId: h.id });
+            events.push({ date: new Date(rd), title: display + ' Results', type: 'results', color: 'bg-green-500', hackathonId: h.id });
           }
         });
         setCalendarEvents(events);
