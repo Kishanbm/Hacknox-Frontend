@@ -48,7 +48,7 @@ export default function Home() {
   return (
     <div
       id="home"
-      className="relative w-full flex flex-col items-center bg-white min-h-[6480px] sm:min-h-[7000px] md:min-h-[7500px]"
+      className="relative w-full flex flex-col items-center bg-white min-h-[6950px] sm:min-h-[7000px] md:min-h-[7500px]"
       style={{}}
     >
       {/* Top Banner */}
@@ -752,7 +752,7 @@ export default function Home() {
           </div>
           <div className="w-full max-w-[1389px] mx-auto grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
             {[1, 2, 3, 4].map((n) => (
-              <div key={n} className="overflow-hidden rounded-xl hover:scale-[1.02] transition-transform duration-500">
+              <div key={n} className="overflow-hidden rounded-xl h-[140px] md:h-auto hover:scale-[1.02] transition-transform duration-500">
                 <img
                   src={`/images/gallery/${n}.png`}
                   alt={`Gallery ${n}`}
@@ -764,7 +764,7 @@ export default function Home() {
         </div>
 
         {/* Registration CTA Frame 65 */}
-        <div className="fade-in-on-scroll absolute left-0 top-[5950px] sm:top-[6100px] md:top-[6450px] w-full px-4 md:px-[26px]">
+        <div className="fade-in-on-scroll absolute left-0 top-[6200px] sm:top-[6100px] md:top-[6450px] w-full px-4 md:px-[26px]">
           <div className="w-full max-w-[1388px] mx-auto h-[200px] sm:h-[300px] md:h-[440px] overflow-hidden rounded-2xl">
             <img
               src="/images/highlights/freepik__upload__15243.png"
@@ -775,7 +775,7 @@ export default function Home() {
         </div>
 
         {/* FAQ Frame 59 */}
-        <div className="fade-in-on-scroll absolute left-0 top-[6200px] sm:top-[6450px] md:top-[6950px] w-full px-4 flex flex-col items-center gap-6 md:gap-8">
+        <div className="fade-in-on-scroll absolute left-0 top-[6450px] sm:top-[6450px] md:top-[6950px] w-full px-4 flex flex-col items-center gap-6 md:gap-8">
           <h2 className="w-full font-silkscreen font-normal text-[32px] sm:text-[44px] md:text-[58px] leading-[120%] md:leading-[74px] text-center text-[#5425FF]">
             FAQ
           </h2>
