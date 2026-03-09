@@ -842,7 +842,7 @@ export default function Home() {
             Email: support@hackonx.com
           </div>
           <div className="font-figtree font-medium text-[14px] sm:text-[20px] md:text-[28px] leading-[120%] md:leading-[30px]">
-            Phone: +91 98765 43210
+            Phone: +91 9076503210
           </div>
           <div className="font-figtree font-medium text-[14px] sm:text-[20px] md:text-[28px] leading-[120%] md:leading-[30px]">
             Instagram | LinkedIn
