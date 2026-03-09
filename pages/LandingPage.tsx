@@ -48,7 +48,7 @@ export default function Home() {
   return (
     <div
       id="home"
-      className="relative w-full flex flex-col items-center bg-white min-h-[6950px] sm:min-h-[7000px] md:min-h-[7500px]"
+      className="relative w-full flex flex-col items-center bg-white min-h-[6780px] sm:min-h-[7000px] md:min-h-[7500px]"
       style={{}}
     >
       {/* Top Banner */}
