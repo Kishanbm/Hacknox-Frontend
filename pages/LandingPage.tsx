@@ -48,8 +48,8 @@ export default function Home() {
   return (
     <div
       id="home"
-      className="relative w-full flex flex-col items-center bg-white"
-      style={{ minHeight: "9044px" }}
+      className="relative w-full flex flex-col items-center bg-white min-h-[6480px] sm:min-h-[7000px] md:min-h-[7500px]"
+      style={{}}
     >
       {/* Top Banner */}
       <div className="absolute top-[25px] sm:top-[10px] md:top-0 left-0 w-full h-[50px] md:h-[65px] bg-[#5425FF] flex items-center justify-center z-50 animate-fade-in-down px-4">
@@ -166,7 +166,7 @@ export default function Home() {
 
       <main
         className="relative w-full max-w-[1440px] bg-white px-4 sm:px-6 md:px-0"
-        style={{ minHeight: "8604px" }}
+        style={{ minHeight: "inherit" }}
       >
         {/* Decorative Groups - Hidden on mobile */}
         <div className="hidden md:block absolute left-[88px] top-[3630px] w-[105.27px] h-[121.27px] -rotate-[44.83deg] animate-float z-50">
@@ -380,8 +380,8 @@ export default function Home() {
           />
         </div>
 
-        {/* Meet the Experts Frame 35 */}
-        <div className="fade-in-on-scroll absolute left-0 top-[4050px] sm:top-[3300px] md:top-[3544px] w-full px-4 flex flex-col gap-6 md:gap-9">
+        {/* Meet the Experts Frame 35 - HIDDEN */}
+        {/* <div className="fade-in-on-scroll absolute left-0 top-[4050px] sm:top-[3300px] md:top-[3544px] w-full px-4 flex flex-col gap-6 md:gap-9">
           <div className="w-full flex flex-col items-center gap-2 md:gap-3">
             <h2 className="w-full font-silkscreen font-normal text-[32px] sm:text-[44px] md:text-[58px] leading-[120%] md:leading-[74px] text-center text-[#5425FF]">
               MEET THE EXPERTS
@@ -419,10 +419,10 @@ export default function Home() {
               </div>
             ))}
           </div>
-        </div>
+        </div> */}
 
         {/* Prize Pool */}
-        <div className="fade-in-on-scroll absolute left-0 top-[5000px] sm:top-[3800px] md:top-[4126px] w-full px-4 md:px-[26px]">
+        <div className="fade-in-on-scroll absolute left-0 top-[4050px] sm:top-[3300px] md:top-[3544px] w-full px-4 md:px-[26px]">
           <div className="w-full max-w-[1388px] mx-auto min-h-[500px] sm:min-h-[650px] md:h-[815px] rounded-2xl overflow-hidden hover:scale-[1.02] transition-transform duration-500 relative">
           <img
             src="/images/highlights/freepik__upload__61360.png"
@@ -525,8 +525,8 @@ export default function Home() {
           </div>
         </div>
 
-        {/* THEMES Frame 48 */}
-        <div className="fade-in-on-scroll absolute left-0 top-[5550px] sm:top-[4500px] md:top-[5000px] w-full px-4 flex flex-col items-center gap-6 md:gap-9">
+        {/* THEMES Frame 48 - HIDDEN */}
+        {/* <div className="fade-in-on-scroll absolute left-0 top-[5550px] sm:top-[4500px] md:top-[5000px] w-full px-4 flex flex-col items-center gap-6 md:gap-9">
           <div className="w-full flex flex-col items-center gap-2 md:gap-3">
             <h2 className="w-full font-silkscreen font-normal text-[32px] sm:text-[44px] md:text-[58px] leading-[120%] md:leading-[74px] text-center text-[#5425FF]">
               THEMES
@@ -538,7 +538,7 @@ export default function Home() {
 
           <div className="w-full max-w-[1388px] flex flex-col gap-4 md:gap-6">
             {/* Row 1 - 4 cards */}
-            <div className="w-full grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+            {/* <div className="w-full grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
               {[
                 { text: "High-Performance Computing", img: "theme-1.png" },
                 { text: "AI / ML", img: "theme-2.png" },
@@ -567,7 +567,7 @@ export default function Home() {
             </div>
 
             {/* Row 2 - 3 cards */}
-            <div className="w-full grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+            {/* <div className="w-full grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
               {[
                 { text: "Cybersecurity", img: "theme-5.png" },
                 { text: "Sustainability", img: "theme-6.png" },
@@ -593,13 +593,13 @@ export default function Home() {
                 </div>
               ))}
               {/* Empty spacer for desktop alignment */}
-              <div className="hidden md:block" />
+              {/* <div className="hidden md:block" />
             </div>
           </div>
-        </div>
+        </div> */}
 
         {/* HOW IT WORKS Frame 57 - Full Width */}
-        <div className="fade-in-on-scroll absolute left-0 top-[6390px] sm:top-[4850px] md:top-[5650px] w-full flex flex-col items-center gap-6 md:gap-8 z-10 relative">
+        <div className="fade-in-on-scroll absolute left-0 top-[4600px] sm:top-[4000px] md:top-[4418px] w-full flex flex-col items-center gap-6 md:gap-8 z-10 relative">
           {/* Floating Cubes - Hidden on mobile */}
           <div className="hidden md:block absolute left-[12%] top-[150px] z-30 animate-float pointer-events-none">
             <img src="/images/decoration-1.svg" alt="" width={90} height={90} />
@@ -670,7 +670,7 @@ export default function Home() {
         </div>
 
         {/* RULES & ELIGIBILITY Frame 56 */}
-        <div id="rules" className="fade-in-on-scroll absolute left-0 top-[6500px] sm:top-[5380px] md:top-[5730px] w-full px-4 flex flex-col items-center gap-6 md:gap-8 relative">
+        <div id="rules" className="fade-in-on-scroll absolute left-0 top-[4710px] sm:top-[4530px] md:top-[4498px] w-full px-4 flex flex-col items-center gap-6 md:gap-8 relative">
           {/* Animated Cubes - Desktop Only */}
           <div className="hidden md:block absolute left-[20px] top-[50px] z-30 animate-float pointer-events-none">
             <img src="/images/decoration-1.svg" alt="" width={90} height={90} />
@@ -741,7 +741,7 @@ export default function Home() {
         </div>
 
         {/* GALLERY Frame 58 */}
-        <div className="fade-in-on-scroll absolute left-0 top-[7600px] sm:top-[6650px] md:top-[7080px] w-full px-4 flex flex-col gap-6 md:gap-9">
+        <div className="fade-in-on-scroll absolute left-0 top-[5750px] sm:top-[5750px] md:top-[5980px] w-full px-4 flex flex-col gap-6 md:gap-9">
           <div className="w-full flex flex-col items-center gap-2 md:gap-3">
             <h2 className="w-full font-silkscreen font-normal text-[32px] sm:text-[44px] md:text-[58px] leading-[120%] md:leading-[74px] text-center text-[#5425FF]">
               GALLERY
@@ -750,19 +750,21 @@ export default function Home() {
               A sneak peek into the vibe
             </p>
           </div>
-          <div className="w-full max-w-[1389px] mx-auto h-auto flex items-center justify-center hover:scale-[1.02] transition-transform duration-500">
-            <img
-              src="/images/gallery.svg"
-              alt="Gallery"
-              width={1389}
-              height={280}
-              className="w-full h-auto"
-            />
+          <div className="w-full max-w-[1389px] mx-auto grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+            {[1, 2, 3, 4].map((n) => (
+              <div key={n} className="overflow-hidden rounded-xl hover:scale-[1.02] transition-transform duration-500">
+                <img
+                  src={`/images/gallery/${n}.png`}
+                  alt={`Gallery ${n}`}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            ))}
           </div>
         </div>
 
         {/* Registration CTA Frame 65 */}
-        <div className="fade-in-on-scroll absolute left-0 top-[7880px] sm:top-[6940px] md:top-[7540px] w-full px-4 md:px-[26px]">
+        <div className="fade-in-on-scroll absolute left-0 top-[5950px] sm:top-[6100px] md:top-[6450px] w-full px-4 md:px-[26px]">
           <div className="w-full max-w-[1388px] mx-auto h-[200px] sm:h-[300px] md:h-[440px] overflow-hidden rounded-2xl">
             <img
               src="/images/highlights/freepik__upload__15243.png"
@@ -773,7 +775,7 @@ export default function Home() {
         </div>
 
         {/* FAQ Frame 59 */}
-        <div className="fade-in-on-scroll absolute left-0 top-[8200px] sm:top-[7490px] md:top-[8050px] w-full px-4 flex flex-col items-center gap-6 md:gap-8">
+        <div className="fade-in-on-scroll absolute left-0 top-[6200px] sm:top-[6450px] md:top-[6950px] w-full px-4 flex flex-col items-center gap-6 md:gap-8">
           <h2 className="w-full font-silkscreen font-normal text-[32px] sm:text-[44px] md:text-[58px] leading-[120%] md:leading-[74px] text-center text-[#5425FF]">
             FAQ
           </h2>
@@ -840,7 +842,7 @@ export default function Home() {
             Email: support@hackonx.com
           </div>
           <div className="font-figtree font-medium text-[14px] sm:text-[20px] md:text-[28px] leading-[120%] md:leading-[30px]">
-            Phone: +91 XXXXX XXXXX
+            Phone: +91 98765 43210
           </div>
           <div className="font-figtree font-medium text-[14px] sm:text-[20px] md:text-[28px] leading-[120%] md:leading-[30px]">
             Instagram | LinkedIn
